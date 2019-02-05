@@ -154,7 +154,7 @@ def main():
 	#	list_protocol_handlers()
 	#	sys.exit(0)
 
-	if args.lps:
+	if args.capabilities:
 		ps_manager.print_processing_steps()
 		sys.exit(0)
 

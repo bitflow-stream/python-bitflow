@@ -247,10 +247,11 @@ class ListenSource(NewSource):
 
 	PACKET_SIZE = 1024
 
-	def __init__(self,marshaller,pipeline,host=None,port=5010, socket_timeout=1):
+	def __init__(self,marshaller,pipeline,host=None,port=5010, socket_timeout=2):
 		self.marshaller = marshaller
 		self.host = host
 		self.port = port
+		self.socket_timeout = socket_timeout
 		self.lock = threading.Lock()
 		self.connection = None
 		
@@ -271,9 +272,6 @@ class ListenSource(NewSource):
 		finally: 			
 			self.lock.release()	
 
-	def connect(self):
-		pass
-
 	def is_connected(self):
 		connected = True
 		connections = self.ls.number_of_connections() 
@@ -284,7 +282,8 @@ class ListenSource(NewSource):
 
 	def loop(self):
 			if not self.is_connected():
-				logging.debug("{}: waiting for peerz to connect ...".format(str(self)))
+				logging.debug("{}: waiting for peers to connect ...".format(str(self)))
+				time.sleep(self.socket_timeout)
 				return
 			try:
 				line = self.read_line()
