@@ -1,0 +1,4 @@
+flask
+matplotlib
+#tensorflow
+graphitesend
