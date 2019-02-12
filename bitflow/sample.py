@@ -22,7 +22,7 @@ class Sample:
 
 	def get_timestamp(self):
 		dt = datetime.datetime.strptime(self.timestamp,'%Y-%m-%d %H:%M:%S.%f')
-		return int(dt.strftime("%s"))
+		return dt.timestamp()
 
 	def set_timestamp(self,timestamp):
 		self.timestamp = str(timestamp)
