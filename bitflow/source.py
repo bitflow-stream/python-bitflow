@@ -1,138 +1,72 @@
-import datetime, socket, threading, queue, logging, os, time 
+import datetime, socket, logging, os, time 
+import select, sys, ctypes
+import multiprocessing 
+
 from bitflow.sample import Sample,Header
 from bitflow.marshaller import CsvMarshaller
-from bitflow.sink import ListenSocket
 
-class NewSource(threading.Thread):
-	marshaller = None
+
+
+def read_header(marshaller,s,buffer_size=2048):
+	b=""
+	while '\n' not in b:
+		b += s.recv(buffer_size).decode()
+	header_and_rest = b.split("\n")
+	header_str = header_and_rest[0]
+	over_recv_b = header_and_rest[1]
+	header = marshaller.unmarshall_header(header_str)
+	return header,over_recv_b
+
+class Source(multiprocessing.Process):
 
 	def __init__(self,pipeline, marshaller):
 		self.pipeline = pipeline
 		self.marshaller = marshaller
-		self.running = True
-		super().__init__(name=str(self))
+		self.header = None
+		super().__init__()
 
 	def __str__(self):
 		return "Source"
 
-	def check_header(self,line):
-		if self.marshaller.is_header(line):
-			self.header = self.marshaller.unmarshall_header(line)
-			return True
-		return False
-
-	def into_pipeline(self,line):
+	def into_pipeline(self,line,header):
 		try:
-			sample = self.marshaller.unmarshall_sample(self.header,line)
+			sample = self.marshaller.unmarshall_sample(header,line)
 		except:
-			logging.info("marshalling of header %s \n and sample %s failed", self.header , line)
+			logging.info("marshalling of header %s \n and sample %s failed", header , line)
 			return
 		self.pipeline.execute_sample(sample)
 
 	def run(self):
-		while self.running:
+		while self.running.value:
 			self.loop()
 		self.on_close()
 
 	def stop(self):
-		self.running = False
+		self.running.value = 0
 
 	def on_close(self):
-		logging.debug("closing %s ...",str(self))
-		self.pipeline.on_close()
+		logging.info("closing %s ...",str(self))
 
-class Source(threading.Thread):
-	''' old style source class (depecated Soon) '''
-	RECONNECT_TIMEOUT = 1
-	ERRORS_TILL_QUIT = 1
-	marshaller = None
-
-	def __init__(self,pipeline, marshaller):
-		self.pipeline = pipeline
-		self.marshaller = marshaller
-		self.running = True
-		super().__init__(name=str(self))
-
-	def __str__(self):
-		return "Source"
-
-	def check_header(self,line):
-		if self.marshaller.is_header(line):
-			self.header = self.marshaller.unmarshall_header(line)
-			return True
-		return False
-
-	def into_pipeline(self,line):
-		sample = self.marshaller.unmarshall_sample(self.header,line)
-		self.pipeline.execute_sample(sample)
-
-	def run(self):
-		while self.running:
-			if not self.is_connected():
-				logging.warning("trying to connect or open source: %s ...",str(self))
-				self.connect()
-				if not self.is_connected():
-					time.sleep(self.RECONNECT_TIMEOUT)
-				continue
-
-			ok,line = self.read_line()
-			if ok:
-				if self.check_header(line):
-					continue
-				try:
-					self.into_pipeline(line)
-				except Exception as strangeSource:
-					logging.info("marshalling of header %s \n and sample %s failed", self.header , line)
-			else:
-				self.error_handling(line)
-		self.on_close()
-		
-
-	def read_line(self):
-		"""reads Sample from source as text line.
-		:returns success,line.
-		"""
-		raise NotImplementedError
-
-	def error_handling(self,line):
-		logging.warning("error reading sample in %s ...", self.__str__())
-
-	def is_connected(self):
-		raise NotImplementedError
-
-	def connect(self):
-		raise NotImplementedError
-
-	
-	def on_close(self):
-		logging.debug("closing %s ...",str(self))
-		self.running=False
-		self.pipeline.on_close()
-
-
-class GenerateMetricsSource(Source):
-	''' used for seperatly implemented sources (deprecated soon) '''
-
-	def into_pipeline(self,line):
-		timestamp = datetime.datetime.now()
-		sample = Sample(self.header,line,timestamp)
-		self.pipeline.execute_sample(sample)
-
-	def run(self):	
-		while self.running:
-			ok,line = self.read_line()
-			if ok:
-				try:
-					self.into_pipeline(line)
-				except Exception as strangeSource:
-					logging.debug("marshalling of header %s \n and sample %s failed", self.header , line)
-			else:
-				self.error_handling(line)
-		logging.info("closing %s ..." , str(self))	
-
-class FileSource(NewSource):
+class FileSource():
 
 	def __init__(self,filename,pipeline, marshaller):
+		self.running = multiprocessing.Value(ctypes.c_int, 1)
+		self.pipeline = pipeline
+		self.filesource  = _FileSource(self.running,filename,pipeline,marshaller)
+
+	def start(self):
+		self.filesource.start()
+	
+	def stop(self):
+		self.running.value = 0
+		self.filesource.join()
+		self.pipeline.stop()
+
+
+class _FileSource(Source):
+
+	def __init__(self,running,filename,pipeline,marshaller):
+		self.running = running
 		self.filename = filename
 		self.f = None
 		self.header = None
@@ -146,21 +80,27 @@ class FileSource(NewSource):
 			self.f = open(self.filename, 'r')
 		except FileNotFoundError:
 			logging.error("{}: could not open file {} ...".format(str(self),self.filename))
-			self.running = False
+			self.stop()
 			exit(1)
 
 	def loop(self):
 		if not self.f:
 			self.open_file()
+			header_line = self.read_line()
+			if self.marshaller.is_header(header_line):
+				self.header = self.marshaller.unmarshall_header(header_line)
+			else:
+				logging.error("Header line not found, closing file ...")
+				self.stop()
+				# missing
+
 		line = ""
 		line = self.read_line()
 		# EOF
 		if line == "":
-			self.running = False
+			self.stop()	
 			return 
-		if self.check_header(line):
-			return
-		self.into_pipeline(line)	
+		self.into_pipeline(line,self.header)	
 
 	def read_line(self):
 		line = self.f.readline().strip()
@@ -168,22 +108,38 @@ class FileSource(NewSource):
 
 	def on_close(self):
 		self.f.close()
-		time.sleep(0.1)
 		super().on_close()
 
-class DownloadSource(NewSource):
+class DownloadSource():
 
-	TIMEOUT = 5
-	PACKET_SIZE = 4096
-	TIMEOUT_AFTER_FAILED_TO_CONNECCT = 1
+	def __init__(self,running,marshaller,pipeline,host,port,buffer_size=2048):
+		self.running = multiprocessing.Value(ctypes.c_int, 1)
+		self.pipeline = pipeline
+		self.downloadsource  = _DownloadSource(self.running,host,port,pipeline,marshaller,buffer_size)
 
-	def __init__(self,host,port,pipeline, marshaller):
+	def start(self):
+		self.downloadsource.start()
+	
+	def stop(self):
+		self.running.value = 0
+		self.downloadsource.join()
+		self.pipeline.stop()
+
+class _DownloadSource(Source):
+
+	TIMEOUT = 2
+	TIMEOUT_AFTER_FAILED_TO_CONNECCT = 0.5
+
+	def __init__(self,host,port,pipeline,marshaller,buffer_size=2048):
+		self.running = running
 		self.host = host
 		self.port = port
 		self.s = None
 		self.header = None
-
+		self.b = ""
 		self.cached_lines = []
+		self.buffer_size = buffer_size
+
 		super().__init__(pipeline,CsvMarshaller())
 
 	def __str__(self):
@@ -191,30 +147,50 @@ class DownloadSource(NewSource):
 
 	def loop(self):
 		if not self.is_connected():
-			self.connect()
-		line=""
+			try:
+				self.connect()
+			except socket.gaierror as gai:
+				logging.warning("Could not connect to {}:{} ...".format(self.host,self.port))
+				self.s.close()
+				self.s = None
+				time.sleep(self.TIMEOUT_AFTER_FAILED_TO_CONNECCT)
+			except:
+				logging.error("unknown socket error...")
+				self.stop()
+		
+			try:
+				self.header,self.b = read_header(
+					marshaller=self.marshaller,
+					s=self.s,
+					buffer_size=self.buffer_size)
+			except:
+				logging.error("Parsing header failed ... ")
+				self.stop()
+
 		try:
-			line = self.read_line()
-		except socket.timeout as se:
-			logging.info("lost connection try to reconnect ...")
-		if line == None:
-			return
-		if self.check_header(line):
-			return
-		self.into_pipeline(line)
-	
-	
+			self.b += self.s.recv(self.buffer_size).decode()
+		except ConnectionResetError:
+			logging.warning("ConnectionResetError: connection was reset by peer, reconnecting ...")
+			self.close_connection()
+
+		lines = self.b.split("\n")
+		last_element= lines[len(lines)-1]
+		if not last_element.endswith("\n"):
+			self.b=lines.pop()
+		for line in lines:
+			self.into_pipeline(line,self.header)	
+
+	def close_connection(self):
+		self.s.close()
+		self.s = None
+		time.sleep(0.1)
+
 	def connect(self):
 		logging.info("trying to connect to {}:{} ...".format(self.host,self.port))
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.settimeout(self.TIMEOUT)
-		try:
-			self.s.connect((self.host, self.port))
-		except:
-			logging.info("Could not connect to {}:{} ...".format(self.host,self.port))
-			self.s.close()
-			self.s = None
-			time.sleep(self.TIMEOUT_AFTER_FAILED_TO_CONNECCT)
+
+		self.s.connect((self.host, self.port))
+		logging.info("connected to {}:{} ...".format(self.host,self.port))
 
 	def is_connected(self):
 		if self.s != None:
@@ -222,101 +198,95 @@ class DownloadSource(NewSource):
 		else:
 			return False
 
-	def read_line(self):
-		if len(self.cached_lines) > 0:
-			line = self.cached_lines.pop(0)
-			return line
-		data = ""
-		while True:
-			data += self.s.recv(self.PACKET_SIZE).decode()
-			if not data:
-				return None
-			if not data.endswith("\n"):
-				continue
-			lines = data.splitlines()
-			break	
-		self.cached_lines = lines        	
-		line = self.cached_lines.pop(0)
-		return line
-
 	def on_close(self):
 		self.s.close()
 		super().on_close()
 
-class ListenSource(NewSource):
+class ListenSource():
 
-	PACKET_SIZE = 1024
+	def __init__(self,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
+		self.running = multiprocessing.Value(ctypes.c_int, 1)
+		self.pipeline = pipeline
+		self.listensource  = _ListenSource(self.running,marshaller,pipeline,host,port,buffer_size)
 
-	def __init__(self,marshaller,pipeline,host=None,port=5010, socket_timeout=2):
+	def start(self):
+		self.listensource.start()
+	
+	def stop(self):
+		self.running.value = 0
+		self.listensource.join()
+		self.pipeline.stop()
+
+class _ListenSource(Source):
+
+	def __init__(self,running,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
 		self.marshaller = marshaller
+		self.buffer_size = buffer_size
 		self.host = host
 		self.port = port
-		self.socket_timeout = socket_timeout
-		self.lock = threading.Lock()
-		self.connection = None
+		self.inputs = []
+		self.running = running
+		self.server = None
+		try:
+			self.server = self.bind_port(self.host,self.port)
+		except socket.error as se:
+			logging.error("Could not bind socket ...")
+			logging.error(str(se))
+			exit(1)
+		self.inputs = [self.server]
 		
-		self.ls = ListenSocket(self,self.host,self.port)
-		self.ls.start()	
-		self.cached_lines = []	
-		self.header = None
-		self.error = 0
+		self.connections = {}
 		super().__init__(pipeline,CsvMarshaller())
 
 	def __str__(self):
 		return "ListenSource"
 
-	def remove_connection(self,connections,c): 		
-		self.lock.acquire() 		
-		try: 			
-			connections.remove(c) 		
-		finally: 			
-			self.lock.release()	
-
-	def is_connected(self):
-		connected = True
-		connections = self.ls.number_of_connections() 
-		if connections != 1 or self.ls == None:
-			connected = False
-		return connected
-
+	def bind_port(self,host,port):
+		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		server.setblocking(0)
+		server.bind((host, port))
+		server.listen(1)
+		return server
 
 	def loop(self):
-			if not self.is_connected():
-				logging.debug("{}: waiting for peers to connect ...".format(str(self)))
-				time.sleep(self.socket_timeout)
-				return
-			try:
-				line = self.read_line()
-			except socket.error: 
-				logging.warning("{}: lost connection ...".format(str(self)))
-			if line == "": # no data on socket
-				return
-			if self.check_header(line):
-				return
-			self.into_pipeline(line)
+		readable, __, exceptional = select.select(
+		self.inputs,[],self.inputs,0)
+		for s in readable:
+			if s is self.server:
+				connection, client_address = s.accept()
+				connection.setblocking(0)
+				self.inputs.append(connection)
+				self.connections[connection] = {}
+				self.connections[connection]["remainng_bytes"] = ""
+				self.connections[connection]["header"] = None
+			else:
 
+				if self.connections[s]["header"] is None:
+					try:
+						h,rb = read_header(marshaller=self.marshaller,s=s,buffer_size=self.buffer_size)
+						self.connections[s]["header"] = h
+						self.connections[s]["remainng_bytes"] = rb
+					except:
+						continue
+					continue
+				data = s.recv(self.buffer_size).decode()
+				data = self.connections[s]["remainng_bytes"] + data
 
-	def read_line(self):
-		self.lock.acquire()
-		self.connection = self.ls.get_connections()[0]
-		self.lock.release()	
-		if len(self.cached_lines) > 0:
-			line = self.cached_lines.pop(0)
-			return line
-		
-		data = ""
-		while True:
-			data += self.connection.read(self.PACKET_SIZE)
-			if not data:
-				return ""
-			if not data.endswith("\n"):
-				continue
-			lines = data.splitlines()
-			break		
-		self.cached_lines = lines        	
-		line = self.cached_lines.pop(0)
-		return line
+				lines = data.split("\n")
+				last_element= lines[len(lines)-1]
+				if not last_element.endswith("\n"):
+					self.connections[s]["remainng_bytes"]=lines.pop()
+				for line in lines:
+					self.into_pipeline(line,self.connections[s]["header"])
+
+		for s in exceptional:
+			self.inputs.remove(s)
+			s.close()
+			del self.connections[s]
 
 	def on_close(self):
-		self.ls.on_close()
+		for i in self.inputs:
+			i.close()
+		self.server.close()
 		super().on_close()

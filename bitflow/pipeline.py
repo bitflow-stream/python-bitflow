@@ -1,24 +1,24 @@
 import threading, queue, logging,time
+import multiprocessing
+from bitflow.sinksteps import AsyncProcessingStep
 
 class Pipeline(threading.Thread):
 
 	marshaller = None
 	
-	def __init__(self,sink=[]):
-		self.que = queue.Queue()
+	def __init__(self,maxsize=10000):
+		self.que = multiprocessing.Queue(maxsize=maxsize) 
 		self.processing_steps = []
-		self.sink = sink
 		self.running = True
 		super(Pipeline, self).__init__(name=str(self))
 
 	def __str__(self):
 		return "Pipeline"
 
-	def set_sink(self,sink):
-		self.sink = sink
-
 	def run(self):
-
+		for processing_step in self.processing_steps:
+			if isinstance(processing_step, AsyncProcessingStep):
+				processing_step.start()
 		while self.running:
 			try:
 				sample = self.que.get(timeout=1)
@@ -26,9 +26,9 @@ class Pipeline(threading.Thread):
 				continue
 			for processing_step in self.processing_steps:
 				sample = processing_step.execute(sample)
-			for o in self.sink:
-				o.send(sample)
-			self.que.task_done()
+				if sample is None:
+					continue
+		self.on_close()
 
 	def add_processing_step(self, processing_step):
 		self.processing_steps.append(processing_step)
@@ -37,21 +37,21 @@ class Pipeline(threading.Thread):
 		try:
 			self.processing_steps.remove(processing_step)
 		except:
-			logging.warning(processing_step.name + " not found in pipeline")
+			logging.warning(processing_step.__name__ + " not found in pipeline")
 
 	def execute_sample(self,sample):
 		self.que.put(sample)
 
 	def close_processing_steps(self):
-		for f in self.processing_steps:
-			f.on_close()
+		for ps in self.processing_steps:
+			ps.stop()
+			if isinstance(ps, AsyncProcessingStep):
+				ps.join()
+
+	def stop(self):
+		self.running = False
 
 	def on_close(self):
 		logging.info	("closing "+self.__str__()+" ...")
-		self.que.join()
 		time.sleep(0.1)
-		self.running = False
-		for o in self.sink:
-			o.on_close()
-			o.join()
 		self.close_processing_steps()
