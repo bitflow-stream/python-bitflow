@@ -112,7 +112,7 @@ class _FileSource(Source):
 
 class DownloadSource():
 
-	def __init__(self,running,marshaller,pipeline,host,port,buffer_size=2048):
+	def __init__(self,marshaller,pipeline,host,port,buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
 		self.downloadsource  = _DownloadSource(self.running,host,port,pipeline,marshaller,buffer_size)
@@ -130,7 +130,7 @@ class _DownloadSource(Source):
 	TIMEOUT = 2
 	TIMEOUT_AFTER_FAILED_TO_CONNECCT = 0.5
 
-	def __init__(self,host,port,pipeline,marshaller,buffer_size=2048):
+	def __init__(self,running,host,port,pipeline,marshaller,buffer_size=2048):
 		self.running = running
 		self.host = host
 		self.port = port

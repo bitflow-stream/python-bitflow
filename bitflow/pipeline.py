@@ -27,7 +27,7 @@ class Pipeline(threading.Thread):
 			for processing_step in self.processing_steps:
 				sample = processing_step.execute(sample)
 				if sample is None:
-					continue
+					break
 		self.on_close()
 
 	def add_processing_step(self, processing_step):
