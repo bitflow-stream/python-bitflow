@@ -94,7 +94,7 @@ class CsvMarshaller(Marshaller):
 			return h
 
 		return Header(fields[1:],has_tags)
-
+		
 	def parse_tags(self,tags_string):
 		tags_dict = {}
 		if tags_string == "":
@@ -106,7 +106,7 @@ class CsvMarshaller(Marshaller):
 					key,value = tags.split('=')
 					tags_dict[key] = value
 				else:
-					logging.warning("Unable to parse Tag: " + tags)
+					logging.warning("Unable to parse Tag: " + tags_string)
 		except Exception as e:
 			logging.error("Bad Tag parsing! \n " + e)
 			return ""
