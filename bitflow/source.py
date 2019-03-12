@@ -204,7 +204,7 @@ class ListenSource():
 	def __init__(self,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
-		self.listensource  = _ListenSource(self.running,marshaller,pipeline,host,port,buffer_size)
+		self.listensource  = _ListenSource(self.running,marshaller,pipeline.queue,host,port,buffer_size)
 
 	def start(self):
 		self.listensource.start()
@@ -216,7 +216,7 @@ class ListenSource():
 
 class _ListenSource(Source):
 
-	def __init__(self,running,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
+	def __init__(self,running,marshaller,queue,host=None,port=5010,buffer_size=2048):
 		self.marshaller = marshaller
 		self.buffer_size = buffer_size
 		self.host = host
@@ -233,7 +233,7 @@ class _ListenSource(Source):
 		self.inputs = [self.server]
 		
 		self.connections = {}
-		super().__init__(pipeline,CsvMarshaller())
+		super().__init__(queue,marshaller)
 
 	def __str__(self):
 		return "ListenSource"
