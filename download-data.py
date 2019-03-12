@@ -5,7 +5,7 @@ from bitflow.sinksteps import TerminalOut, FileSink
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
 from bitflow.processingstep import ProcessingStep
-from bitflow.source import DownloadSource
+from bitflow.source import DownloadSource, FileSource
 
 
 class 	 SerialFilter_ProcessingStep(ProcessingStep):
@@ -14,11 +14,13 @@ class 	 SerialFilter_ProcessingStep(ProcessingStep):
 		self.accepted_serials = accepted_serials
 
 	def execute(self,sample):
-		if sample.tags["serial"] in self.accepted_serials:
-			return sample
+		if 'serial' in sample.tags.keys():
+			if sample.tags["serial"] in self.accepted_serials:
+				return sample
+			else:
+				return None
 		else:
 			return None
-
 
 ''' example python3-bitflow main'''
 def main():
@@ -38,8 +40,8 @@ def main():
 
 	pipeline = Pipeline()
 	pipeline.add_processing_step(sf_ps)
-	pipeline.add_processing_step(fs)
-	#pipeline.add_processing_step(to)
+	#pipeline.add_processing_step(fs)
+	pipeline.add_processing_step(to)
 
 	pipeline.start()
 
@@ -47,7 +49,7 @@ def main():
 									port=download_port,
 									pipeline=pipeline,
 									marshaller=CsvMarshaller(),
-									buffer_size=1024)	
+									buffer_size=2048)
 	download_source.start()
 
 if __name__ == '__main__':

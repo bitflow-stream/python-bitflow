@@ -1,26 +1,25 @@
-import datetime, socket, logging, os, time 
-import select, sys, ctypes
+import socket
+import logging
+import time
+import select
+import ctypes
 import multiprocessing 
-
-from bitflow.sample import Sample,Header
 from bitflow.marshaller import CsvMarshaller
 
-
-
-def read_header(marshaller,s,buffer_size=2048):
-	b=""
+def read_header(marshaller, s, buffer_size=2048):
+	b = ""
 	while '\n' not in b:
 		b += s.recv(buffer_size).decode()
 	header_and_rest = b.split("\n")
 	header_str = header_and_rest[0]
 	over_recv_b = header_and_rest[1]
 	header = marshaller.unmarshall_header(header_str)
-	return header,over_recv_b
+	return header, over_recv_b
 
 class Source(multiprocessing.Process):
 
-	def __init__(self,pipeline, marshaller):
-		self.pipeline = pipeline
+	def __init__(self, queue, marshaller):
+		self.queue = queue
 		self.marshaller = marshaller
 		self.header = None
 		super().__init__()
@@ -28,13 +27,13 @@ class Source(multiprocessing.Process):
 	def __str__(self):
 		return "Source"
 
-	def into_pipeline(self,line,header):
+	def into_pipeline(self, line, header):
 		try:
-			sample = self.marshaller.unmarshall_sample(header,line)
+			sample = self.marshaller.unmarshall_sample(header, line)
 		except:
-			logging.info("marshalling of header %s \n and sample %s failed", header , line)
+			logging.info("marshalling of header %s \n and sample %s failed", header, line)
 			return
-		self.pipeline.execute_sample(sample)
+		self.queue.put(sample)
 
 	def run(self):
 		while self.running.value:
@@ -47,12 +46,12 @@ class Source(multiprocessing.Process):
 	def on_close(self):
 		logging.info("closing %s ...",str(self))
 
-class FileSource():
+class FileSource:
 
-	def __init__(self,filename,pipeline, marshaller):
+	def __init__(self, filename, pipeline, marshaller):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
-		self.filesource  = _FileSource(self.running,filename,pipeline,marshaller)
+		self.filesource = _FileSource(self.running,filename,pipeline.queue,marshaller)
 
 	def start(self):
 		self.filesource.start()
@@ -62,15 +61,14 @@ class FileSource():
 		self.filesource.join()
 		self.pipeline.stop()
 
-
 class _FileSource(Source):
 
-	def __init__(self,running,filename,pipeline,marshaller):
+	def __init__(self,running,filename,queue,marshaller):
 		self.running = running
 		self.filename = filename
 		self.f = None
 		self.header = None
-		super().__init__(pipeline,CsvMarshaller())
+		super().__init__(queue, marshaller)
 
 	def __str__(self):
 		return "FileSource"
@@ -79,7 +77,7 @@ class _FileSource(Source):
 		try:
 			self.f = open(self.filename, 'r')
 		except FileNotFoundError:
-			logging.error("{}: could not open file {} ...".format(str(self),self.filename))
+			logging.error("{}: could not open file {} ...".format(str(self), self.filename))
 			self.stop()
 			exit(1)
 
@@ -92,7 +90,6 @@ class _FileSource(Source):
 			else:
 				logging.error("Header line not found, closing file ...")
 				self.stop()
-				# missing
 
 		line = ""
 		line = self.read_line()
@@ -100,7 +97,7 @@ class _FileSource(Source):
 		if line == "":
 			self.stop()	
 			return 
-		self.into_pipeline(line,self.header)	
+		self.into_pipeline(line, self.header)
 
 	def read_line(self):
 		line = self.f.readline().strip()
@@ -110,12 +107,12 @@ class _FileSource(Source):
 		self.f.close()
 		super().on_close()
 
-class DownloadSource():
+class DownloadSource:
 
-	def __init__(self,marshaller,pipeline,host,port,buffer_size=2048):
+	def __init__(self, marshaller, pipeline, host, port, buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
-		self.downloadsource  = _DownloadSource(self.running,host,port,pipeline,marshaller,buffer_size)
+		self.downloadsource = _DownloadSource(self.running, host, port, pipeline.queue, marshaller, buffer_size)
 
 	def start(self):
 		self.downloadsource.start()
@@ -128,19 +125,19 @@ class DownloadSource():
 class _DownloadSource(Source):
 
 	TIMEOUT = 2
-	TIMEOUT_AFTER_FAILED_TO_CONNECCT = 0.5
 
-	def __init__(self,running,host,port,pipeline,marshaller,buffer_size=2048):
+	def __init__(self,running,host,port,queue,marshaller,buffer_size=2048,timeout_after_failed_to_connect=0.5):
 		self.running = running
 		self.host = host
 		self.port = port
+		self.timeout_after_failed_to_connect = timeout_after_failed_to_connect
 		self.s = None
 		self.header = None
 		self.b = ""
 		self.cached_lines = []
 		self.buffer_size = buffer_size
 
-		super().__init__(pipeline,CsvMarshaller())
+		super().__init__(queue, marshaller)
 
 	def __str__(self):
 		return "DownloadSource"
@@ -150,18 +147,18 @@ class _DownloadSource(Source):
 			try:
 				self.connect()
 			except socket.gaierror as gai:
-				logging.warning("Could not connect to {}:{} ...".format(self.host,self.port))
+				logging.warning("Could not connect to {}:{} ...".format(self.host, self.port))
 				self.s.close()
 				self.s = None
-				time.sleep(self.TIMEOUT_AFTER_FAILED_TO_CONNECCT)
+				time.sleep(self.timeout_after_failed_to_connect)
 			except:
 				logging.error("unknown socket error...")
 				self.stop()
 		
 			try:
-				self.header,self.b = read_header(
+				self.header, self.b = read_header(
 					marshaller=self.marshaller,
-					s=self.s,
+					s = self.s,
 					buffer_size=self.buffer_size)
 			except:
 				logging.error("Parsing header failed ... ")

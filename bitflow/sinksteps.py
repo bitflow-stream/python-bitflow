@@ -1,6 +1,7 @@
 import socket, threading, queue, logging, sys, time
 from collections import deque
-import graphitesend, datetime
+import datetime
+#import graphitesend, datetime
 
 from bitflow.processingstep import ProcessingStep
 

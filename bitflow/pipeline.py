@@ -1,4 +1,4 @@
-import threading, queue, logging,time
+import threading, logging,time
 import multiprocessing
 from bitflow.sinksteps import AsyncProcessingStep
 
@@ -7,7 +7,7 @@ class Pipeline(threading.Thread):
 	marshaller = None
 	
 	def __init__(self,maxsize=10000):
-		self.que = multiprocessing.Queue(maxsize=maxsize) 
+		self.queue = multiprocessing.Queue(maxsize=maxsize)
 		self.processing_steps = []
 		self.running = True
 		super(Pipeline, self).__init__(name=str(self))
@@ -21,7 +21,7 @@ class Pipeline(threading.Thread):
 				processing_step.start()
 		while self.running:
 			try:
-				sample = self.que.get(timeout=1)
+				sample = self.queue.get(timeout=1)
 			except:
 				continue
 			for processing_step in self.processing_steps:
@@ -40,7 +40,7 @@ class Pipeline(threading.Thread):
 			logging.warning(processing_step.__name__ + " not found in pipeline")
 
 	def execute_sample(self,sample):
-		self.que.put(sample)
+		self.queue.put(sample)
 
 	def close_processing_steps(self):
 		for ps in self.processing_steps:
