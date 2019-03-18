@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import logging, sys
-from bitflow.sink import StdSink
+from bitflow.sinksteps import TerminalOut
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
 from bitflow.processingstep import SimpleLinePlotProcessingStep  
@@ -13,7 +13,7 @@ def main():
 
 	input_filename = "testing/testing_file_in.txt"
 
-	std_out = StdSink(CsvMarshaller())
+	std_out = TerminalOut(CsvMarshaller())
 	std_out.start()
 	
 	pipeline = Pipeline()

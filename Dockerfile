@@ -1,3 +1,4 @@
+#docker build -t python-bitflow:latest .
 FROM python:3
 
 ADD ./ /opt/python-bitflow
