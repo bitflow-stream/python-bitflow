@@ -13,12 +13,11 @@ def main():
 
 	input_filename = "testing/testing_file_in.txt"
 
-	std_out = TerminalOut(CsvMarshaller())
-	std_out.start()
+	std_out = TerminalOut()
 	
 	pipeline = Pipeline()
 	pipeline.add_processing_step(SimpleLinePlotProcessingStep("pkg_out_1000-1100"))
-	pipeline.set_sink([std_out])
+	pipeline.add_processing_step(std_out)
 	pipeline.start()
 
 	filesource = FileSource(input_filename,pipeline,CsvMarshaller())	
