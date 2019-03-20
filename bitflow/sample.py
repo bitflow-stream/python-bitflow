@@ -2,9 +2,11 @@ import logging,datetime,copy
 
 class Sample:
 
-	def __init__(self,header,metrics,timestamp):
+	def __init__(self,header,metrics,timestamp=None):
 		self.header = Header(header.header,header.has_tags)
 		self.metrics = metrics
+		if not timestamp:
+			timestamp = datetime.datetime.now() 
 		self.timestamp = str(timestamp)
 		self.tags = {}
 
@@ -36,11 +38,12 @@ class Sample:
 		self.sample.metrics = self.sample.metrics[:index:]
 
 	def get_tag(self,tag):
-		return self.tags[tag]
+		if tag in self.tags:
+			return self.tags[tag]
+		else:
+			return None
 
 	def add_tag(self,tag_key,tag_value):
-		if self.header.has_tags == False:
-			self.header.has_tags = True
 		self.tags[tag_key] = tag_value
 
 	def header_changed(self,old_header):
@@ -58,7 +61,7 @@ class Header:
 	HEADER_TIME = "time"
 	HEADER_TAGS = "tags"
 
-	def __init__(self,header,has_tags=False):
+	def __init__(self,header,has_tags=True):
 		self.has_tags = has_tags
 		self.header = list(header)
 

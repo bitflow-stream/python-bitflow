@@ -79,7 +79,7 @@ class CsvMarshaller(Marshaller):
 			fields = header_line.split(',')
 		except:
 			pass #todo
-		has_tags = False
+		has_tags = True
 
 		if len(fields) < 1 or fields[0] != Header.HEADER_TIME:
 			raise Exception('no '+ Header.HEADER_TIME +" set")

@@ -44,7 +44,7 @@ class Source(multiprocessing.Process):
 		self.running.value = 0
 
 	def on_close(self):
-		logging.info("closing %s ...",str(self))
+		logging.info("{}: closing ...".format(self.__name__))
 
 class FileSource:
 
@@ -59,7 +59,6 @@ class FileSource:
 	def stop(self):
 		self.running.value = 0
 		self.filesource.join()
-		self.pipeline.stop()
 
 class _FileSource(Source):
 
@@ -68,6 +67,7 @@ class _FileSource(Source):
 		self.filename = filename
 		self.f = None
 		self.header = None
+		self.__name__ = "FileSource"
 		super().__init__(queue, marshaller)
 
 	def __str__(self):
@@ -120,7 +120,6 @@ class DownloadSource:
 	def stop(self):
 		self.running.value = 0
 		self.downloadsource.join()
-		self.pipeline.stop()
 
 class _DownloadSource(Source):
 
@@ -136,7 +135,7 @@ class _DownloadSource(Source):
 		self.b = ""
 		self.cached_lines = []
 		self.buffer_size = buffer_size
-
+		self.__name__ = "DownloadSource"
 		super().__init__(queue, marshaller)
 
 	def __str__(self):
@@ -147,7 +146,7 @@ class _DownloadSource(Source):
 			try:
 				self.connect()
 			except socket.gaierror as gai:
-				logging.warning("Could not connect to {}:{} ...".format(self.host, self.port))
+				logging.warning("{}: Could not connect to {}:{} ...".format(self.__name__,self.host, self.port))
 				self.s.close()
 				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
@@ -167,7 +166,7 @@ class _DownloadSource(Source):
 		try:
 			self.b += self.s.recv(self.buffer_size).decode()
 		except ConnectionResetError:
-			logging.warning("ConnectionResetError: connection was reset by peer, reconnecting ...")
+			logging.warning("{}: ConnectionResetError: connection was reset by peer, reconnecting ...".format(self.__name__))
 			self.close_connection()
 
 		lines = self.b.split("\n")
@@ -183,11 +182,11 @@ class _DownloadSource(Source):
 		time.sleep(0.1)
 
 	def connect(self):
-		logging.info("trying to connect to {}:{} ...".format(self.host,self.port))
+		logging.info("{}: trying to connect to {}:{} ...".format(self.__name__,self.host,self.port))
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 		self.s.connect((self.host, self.port))
-		logging.info("connected to {}:{} ...".format(self.host,self.port))
+		logging.info("{}: connected to {}:{} ...".format(self.__name__,self.host,self.port))
 
 	def is_connected(self):
 		if self.s != None:
@@ -201,10 +200,14 @@ class _DownloadSource(Source):
 
 class ListenSource():
 
-	def __init__(self,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
+	def __init__(self,port,marshaller,pipeline,buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
-		self.listensource  = _ListenSource(self.running,marshaller,pipeline.queue,host,port,buffer_size)
+		self.listensource  = _ListenSource(running=self.running,
+											marshaller=marshaller,
+											queue=pipeline.queue,
+											port=port,
+											buffer_size=buffer_size)
 
 	def start(self):
 		self.listensource.start()
@@ -212,22 +215,22 @@ class ListenSource():
 	def stop(self):
 		self.running.value = 0
 		self.listensource.join()
-		self.pipeline.stop()
 
 class _ListenSource(Source):
 
-	def __init__(self,running,marshaller,queue,host=None,port=5010,buffer_size=2048):
+	def __init__(self,running,port,marshaller,queue,buffer_size=2048):
 		self.marshaller = marshaller
 		self.buffer_size = buffer_size
-		self.host = host
+		self.host = "0.0.0.0"
 		self.port = port
-		self.inputs = []
 		self.running = running
 		self.server = None
+		self.__name__ = "ListenSource"
+
 		try:
 			self.server = self.bind_port(self.host,self.port)
 		except socket.error as se:
-			logging.error("Could not bind socket ...")
+			logging.error("{}: Could not bind socket ...".format(self.__name__))
 			logging.error(str(se))
 			exit(1)
 		self.inputs = [self.server]
@@ -235,13 +238,12 @@ class _ListenSource(Source):
 		self.connections = {}
 		super().__init__(queue,marshaller)
 
-	def __str__(self):
-		return "ListenSource"
 
 	def bind_port(self,host,port):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		server.setblocking(0)
+		# MAYBE INCLUDE AGAIN
+		#server.setblocking(0)
 		server.bind((host, port))
 		server.listen(1)
 		return server
@@ -258,10 +260,11 @@ class _ListenSource(Source):
 				self.connections[connection]["remainng_bytes"] = ""
 				self.connections[connection]["header"] = None
 			else:
-
 				if self.connections[s]["header"] is None:
 					try:
-						h,rb = read_header(marshaller=self.marshaller,s=s,buffer_size=self.buffer_size)
+						h,rb = read_header(	marshaller=self.marshaller,
+											s=s,
+											buffer_size=self.buffer_size)
 						self.connections[s]["header"] = h
 						self.connections[s]["remainng_bytes"] = rb
 					except:

@@ -1,9 +1,19 @@
-import socket, threading, queue, logging, sys, time
+import sys
+import socket
+import threading
+import queue
+import logging
+import time
+import select
 from collections import deque
 import datetime
 #import graphitesend, datetime
 
-from bitflow.processingstep import ProcessingStep
+from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
+from bitflow.marshaller import CsvMarshaller
+
+CSV_FORMAT_IDENTIFIER = "csv"
+BIN_FORMAT_IDENTIFIER = "bin"
 
 def header_check(old_header, new_header):
 		if old_header == None:
@@ -13,29 +23,38 @@ def header_check(old_header, new_header):
 		return False
 
 
-class AsyncProcessingStep(ProcessingStep,threading.Thread):
+def get_marshaller(data_format):
+	if data_format.lower() == CSV_FORMAT_IDENTIFIER:
+		return CsvMarshaller()
+	elif data_format.lower() == BIN_FORMAT_IDENTIFIER:
+		raise NotImplementedError
+	else:
+		logging.error("Data format unknown ...")
+		sys.exit(1)
 
-	def __init__(self):
-		ProcessingStep.__init__(self)
-		threading.Thread.__init__(self)
 
 ###########################
 # NETWORK TransportSink #
 ###########################
 class TCPSink(AsyncProcessingStep):
 
-	def __init__(self,marshaller,host,port,reconnect_timeout=2,que_size=500):
+	def __init__(self,
+				host : str, 
+				port : int, 
+				data_format : str = CSV_FORMAT_IDENTIFIER,
+				reconnect_timeout : int =2):
+	
 		super().__init__()
-
+		self.marshaller = get_marshaller(data_format)
 		self.__name__ = "TCPSink"
 		self.s = None
 		self.header = None
+		self.wrapper = None
 		self.is_running = True
 		self.host = host
 		self.port = port
 		self.reconnect_timeout = reconnect_timeout
-		self.que = queue.Queue(que_size)
-		self.marshaller = marshaller
+		self.que = queue.Queue()
 		logging.info("{}: initialized ...".format(self.__name__))
 
 	def connect(self):
@@ -45,7 +64,7 @@ class TCPSink(AsyncProcessingStep):
 
 	def is_connected(self):
 		connected = False
-		if self.s != None:
+		if self.s:
 			connected = True
 		return connected
 
@@ -61,6 +80,7 @@ class TCPSink(AsyncProcessingStep):
 			except socket.error:
 				logging.warning("{}: could not connect to {}:{} ... ".format(self.__name__,self.host,self.port))
 				time.sleep(self.reconnect_timeout)
+				self.s = None
 				return
 		if self.que.qsize() is 0:
 			return
@@ -74,16 +94,17 @@ class TCPSink(AsyncProcessingStep):
 			logging.error("{}: failed to send to peer {}:{}, closing connection ...".format(self.__name__,self.host,self.port))
 			self.close_connection()
 		self.que.task_done()
- 
 
 	def execute(self,sample):
 		self.que.put(sample)
-		return sample
+		self.write(sample)
 
 	def close_connection(self):
 		self.header = None
-		self.s.close()
-		self.wrapper.socket.close()
+		if self.s:
+			self.s.close()
+		if self.wrapper:
+			self.wrapper.socket.close()
 
 	def stop(self):
 		self.que.join()
@@ -106,170 +127,149 @@ class SocketWrapper:
 # ListenSocketSink #
 ####################
 
-class ListenSink (ProcessingStep,threading.Thread):
-	def __init__(self,marshaller,max_receivers=5,host=None,port=5010,que_size=5):
+class ListenSink (AsyncProcessingStep):
+	
+	def __init__(self,
+				host : str = "0.0.0.0",
+				port : int = 5010,
+				data_format : str = CSV_FORMAT_IDENTIFIER,
+				sample_buffer_size : int =-1,
+				max_receivers : int =5):
+
 		super().__init__()
-		logging.error("ListenSink: NOT USAble ATM")
-		exit(1)
-		self.marshaller = marshaller
-		self.lock = threading.Lock()
+		self.__name__ = "ListenSink"
+		self.marshaller = get_marshaller(data_format)
+
+		self.host = host
+		self.port = port
 		self.max_receivers = max_receivers
-		self.ls = ListenSocket(self,host,port,max_receivers)
-		self.que = deque()
-		self.to_remove = []
-		self.to_send_header = []
+		self.sample_queues = {}
+		if sample_buffer_size is -1:
+			self.sample_buffer = deque(maxlen=None)
+		else:
+			self.sample_buffer = deque(maxlen=sample_buffer_size)
+		
+		self.is_running = True
+		try:
+			self.server = self.bind_port(self.host,self.port,self.max_receivers)
+		except socket.error as se:
+			logging.error("{}: could not bind socket ...".format(self.__name__))
+			logging.error(str(se))
+			return None
 
-	def check_socket_open(self):
-		connections = self.ls.number_of_connections() 
-		if connections == 0 or self.ls == None:
-			return False
-		return True
+		self.header = None
+		self.inputs = [self.server]
+		self.outputs = []
 
-	def open_socket(self):
-		if self.ls == None:		
-			self.ls = ListenSocket(self,host,port,self.max_receivers)
-			self.ls.start()
+
+	def bind_port(self,host,port,max_receivers):
+		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		server.setblocking(0)
+		server.bind((host, port))
+		server.listen(max_receivers)
+		logging.info("{}: binding socket on {}:{} ...".format(self.__name__,self.host,self.port))
+		return server
+
+	def close_connections(self,outputs,sample_queues):
+		for o in outputs:
+			o.close()
+		sample_queues = {}
+
+	def get_new_queue(self,sample_buffer):
+		q = queue.Queue()
+		for sample in sample_buffer:
+			q.put(sample)
+		return q
+
+	def loop(self):
+		readable, writable, exceptional = select.select(
+		self.inputs, self.outputs, self.inputs,1)
+		for s in readable:
+			if s is self.server:
+				connection, client_address = s.accept()
+				connection.setblocking(0)
+				self.outputs.append(connection)
+				self.sample_queues[connection] = {}
+				self.sample_queues[connection]["queue"] = self.get_new_queue(
+											sample_buffer=self.sample_buffer)
+				self.sample_queues[connection]["header"] = None
+				logging.info("{}: new connection established with {} ...".format(self.__name__,client_address))
+		for s in writable:
+			sw = SocketWrapper(s)
+			try:
+				sample = self.sample_queues[s]["queue"].get_nowait()
+			except queue.Empty:
+				continue
+
+			if 	self.sample_queues[s]["header"] is None:
+				self.marshaller.marshall_header(sw,sample.header)
+				self.sample_queues[s]["header"] = sample.header
+			self.marshaller.marshall_sample(sw, sample)
+			self.sample_queues[s]["queue"].task_done()
+
+		for s in exceptional:
+			if s is self.server:
+				logging.warning("{}: socket error! Reinitiating ...".format(self.__init__))
+				self.close_connections(	outputs=self.outputs,
+										sample_queues=sample_queues)
+				self.header = None
+				self.server.close()
+				time.sleep(1)
+				self.server = self.bind_port(self.host,self.port)
+			elif s in outputs:
+				logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
+				outputs.remove(s)
+				s.close()
+				del	sample_queues[s]
+
+	def execute(self,sample):
+		if self.header is None:
+			self.header = sample.header
+		elif self.header.has_changed(sample.header):
+			self.close_connections(	outputs=self.outputs,
+									sample_queues=sample_queues)
+			self.header = None
+
+		for k,v in self.sample_queues.items():
+			v["queue"].put(sample)
+		self.sample_buffer.append(sample)
+		self.write(sample)
 
 	def run(self):
 		while self.is_running:
 			self.loop()
 		self.on_close()		
 
-	def exectute(self,sample):
-		self.que.append(sample)
-		return sample
 
-	def loop(self):
-		sample = self.que.popleft()
-		if not self.check_socket_open():
-			try:
-				self.open_socket()
-			except socket.error:
-				logging.warning("{}: could not open socket on {}:{} ... ".format(self.__name__,self.host,self.port))
-				sys.exit(1)
-				return
-		self.lock.acquire()
-		for c in self.ls.connections: 
-			try:
-				if self.header_check(sample.header,c):
-					self.marshaller.marshall_header(c,sample.header)
-				self.marshaller.marshall_sample(c, sample)
-			except socket.error:
-				self.to_remove.append(c)
-				logging.error("{}: Error in connection with peer {}...".format(self.__name__,c.addr))
-				continue
-		self.lock.release()
-		self.remove_connections()
-		return 
-
-	def remove_connections(self):
-		self.lock.acquire()
-		for conn in self.ls.connections:
-			if conn in self.to_remove:
-				try:
-					self.ls.connections.remove(conn)
-				except:
-					logging.debug("could not remove connection %s", str(c))
-				self.to_remove.remove(conn)
-		self.lock.release()	
-
-	def on_close(self):
-		logging.info("closing {} ...".format(self.__name__))
-
-		self.running = False
-		for c in list(self.ls.connections):
-			self.to_remove.append(c)
-		self.remove_connections()
-		self.ls.on_close()
-		self.ls = None
-		super().on_close()
-
-class ListenSocket(threading.Thread):
-	TIMEOUT = 10
-	def __init__(self,tcplistener,listen_host,listen_port,max_number_of_connections=10,listen_timeout=0.5):
-		super().__init__()
-		self.tcplistener = tcplistener
-		self.max_number_of_connections = max_number_of_connections
-		self.listen_timeout = listen_timeout
-		self.s = None
-		self.is_running = True
-		if listen_host == None:
-			self.listen_host = "0.0.0.0"
-		else:
-			self.listen_host = listen_host
-		try:
-			self.listen_port = int(listen_port)
-		except Exception as e:
-			logging.error("port parameter is somehow wrong, stopping listen for connection on port" + str(e))
-			os._exit(1)
-		tcplistener.lock.acquire()
-		try:
-			self.connections = []
-		finally:
-			tcplistener.lock.release()		
-
-	def number_of_connections(self):		
-		return len(self.connections)
-
-	def get_connections(self):
-		return self.connections
-
-	def run(self):
-		logging.info("Binding %s:%s" % (self.listen_host, self.listen_port))
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.s.bind((self.listen_host, self.listen_port))
-		self.s.settimeout(self.listen_timeout)
-		self.s.listen(self.max_number_of_connections)
-		while self.is_running:
-			try:
-				c, addr = self.s.accept()
-			except socket.timeout:
-				continue
-			self.tcplistener.lock.acquire()
-			try:
-				c = ListenSocketConnection(c,addr)
-				self.connections.append(c)
-			finally:
-				self.tcplistener.lock.release()
-			
-	def on_close(self):
-		for conn in self.connections:
-			conn.on_close()
+	def stop(self):
+		for k,v in self.sample_queues.items():
+			v["queue"].join()
 		self.is_running = False
-		if self.s is not None:
-			self.s.close()
-			self.s = None
-
-class ListenSocketConnection():
-
-	header = None
-
-	def __init__(self,socket,addr):
-		self.socket = socket
-		self.addr = addr
-
-	def write(self, data):
-		return self.socket.send(bytes(data, "utf-8"))
-
-	def read(self, packet_size):
-		return self.socket.recv(packet_size).decode()		
 
 	def on_close(self):
-		self.socket.close()
+		logging.info("{}: closing ...".format(self.__name__))
+		self.close_connections(self.outputs,self.sample_queues)
+		self.server.close()
+
 
 ##########################
 #  FILE TransportSink  #
 ##########################
 
-class FileSink(ProcessingStep):
+class FileSink(AsyncProcessingStep):
 
-	def __init__(self,marshaller,filename,reopen_timeout=2):
-		self.__name__ = "FileSink"
+	def __init__(self,
+				filename : str,
+				data_format : str = CSV_FORMAT_IDENTIFIER,
+				reopen_timeout : int = 2):
 		super().__init__()
+		self.__name__ = "FileSink"
+		self.marshaller = get_marshaller(data_format)
+		self.que = queue.Queue()
 		self.filename = filename
 		self.f = None
-		self.marshaller = marshaller
+		self.is_running = True
 		self.header = None
 
 	def check_file_exists(self,path):
@@ -290,8 +290,19 @@ class FileSink(ProcessingStep):
 		except:
 			logging.error("{}: could not open file,  {} ...".format(self.__name__,self.filename))
 
-
 	def execute(self,sample):
+		self.que.put(sample)
+		self.write(sample)
+
+	def run(self):
+		while self.is_running:
+			self.loop()
+		self.on_close()
+
+	def loop(self):
+		if self.que.qsize() is 0:
+			return
+		sample = self.que.get()
 		if header_check(old_header=self.header,new_header=sample.header):
 			self.header = sample.header
 			if self.f is not None:
@@ -300,17 +311,17 @@ class FileSink(ProcessingStep):
 			self.marshaller.marshall_header(sink=self.f, header=self.header)
 		self.marshaller.marshall_sample(sink=self.f, sample=sample)
 		self.f.flush()
-		return sample
+		self.que.task_done()
 
 	def stop(self):
+		self.que.join()
 		self.is_running = False
 
 	def on_close(self):
 		if self.f is not None:
 			self.f.close()
 			self.f = None
-		logging.info("closing {} ...".format(self.__name__))
-
+		logging.info("{}: closing ...".format(self.__name__))
 
 ############################
 #  STDOUT TransportSink  #
@@ -319,9 +330,9 @@ class FileSink(ProcessingStep):
 class TerminalOut(ProcessingStep):
 
 	def __init__(self):
+		super().__init__()
 		self.__name__ = "TerminalOutput"
 		self.header_printed = False
-		super().__init__()
 
 	def print_header(self,sample):
 		h_str = ""
@@ -334,8 +345,11 @@ class TerminalOut(ProcessingStep):
 		for s in sample.metrics:
 				s_str += "," + s
 		t_str = ""
-		for k,v in sample.tags.items():
-				t_str += ", {}={}".format(k,v)
+		if len(sample.tags.keys()) == 0:
+			t_str = ","
+		else:
+			for k,v in sample.tags.items():
+					t_str += ", {}={}".format(k,v)
 				
 		print("{} {} {}".format(sample.timestamp,t_str,s_str))
 
@@ -344,11 +358,11 @@ class TerminalOut(ProcessingStep):
 			self.print_header(sample)
 			self.header_printed = True
 		self.print_metrics(sample)
-		return sample
+		self.write(sample)
 
 
 	def on_close(self):
-		logging.info("closing {} ...".format(self.__name__))
+		logging.info("{}: closing ...".format(self.__name__))
 
 
 #####################
@@ -357,11 +371,11 @@ class TerminalOut(ProcessingStep):
 
 class GraphiteOut (ProcessingStep):
 
-	def __init__(self,marshaller,host,port,prefix=None,que_size=5):
+	def __init__(self,marshaller,host,port,prefix=None):
 		super().__init__()
 		logging.error("GraphiteOut: NOT USAble ATM")
 		exit(1)
-		self.que.deque(maxsize=que_size)
+		self.que.deque()
 		self.s = None
 		if prefix is None:
 			now = datetime.datetime.now()

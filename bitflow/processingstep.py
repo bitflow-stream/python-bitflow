@@ -1,44 +1,212 @@
 import logging
-from bitflow.rest import RestServer
-import threading, datetime,sys
+import threading
+import datetime
+import sys
+import typing
 import matplotlib
 matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import numpy as np
-#import tensorflow as tf
+
+from bitflow.sample import Sample, Header
+
+
+StringList = typing.List[str]
+
+def capabilities():
+	''' returns all steps as json '''
+	processing_steps = ProcessingStep.subclasses
+	
+
+def get_required_and_optional_args(step):
+	step_args = typing.get_type_hints(step.__init__)
+
+	if step.__init__.__defaults__:
+		optional_step_args_len = len(step.__init__.__defaults__)
+	else:
+		optional_step_args_len = 0
+	
+	required_step_args = {}
+	optional_step_args = {}
+	for i in range(0,len(step_args) - optional_step_args_len):
+		required_step_args[list(step_args.keys())[i]] = step_args[list(step_args.keys())[i]]
+
+	for i in range(len(step_args) - optional_step_args_len,len(step_args)):
+		optional_step_args[list(step_args.keys())[i]] = step_args[list(step_args.keys())[i]]
+
+	return required_step_args,optional_step_args
+
+def type_compare(required_type, script_value):
+	if required_type is int:
+		try:
+			script_value = int(script_value)
+		except:
+			return False
+	if required_type is float:
+		try:
+			script_value = float(script_value)
+		except:
+			return False
+	if required_type is bool:
+		try:
+			script_value = bool(script_value)
+		except:
+			return False
+	return True
+
+
+def compare_args(step,script_args):
+	if len(script_args) == 0:
+		return  True 
+	# list not tested
+	required_step_args, optional_step_args = get_required_and_optional_args(step)
+	# if less than required arguments passed
+	if len(script_args) < len(required_step_args):
+		return False
+
+	# compare required aruguments
+	found_required_args = 0
+	found_optional_args = 0 
+	for i in range(len(script_args)):
+		script_key_name = list(script_args.keys())[i]
+		script_value = script_args[script_key_name]
+		#script_value_type = type(script_value)
+
+		if script_key_name in required_step_args.keys():
+			if type_compare(required_step_args[script_key_name],script_value):
+				found_required_args += 1
+				logging.debug("Found required " + script_key_name + "...")
+
+
+		if script_key_name in optional_step_args.keys():
+			if type_compare(optional_step_args[script_key_name],script_value):
+				found_optional_args += 1
+				logging.debug("Found optional " + script_key_name + "...")
+
+	# no optinal arguments passed
+	if found_required_args == len(script_args):
+		return True
+	
+	if (found_required_args + found_optional_args) == len(script_args):
+		return True  
+
+	return False
+
+def initialize_step(name,script_args):
+	processing_steps = ProcessingStep.subclasses
+
+	for ps in processing_steps:
+
+		if ps.__name__.lower() == name.lower():
+			if compare_args(ps,script_args):
+				logging.info("{} with args: {}  ok ...".format(name,script_args))				
+				try:
+					ps_obj = ps(**script_args)
+				except Exception  as e:
+					logging.error(str(e))
+				return ps_obj
+	logging.info("{} with args: {}  failed ...".format(name,script_args))				
+	return None
 
 class ProcessingStep():
 	''' Abstract ProcessingStep Class'''
+	subclasses = []
 
 	def __init__(self):
-		logging.info("{}: initialized ...".format(str(self)))
+		self.__name__ = "ProcessingStep"
+		self.next_step = None
 
-	def __str__(self):
-		return "ProcessingStep"
+	def __init_subclass__(cls, **kwargs):
+		super().__init_subclass__(**kwargs)
+		cls.subclasses.append(cls)
+
+	def set_next_step(self,next_step):
+		self.next_step = next_step
+
+	def write(self,sample):
+		if sample:
+			if self.next_step:
+				self.next_step.execute(sample)
 
 	def execute(self,sample):
-		raise NotImplementedError()
+		raise NotImplementedError
+
+	def stop(self):
+		self.on_close()
 
 	def on_close(self):
-		logging.info("closing ProcessingStep " + str(self))
+		logging.info("{}: closing ...".format(self.__name__))
 
-class NoopProcessingStep(ProcessingStep):
+
+class AsyncProcessingStep(ProcessingStep,threading.Thread):
+
+	def __init__(self):
+		ProcessingStep.__init__(self)
+		threading.Thread.__init__(self)
+		self.__name__  = "AbstractAsyncProcessingStep"
+
+	def stop(self):
+		self.is_running = False
+
+class DebugGenerationStep(AsyncProcessingStep):
+	"""example generativ processing step"""
+
+	def __init__(self):
+		super().__init__()
+
+		self.__name__ = "Debug_ProcessingStep"
+		self.is_running = True
 
 	def execute(self,sample):
-		return sample
+		self.write(sample)
+
+	def run(self):
+		import time
+		while self.is_running:
+			time.sleep(1)
+			import random
+			v1 = random.random()
+			metrics = [str(v1)]
+			header = ["random_value"]
+			sample = Sample(header=Header(header=header),metrics=metrics)
+			r_tag = random.randint(0,1)
+			if r_tag == 0:
+				sample.add_tag("blub","bla")
+			else:
+				sample.add_tag("blub","blub")
+				sample.add_tag("test","rudolph")
+			self.write(sample)
+
+	def stop(self):
+		self.is_running = False
+		self.on_close()
+
+class Noop(ProcessingStep):
+
+	def __init__(self):
+		super().__init__()
+
+	def execute(self,sample):
+		self.write(sample)
 
 
-class ModifyTimestampProcessingStep(ProcessingStep):
-	''' expect 
-	start_time in %Y-%m-%d %H:%M:%S.%f' like '2018-04-06 14:51:15.157232' 
-	interval in seconds
-	'''
-	def __init__(self,interval,start_time=None):
+class ModifyTimestamp(ProcessingStep):
+	""" Modifies Timestamp of traversing samples
+
+	start_time: in %Y-%m-%d %H:%M:%S.%f' like '2018-04-06 14:51:15.157232' 
+	interval: in seconds
+	
+	"""
+	def __init__(self,interval : int ,start_time : str = "now"):
 		logging.info("ModifyTimestampProcessingStep")
-		if start_time == None:
+		try:
+			self.start_time =datetime.datetime.strptime(start_time,'%Y-%m-%d %H:%M:%S.%f')
+		except:
+			if self.start_time is not "now":
+				logging.error("{}: no correct datetime str, using now ...".format(self.__class__.__name__))
 			self.start_time = datetime.datetime.now()
-		else:
-			self.start_time =	datetime.datetime.strptime(start_time,'%Y-%m-%d %H:%M:%S.%f')
+
 		try:
 			self.interval = datetime.timedelta(seconds=interval)
 		except Exception as  mtf:
@@ -46,38 +214,20 @@ class ModifyTimestampProcessingStep(ProcessingStep):
 			self.on_close()
 		super().__init__()
 
-	def __str__(self):
-		return "ModifyTimestampProcessingStep"
-
 	def execute(self,sample):
 		self.start_time = self.start_time + self.interval 
 		sample.set_timestamp(self.start_time)
 
-		return sample
+		self.write(sample)
 
-class ExcludeMetricByNameProcessingStep(ProcessingStep):
+class ListenForTags(ProcessingStep):
+	""" Open Rest API to add or delete tags to samples
 
-	def __init__(self,exclude_list):
-		self.exclude_list = exclude_list
-		logging.info("ProcessingStep Metrics "+ str(self.exclude_list))
+	port: port to listen on
+	"""
+	def __init__(self,port : int = 7777):
+		from bitflow.rest import RestServer
 
-	def __str__(self):
-		return "ExcludeMetricByNameProcessingStep"
-
-	def execute(self,sample):
-
-		for to_exclude in self.exclude_list:
-			try:
-				index = sample.get_metricsindex_by_name(to_exclude)
-				if index != None:
-					sample.remove_metrics(index)
-			except:
-				continue
-		return sample
-
-class ListenForTagsProcessingStep(ProcessingStep):
-	
-	def __init__(self,port):
 		self.lock_all_tags = threading.Lock()
 		self.all_tags = {}
 		self.rest_server = RestServer(self.lock_all_tags,self.all_tags,port)
@@ -93,21 +243,23 @@ class ListenForTagsProcessingStep(ProcessingStep):
 			for k,v in self.all_tags.items():
 				sample.add_tag(k,v)
 		self.lock_all_tags.release()
+		self.write(sample)
+		
 
-		return sample
+class AddTag(ProcessingStep):
+	""" Adds a give tag and value to the samples
 
-class AddTagProcessingStep(ProcessingStep):
-	
-	def __init__(self,tag,value):	
+	tag: tag name
+	value: value string 
+	"""
+	def __init__(self, tag : str, value : str):	
+		super().__init__()
 		self.tag = tag
 		self.value = value
 
-	def __str__(self):
-		return "AddTagilter"
-
 	def execute(self, sample):
 		sample.add_tag(self.tag,self.value)
-		return sample
+		self.write(sample)
 
 class NValueSumLinePlotProcessingStep(ProcessingStep):
 
@@ -137,7 +289,7 @@ class NValueSumLinePlotProcessingStep(ProcessingStep):
 			index = sample.header.header.index(self.metric_names[i]) # find index of metric
 			tag_element[i] += float(sample.metrics[index])		
 			
-		return sample
+		self.write(sample)
 
 	def on_close(self):
 		for key,value in self.values.items():
@@ -182,7 +334,7 @@ class NValueAvgLinePlotProcessingStep(ProcessingStep):
 			index = sample.header.header.index(self.metric_names[i]) # find index of metric
 			tag_element[i].append( float(sample.metrics[index]))		
 			
-		return sample
+		self.write(sample)
 
 	def on_close(self):
 		for key,value in self.values.items():
@@ -224,7 +376,7 @@ class TwoValueLinePlotProcessingStep(ProcessingStep):
 
 		index_b = sample.header.header.index(self.y_matric) # find index of metric
 		self.values_b.append(float(sample.metrics[index_b]))
-		return sample
+		self.write(sample)
 
 	def on_close(self):
 		plt.plot(self.values_a,self.values_b)
@@ -236,33 +388,33 @@ class TwoValueLinePlotProcessingStep(ProcessingStep):
 		super().on_close()
 
 
-class SimpleLinePlotProcessingStep(ProcessingStep):
+class SimpleLinePlot(ProcessingStep):
 
 	def __init__(self,metric_name):
 		'''
 		ProcessingStep to generate plot of one metric against time
 		metric_name: value to plot
 		'''
+		super().__init__()
 		self.metric_name = metric_name
 		self.values = []
 		self.time = []
-
-	def __str__(self):
-		return "SimpleLinePlotProcessingStep"
+		self.__name__ = "SimpleLinePlot"
 
 	def execute(self,sample):
 		''' executed on each sample '''
 		index = sample.header.header.index(self.metric_name	) # find index of metricq
 		self.values.append(float(sample.metrics[index]))
 		self.time.append(sample.get_timestamp())
-		return sample
+		self.write(sample)
 
 	def on_close(self):
+		print("sadsdsa")
 		plt.plot(self.time,self.values)
 		plt.xlabel("Time")
 		plt.ylabel(self.metric_name)
 		plt.ioff()
-		plt.savefig(self.__str__() + "-" + self.metric_name + '.png')	
+		plt.savefig("{}-{}.png".format(self.__name__,self.metric_name))	
 		plt.close()
 		super().on_close()
 
@@ -287,7 +439,7 @@ class SumBarPlotForValuesProcessingStep(ProcessingStep):
 		for i in range(0,len(self.metric_names)):
 			index = sample.header.header.index(self.metric_names[i]) # find index of metric
 			self.values[i] += float(sample.metrics[index])		
-		return sample
+		self.write(sample)
 
 	def on_close(self):
 		plt.figure(1)
@@ -377,9 +529,9 @@ class BoxPlotSeperateByTagProcessingStep(ProcessingStep):
 		plt.close()
 		super().on_close()
 
-class LinePlotProcessingStep(ProcessingStep):
+class LinePlot(ProcessingStep):
 	
-	def __init__(self,metric_name,tag):
+	def __init__(self,metric_name : str ,tag : str):
 		self.metric_name = metric_name
 		self.tag = tag
 		self.values = {}
@@ -398,7 +550,7 @@ class LinePlotProcessingStep(ProcessingStep):
 			self.values[tv] = [[],[]]
 		self.values[tv][0].append(sample.metrics[index])
 		self.values[tv][1].append(sample.get_timestamp() - self.begin_time)
-		return sample
+		self.write(sample)
 
 	def on_close(self):
 		for key,value in self.values.items():
