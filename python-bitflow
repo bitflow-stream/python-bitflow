@@ -1,0 +1,99 @@
+#!/usr/bin/env 	python3
+
+import argparse, logging, configparser, re, queue, signal, sys
+
+from bitflow.script_parser import * 
+from bitflow.source import *
+
+
+PIPES_INPUTS = []
+CLOSING = False
+
+def configure_logging(debug,filename=None):
+	if filename is None:
+		if debug:
+			logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+		else:
+			logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+	else:
+		if debug:
+			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.DEBUG)
+		else:
+			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.INFO)
+
+def strg_c_exit():
+	global PIPES_INPUTS
+	logging.warning("Closing python-bitflow ...")
+	for p,inputs in PIPES_INPUTS:
+		for i in inputs:
+			i.stop()
+		p.stop()
+
+
+def sig_int_handler(signal, frame):
+	global CLOSING
+	if CLOSING:
+		sys.exit(1)
+	CLOSING = True
+	strg_c_exit()
+
+
+def main():
+	global PIPES_INPUTS
+	signal.signal(signal.SIGINT, sig_int_handler)
+	parser = argparse.ArgumentParser()
+
+	parser.add_argument('script',type=str,help="bitflow script.  (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
+	parser.add_argument("-capabilities",action='store_true',help="list all available processing steps")
+
+	parser.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
+	parser.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
+	args = parser.parse_args()
+
+
+	#################
+	# MANAGE DEBUG  #
+	#################
+
+	debug = False
+	if args.v:
+		debug = True
+
+	if args.log:
+		logfile = args.log
+		configure_logging(debug,logfile)
+	else:
+		configure_logging(debug)
+		logging.debug("debug mode enabled")
+
+
+	if args.capabilities:
+		pass
+		#TODO
+		sys.exit(0)
+
+	if args.script:
+		try:
+			PIPES_INPUTS = parse_script(args.script)
+			for pipeline, inputs in PIPES_INPUTS:
+				pipeline.start()
+
+				for i in inputs:
+					i.start()
+		except NotSupportedError as nse:
+			logging.error(nse)
+			sys.exit(1)
+		except NotSupportedWarning as nsw:
+			logging.warning(nsw)
+		except ProcessingStepNotKnow as psnk:
+			logging.error(psnk)
+			sys.exit(1)
+		except ParsingError as pe:
+			logging.error(pe)
+			sys.exit(1)
+		exit(0)
+
+
+if __name__ == '__main__':
+	main()
+

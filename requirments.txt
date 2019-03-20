@@ -2,3 +2,7 @@ flask
 matplotlib
 #tensorflow
 graphitesend
+antlr4-python3-runtime
+numpy
+pyparsing
+six
