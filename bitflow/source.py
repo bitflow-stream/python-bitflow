@@ -107,6 +107,7 @@ class _FileSource(Source):
 		self.f.close()
 		super().on_close()
 
+# Pulls / Downloads incoming data on the specified host:port
 class DownloadSource:
 
 	def __init__(self, marshaller, pipeline, host, port, buffer_size=2048):
@@ -147,12 +148,12 @@ class _DownloadSource(Source):
 			try:
 				self.connect()
 			except socket.gaierror as gai:
-				logging.warning("Could not connect to {}:{} ...".format(self.host, self.port))
+				logging.warning("Could not connect in DownloadSource to {}:{} ...".format(self.host, self.port))
 				self.s.close()
 				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
 			except:
-				logging.error("unknown socket error...")
+				logging.error("unknown socket error in DownloadSource...")
 				self.stop()
 		
 			try:
@@ -161,7 +162,7 @@ class _DownloadSource(Source):
 					s = self.s,
 					buffer_size=self.buffer_size)
 			except:
-				logging.error("Parsing header failed ... ")
+				logging.error("Parsing header failed in DownloadSource ... ")
 				self.stop()
 
 		try:
@@ -169,6 +170,10 @@ class _DownloadSource(Source):
 		except ConnectionResetError:
 			logging.warning("ConnectionResetError: connection was reset by peer, reconnecting ...")
 			self.close_connection()
+		except UnicodeError:
+			print("Encoding Error in DownloadSource:")
+			print(self.s.recv(self.buffer_size))
+			
 
 		lines = self.b.split("\n")
 		last_element= lines[len(lines)-1]
@@ -199,6 +204,7 @@ class _DownloadSource(Source):
 		self.s.close()
 		super().on_close()
 
+# Listens for incoming data on the specified host:port
 class ListenSource():
 
 	def __init__(self,marshaller,pipeline,host=None,port=5010,buffer_size=2048):
@@ -227,7 +233,7 @@ class _ListenSource(Source):
 		try:
 			self.server = self.bind_port(self.host,self.port)
 		except socket.error as se:
-			logging.error("Could not bind socket ...")
+			logging.error("Could not bind socket in ListenSource with {}:{}".format(self.host, self.port))
 			logging.error(str(se))
 			exit(1)
 		self.inputs = [self.server]
