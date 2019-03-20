@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
+<<<<<<< HEAD
 import logging
 import sys
 
+=======
+import logging, sys
+>>>>>>> 41a7cde00b3dc1e900f616bcde4576170d8e008f
 from bitflow.sinksteps import TerminalOut
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
@@ -20,7 +24,7 @@ def main():
 	input_filename = "testing/testing_file_in.txt"
 
 	# define pipeline
-	pipeline = Pipeline()
+		pipeline = Pipeline()
 
 	# add processingsteps to pipeline
 	pipeline.add_processing_step(SimpleLinePlot("pkg_out_1000-1100"))
@@ -29,7 +33,7 @@ def main():
 	
 	# start pipeline
 	pipeline.add_processing_step(SimpleLinePlotProcessingStep("pkg_out_1000-1100"))
-	pipeline.add_processing_step(std_out)
+	pipeline.add_processing_step(TerminalOut())
 	pipeline.start()
 
 	# define file source
