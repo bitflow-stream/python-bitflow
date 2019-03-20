@@ -2,6 +2,7 @@
 
 import logging
 import sys
+
 from bitflow.sinksteps import TerminalOut
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
@@ -18,7 +19,6 @@ def main():
 	# file to read from
 	input_filename = "testing/testing_file_in.txt"
 
-	
 	# define pipeline
 	pipeline = Pipeline()
 
@@ -28,6 +28,8 @@ def main():
 	pipeline.add_processing_step(TerminalOut())
 	
 	# start pipeline
+	pipeline.add_processing_step(SimpleLinePlotProcessingStep("pkg_out_1000-1100"))
+	pipeline.add_processing_step(std_out)
 	pipeline.start()
 
 	# define file source

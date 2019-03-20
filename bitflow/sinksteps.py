@@ -58,9 +58,13 @@ class TCPSink(AsyncProcessingStep):
 		logging.info("{}: initialized ...".format(self.__name__))
 
 	def connect(self):
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect((self.host, self.port))
-		self.wrapper = SocketWrapper(self.s)
+		try:
+			self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.s.connect((self.host, self.port))
+			self.wrapper = SocketWrapper(self.s)
+		except self.s.error as error:
+			print("Connection Error in TCPSink with {}:{}".format(self.host, self.port))
+			print(os.strerror(error.errno))
 
 	def is_connected(self):
 		connected = False
