@@ -28,7 +28,7 @@ def main():
 	pipeline.add_processing_step(TerminalOut())
 	
 	# start pipeline
-	pipeline.add_processing_step(SimpleLinePlotProcessingStep("pkg_out_1000-1100"))
+	pipeline.add_processing_step(SimpleLinePlot("pkg_out_1000-1100"))
 	pipeline.add_processing_step(TerminalOut())
 	pipeline.start()
 
