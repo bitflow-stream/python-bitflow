@@ -4,7 +4,6 @@ import logging
 from antlr4 import *
 from bitflow.BitflowLexer import BitflowLexer
 from bitflow.BitflowParser import BitflowParser
-from bitflow.BitflowListener import BitflowListener
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline
