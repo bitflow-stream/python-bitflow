@@ -22,7 +22,6 @@ def header_check(old_header, new_header):
 			return True
 		return False
 
-
 def get_marshaller(data_format):
 	if data_format.lower() == CSV_FORMAT_IDENTIFIER:
 		return CsvMarshaller()
@@ -31,7 +30,6 @@ def get_marshaller(data_format):
 	else:
 		logging.error("Data format unknown ...")
 		sys.exit(1)
-
 
 ###########################
 # NETWORK TransportSink #
@@ -63,8 +61,7 @@ class TCPSink(AsyncProcessingStep):
 			self.s.connect((self.host, self.port))
 			self.wrapper = SocketWrapper(self.s)
 		except self.s.error as error:
-			print("Connection Error in TCPSink with {}:{}".format(self.host, self.port))
-			print(os.strerror(error.errno))
+			logging.warning("{}: connection error in with {}:{}".format(self.host, self.port))
 
 	def is_connected(self):
 		connected = False

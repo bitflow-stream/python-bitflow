@@ -170,9 +170,9 @@ class _DownloadSource(Source):
 			logging.warning("{}: ConnectionResetError: connection was reset by peer, reconnecting ...".format(self.__name__))
 			self.close_connection()
 		except UnicodeError:
-			print("Encoding Error in DownloadSource:")
-			print(self.s.recv(self.buffer_size))
-			
+			logging.warning("{}: encoding error ...".format(self.__name__))
+			logging.warning(self.s.recv(self.buffer_size))
+			self.close_connection()
 
 		lines = self.b.split("\n")
 		last_element= lines[len(lines)-1]

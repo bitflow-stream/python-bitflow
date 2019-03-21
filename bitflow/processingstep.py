@@ -409,7 +409,6 @@ class SimpleLinePlot(ProcessingStep):
 		self.write(sample)
 
 	def on_close(self):
-		print("sadsdsa")
 		plt.plot(self.time,self.values)
 		plt.xlabel("Time")
 		plt.ylabel(self.metric_name)
