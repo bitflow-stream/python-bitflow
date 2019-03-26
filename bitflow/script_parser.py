@@ -153,7 +153,7 @@ def explicit_data_output(output_type, output_url):
 
 def implicit_data_output(output_str):
     output_ps = None
-    if R_fqdn_or_ip_and_port.match(output_str):
+    if R_str_and_port.match(output_str):
         logging.info("TCPSink: " + output_str)
         try:
             hostname,port_str = output_str.split(":")
