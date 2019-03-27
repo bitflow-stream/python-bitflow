@@ -12,7 +12,7 @@ from bitflow.processingstep import *
 from bitflow.marshaller import CsvMarshaller
 
 # download input regex
-R_str_and_port = re.compile(r'(^[a-z0-9]+:[0-9]+)')
+R_str_and_port = re.compile(r'(^[a-z0-9_\-]+:[0-9]+)')
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')

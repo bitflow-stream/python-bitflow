@@ -179,6 +179,7 @@ class _DownloadSource(Source):
 		if not last_element.endswith("\n"):
 			self.b=lines.pop()
 		for line in lines:
+			print("input line: {}".format(line))
 			self.into_pipeline(line,self.header)	
 
 	def close_connection(self):
