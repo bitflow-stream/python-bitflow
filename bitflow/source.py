@@ -281,7 +281,6 @@ class _ListenSource(Source):
 						continue
 					continue
 				data = s.recv(self.buffer_size).decode()
-				print(data)
 				if data is "":
 					self.close_connection(s,self.connections,self.inputs)
 					return
