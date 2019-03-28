@@ -69,17 +69,12 @@ def main():
 
 	if args.capabilities:
 		pass
-		#TODO
+		#capabilities()
 		sys.exit(0)
 
 	if args.script:
 		try:
 			PIPES_INPUTS = parse_script(args.script)
-			for pipeline, inputs in PIPES_INPUTS:
-				pipeline.start()
-
-				for i in inputs:
-					i.start()
 		except NotSupportedError as nse:
 			logging.error(nse)
 			sys.exit(1)
