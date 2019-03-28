@@ -240,23 +240,27 @@ class _ListenSource(Source):
 			logging.error(str(se))
 			exit(1)
 		self.inputs = [self.server]
-		
 		self.connections = {}
 		super().__init__(queue,marshaller)
 
+	def close_connection(self,s,connections,inputs):
+		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
+		s.close()
+		del connections[s]
+		inputs.remove(s)
 
 	def bind_port(self,host,port):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		# MAYBE INCLUDE AGAIN
-		#server.setblocking(0)
+		# server.setblocking(0)
 		server.bind((host, port))
 		server.listen(1)
 		return server
 
 	def loop(self):
 		readable, __, exceptional = select.select(
-		self.inputs,[],self.inputs,0)
+		self.inputs,[],self.inputs,1)
 		for s in readable:
 			if s is self.server:
 				connection, client_address = s.accept()
@@ -277,6 +281,10 @@ class _ListenSource(Source):
 						continue
 					continue
 				data = s.recv(self.buffer_size).decode()
+				print(data)
+				if data is "":
+					self.close_connection(s,self.connections,self.inputs)
+					return
 				data = self.connections[s]["remainng_bytes"] + data
 
 				lines = data.split("\n")
@@ -287,9 +295,7 @@ class _ListenSource(Source):
 					self.into_pipeline(line,self.connections[s]["header"])
 
 		for s in exceptional:
-			self.inputs.remove(s)
-			s.close()
-			del self.connections[s]
+			self.close_connection(s,self.connections,self.inputs)
 
 	def on_close(self):
 		for i in self.inputs:
