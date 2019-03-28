@@ -22,7 +22,6 @@ provide-data.py: reads a file and provides this file via a listen port
 * implement capabilities argument
 * automatic source recognition (removes marshaller parameter from sources)
 
-
 ## Known Issues:
 * not all implemented processing steps are prepared to run in bitflow scripts
 * sometimes a zombie process still exisits after closing python-bitflow with strg+c
