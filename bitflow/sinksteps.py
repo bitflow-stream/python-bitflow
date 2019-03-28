@@ -60,8 +60,9 @@ class TCPSink(AsyncProcessingStep):
 			self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.s.connect((self.host, self.port))
 			self.wrapper = SocketWrapper(self.s)
-		except self.s.error as error:
-			logging.warning("{}: connection error in with {}:{}".format(self.host, self.port))
+		except socket.error:
+			logging.warning("{}: connection error in with {}:{} ...".format(self.__name__,self.host, self.port))
+			sys.exit(1)
 
 	def is_connected(self):
 		connected = False
@@ -84,8 +85,13 @@ class TCPSink(AsyncProcessingStep):
 				self.s = None
 				return
 		if self.que.qsize() is 0:
-			return
+			try:
+				self.que.get(timeout=1)
+			except queue.Empty:
+				return
+
 		sample = self.que.get()
+
 		try:		
 			if header_check(self.header,sample.header):
 				self.header = sample.header
@@ -108,7 +114,7 @@ class TCPSink(AsyncProcessingStep):
 			self.wrapper.socket.close()
 
 	def stop(self):
-		self.que.join()
+		#self.que.join()
 		self.is_running = False
 
 	def on_close(self):
@@ -156,26 +162,34 @@ class ListenSink (AsyncProcessingStep):
 		except socket.error as se:
 			logging.error("{}: could not bind socket ...".format(self.__name__))
 			logging.error(str(se))
-			return None
+			sys.exit(1)
 
 		self.header = None
 		self.inputs = [self.server]
 		self.outputs = []
 
 
+
 	def bind_port(self,host,port,max_receivers):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		server.setblocking(0)
+		server.setblocking(1)
 		server.bind((host, port))
 		server.listen(max_receivers)
-		logging.info("{}: binding socket on {}:{} ...".format(self.__name__,self.host,self.port))
+		logging.info("{}: binding socket on {}:{} ...".format(self.__name__,host,port))
 		return server
 
 	def close_connections(self,outputs,sample_queues):
-		for o in outputs:
-			o.close()
+		for s in outputs:
+			s.close()
+		outputs = []
 		sample_queues = {}
+
+	def close_connection(s,outputs,sample_queues):
+		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
+		outputs.remove(s)
+		s.close()
+		del	sample_queues[s]
 
 	def get_new_queue(self,sample_buffer):
 		q = queue.Queue()
@@ -184,6 +198,11 @@ class ListenSink (AsyncProcessingStep):
 		return q
 
 	def loop(self):
+		empty = True
+		for k,v in self.sample_queues.items():
+				if not v["queue"].empty():
+					empty = False
+
 		readable, writable, exceptional = select.select(
 		self.inputs, self.outputs, self.inputs,1)
 		for s in readable:
@@ -193,36 +212,40 @@ class ListenSink (AsyncProcessingStep):
 				self.outputs.append(connection)
 				self.sample_queues[connection] = {}
 				self.sample_queues[connection]["queue"] = self.get_new_queue(
-											sample_buffer=self.sample_buffer)
+												sample_buffer=self.sample_buffer)
 				self.sample_queues[connection]["header"] = None
 				logging.info("{}: new connection established with {} ...".format(self.__name__,client_address))
+
 		for s in writable:
 			sw = SocketWrapper(s)
 			try:
-				sample = self.sample_queues[s]["queue"].get_nowait()
+				if empty:
+					sample = self.sample_queues[s]["queue"].get(timeout=1)
+					# TODO try to recv and check if "", connection test
+				else:
+					sample = self.sample_queues[s]["queue"].get_nowait()
 			except queue.Empty:
 				continue
-
-			if 	self.sample_queues[s]["header"] is None:
-				self.marshaller.marshall_header(sw,sample.header)
-				self.sample_queues[s]["header"] = sample.header
-			self.marshaller.marshall_sample(sw, sample)
+			try:
+				if 	self.sample_queues[s]["header"] is None:
+					self.marshaller.marshall_header(sw,sample.header)
+					self.sample_queues[s]["header"] = sample.header
+				self.marshaller.marshall_sample(sw, sample)
+			except socket.error:
+				close_connection(s,self.outputs,self.sample_queues)
 			self.sample_queues[s]["queue"].task_done()
 
 		for s in exceptional:
 			if s is self.server:
 				logging.warning("{}: socket error! Reinitiating ...".format(self.__init__))
 				self.close_connections(	outputs=self.outputs,
-										sample_queues=sample_queues)
+										sample_queues=self.sample_queues)
 				self.header = None
 				self.server.close()
 				time.sleep(1)
 				self.server = self.bind_port(self.host,self.port)
-			elif s in outputs:
-				logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
-				outputs.remove(s)
-				s.close()
-				del	sample_queues[s]
+			elif s in self.outputs:
+				close_connection(s,self.outputs,self.sample_queues)
 
 	def execute(self,sample):
 		if self.header is None:
@@ -279,7 +302,7 @@ class FileSink(AsyncProcessingStep):
 		if my_file.is_file():
 			return True
 		return False
-	
+
 	def open_file(self):
 		suffix = ""
 		i = 0
@@ -365,88 +388,3 @@ class TerminalOut(ProcessingStep):
 	def on_close(self):
 		logging.info("{}: closing ...".format(self.__name__))
 
-
-#####################
-#  Graphitesend
-#####################
-
-class GraphiteOut (ProcessingStep):
-
-	def __init__(self,marshaller,host,port,prefix=None):
-		super().__init__()
-		logging.error("GraphiteOut: NOT USAble ATM")
-		exit(1)
-		self.que.deque()
-		self.s = None
-		if prefix is None:
-			now = datetime.datetime.now()
-			self.prefix = now
-		else:
-			self.prefix= prefix
-		self.host = host
-		self.port = port
-		self.marshaller = marshaller
-		self.is_running = True 
-		self.header = None
-
-	def connect(self):
-		self.s = graphitesend.init(
-        	graphite_server=self.host,
-        	graphite_port=self.port,
-        	prefix=self.prefix,
-        	timeout_in_seconds=5,
-        	system_name='python-bitflow'
-        	)
-
-	def run(self):
-		while self.is_running:
-			self.loop()
-		self.on_close()
-
-	def is_connected(self):
-		if self.s != None:
-			return True
-		return False
-
-	def close_connection(self):
-		self.header = None
-		if self.s is not None:
-			self.s.close()
-			self.s = None
-
-	def loop(self):
-		if not curr_sample:
-			self.curr_sample = self.que.popleft()
-		if not self.is_connected():
-			try:
-				self.connect()
-			except socket.error:
-				logging.warning("{}: could not connect to {}:{} ... ".format(self.__name__,self.host,self.port))
-				time.sleep()
-				task_done()
-				return
-			data = []
-			timestamp = sample.get_timestamp()
-			for feature in sample.header.header:
-				data.append([feature,sample.get_metricvalue_by_name(feature),timestamp])
-		try:		
-			self.s.send_list(data)
-		except socket.error:
-			logging.error("{}: failed to send to peer {}:{}, closing connection ...".format(self.__name__,self.host,self.port))
-			self.close_connection()
-			return 
-		self.que.task_done()
-		self.curr_sample = None
-		return 
-
-	def exectute(self,sample):
-		self.que.append(sample)
-		return sample
-
-	def stop(self):
-		self.is_running = False
-
-	def on_close(self):
-		self.is_running = False
-		self.close_connection()
-		super().on_close()
