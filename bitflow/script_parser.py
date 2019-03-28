@@ -4,11 +4,11 @@ import logging
 from antlr4 import *
 from bitflow.BitflowLexer import BitflowLexer
 from bitflow.BitflowParser import BitflowParser
-from bitflow.BitflowListener import BitflowListener
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline
 from bitflow.processingstep import *
+from bitflow.fork import *
 
 from bitflow.marshaller import CsvMarshaller
 
@@ -45,11 +45,11 @@ def build_processing_step(processing_step_ctx):
         scheduling_hints_ctx = processing_step_ctx.schedulingHints()
         parse_scheduling_hints(scheduling_hints_ctx)
 
-    name = processing_step_ctx.name().getText()
+    name_str = processing_step_ctx.name().getText()
     parse_parameters(processing_step_ctx.parameters(),parameters_dict)
-    ps  = initialize_step(name,parameters_dict)
+    ps  = initialize_step(name_str,parameters_dict)
     if not ps:
-        raise ProcessingStepNotKnown("{}: unsopported processing step ...".format(name))
+        raise ProcessingStepNotKnown("{}: unsopported processing step ...".format(name_str))
     return ps
 
 #G4:   dataInput : name+ schedulingHints? ;
@@ -189,7 +189,7 @@ def build_data_output(data_output_ctx):
         parse_scheduling_hints(scheduling_hints_ctx)
     output_ctx =  data_output_ctx.name()
     output_str = output_ctx.getText()
-    
+
     if len(output_str.split(output_seperation)) == 2:
         output_type, output_url = output_str.split(output_seperation)
         output_ps = explicit_data_output(output_type=output_type.lower(),output_url=output_url.lower())
@@ -225,9 +225,43 @@ def parse_parameter(parameter_ctx):
 def parse_scheduling_hints(scheduling_hints_ctx):
     raise NotSupportedWarning("Scheduling Hints are currently not supported and therefore ignored ...")
 
+
+#G4:   namedSubPipeline : name+ NEXT subPipeline ;
+def parse_named_subpipeline(named_subpipeline_ctx):
+    names = []
+    if named_subpipeline_ctx.name():
+        for name_ctx in named_subpipeline_ctx.name():
+            name_str = parse_name(name_ctx)
+            names.append(name_str)
+    pipeline = build_subpipeline(named_subpipeline_ctx.subPipeline())
+    return pipeline,names
+
+#G4:   subPipeline : pipelineTailElement (NEXT pipelineTailElement)* ;
+def build_subpipeline(subpipeline_ctx):
+    pipeline = Pipeline()
+    if subpipeline_ctx.pipelineTailElement():
+        for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
+            pipeline.add_processing_step(pte)
+    return pipeline
+
 #G4:   fork : name parameters schedulingHints? OPEN namedSubPipeline (EOP namedSubPipeline)* 
-def build_fork(fork_ctx):    
-    raise NotSupportedScriptError("Forks are currently not supported ...")
+def build_fork(fork_ctx):
+    parameters_dict = {}
+    if fork_ctx.schedulingHints():
+        scheduling_hints_ctx =  fork_ctx.schedulingHints()
+        parse_scheduling_hints(scheduling_hints_ctx)
+    
+    name_str = parse_name(fork_ctx.name())
+    parse_parameters(fork_ctx.parameters(),parameters_dict)
+    fork  = initialize_fork(name_str,parameters_dict)
+
+    for named_subpipeline_ctx in fork_ctx.namedSubPipeline():
+        pipeline,names = parse_named_subpipeline(named_subpipeline_ctx)
+
+        pipeline.start()
+        fork.add_pipeline(pipeline=pipeline,names=names)
+    return fork
 
 #G4:   window : WINDOW parameters schedulingHints? OPEN processingStep (NEXT processingStep)* CLOSE ;
 def build_window(window_ctx):
@@ -295,6 +329,9 @@ def parse_pipelines(pipelines_ctx):
     pipes_and_inputs = []
     for pipeline_ctx in pipelines_ctx.pipeline():
         pipeline,inputs = build_pipeline(pipeline_ctx)
+        pipeline.start()
+        for i in inputs:
+            i.start()
         pipes_and_inputs.append((pipeline,inputs))
     return pipes_and_inputs
 
