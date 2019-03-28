@@ -13,7 +13,8 @@ from bitflow.fork import *
 from bitflow.marshaller import CsvMarshaller
 
 # download input regex
-R_fqdn_or_ip_and_port = re.compile(r'(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])(:[0-9]+)')
+R_str_and_port = re.compile(r'(^[a-z0-9_\-]+:[0-9]+)')
+
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
 # output seperation str
@@ -62,7 +63,7 @@ def build_data_input(data_input_ctx,pipeline):
     data_inputs = []
     for input in data_input_ctx.name():
         input_str = input.getText()
-        if R_fqdn_or_ip_and_port.match(input_str):
+        if R_str_and_port.match(input_str):
             logging.info("Download Source: " + input_str)
             try:
                 hostname,port = input_str.split(":")
@@ -153,7 +154,7 @@ def explicit_data_output(output_type, output_url):
 
 def implicit_data_output(output_str):
     output_ps = None
-    if R_fqdn_or_ip_and_port.match(output_str):
+    if R_str_and_port.match(output_str):
         logging.info("TCPSink: " + output_str)
         try:
             hostname,port_str = output_str.split(":")

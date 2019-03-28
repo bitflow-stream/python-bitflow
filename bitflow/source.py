@@ -31,7 +31,7 @@ class Source(multiprocessing.Process):
 		try:
 			sample = self.marshaller.unmarshall_sample(header, line)
 		except:
-			logging.info("marshalling of header %s \n and sample %s failed", header, line)
+			logging.info("{}: marshalling of header {} \n and sample {} failed",self.__name__, header, line)
 			return
 		self.queue.put(sample)
 
@@ -88,7 +88,7 @@ class _FileSource(Source):
 			if self.marshaller.is_header(header_line):
 				self.header = self.marshaller.unmarshall_header(header_line)
 			else:
-				logging.error("Header line not found, closing file ...")
+				logging.error("{}: header line not found, closing file ...".format(self.__name__))
 				self.stop()
 
 		line = ""
@@ -152,7 +152,7 @@ class _DownloadSource(Source):
 				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
 			except:
-				logging.error("unknown socket error in DownloadSource...")
+				logging.error("{}: unknown socket error ...".format(self.__name__))
 				self.stop()
 		
 			try:
@@ -161,7 +161,7 @@ class _DownloadSource(Source):
 					s = self.s,
 					buffer_size=self.buffer_size)
 			except:
-				logging.error("Parsing header failed in DownloadSource ... ")
+				logging.error("{}: parsing header failed ...".format(self.__name__))
 				self.stop()
 
 		try:
