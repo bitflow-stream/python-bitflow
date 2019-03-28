@@ -12,23 +12,47 @@ import numpy as np
 from bitflow.sample import Sample, Header
 
 
+STRING_LIST_SEPERATOR=","
+
 StringList = typing.List[str]
 
 def capabilities():
 	''' returns all steps as json '''
-	processing_steps = ProcessingStep.subclasses
-	
 
-def get_required_and_optional_args(step):
+	steps_lst = []
+
+	processing_steps = ProcessingStep.subclasses
+	for step in processing_steps:
+		step_dict = {}
+		step_dict["Name"] = step.__name__
+		if isinstance(step,"Fork"):
+			step_dict["isFork"] = True
+		else:
+			step_dict["isFork"] = False
+		#step_dict["Description"] = step.__description__
+		required_step_args = {}
+		optional_step_args = {}
+
+		get_required_and_optional_args(	step=step,
+										required_step_args=required_step_args,
+										optional_step_args=optional_step_args)
+
+		step_dict["RequiredParms"] = [ parm for parm in required_step_args.keys() ]
+		step_dict["OptionalParms"] = [ parm for parm in optional_step_args.keys() ]
+		steps_lst.append(step_dict)
+
+	import json
+	print(json.dumps(steps_lst,sort_keys=True))
+
+
+def get_required_and_optional_args(step,required_step_args,optional_step_args):
 	step_args = typing.get_type_hints(step.__init__)
 
 	if step.__init__.__defaults__:
 		optional_step_args_len = len(step.__init__.__defaults__)
 	else:
 		optional_step_args_len = 0
-	
-	required_step_args = {}
-	optional_step_args = {}
+
 	for i in range(0,len(step_args) - optional_step_args_len):
 		required_step_args[list(step_args.keys())[i]] = step_args[list(step_args.keys())[i]]
 
@@ -60,7 +84,11 @@ def compare_args(step,script_args):
 	if len(script_args) == 0:
 		return  True 
 	# list not tested
-	required_step_args, optional_step_args = get_required_and_optional_args(step)
+	required_step_args = {}
+	optional_step_args = {}
+	get_required_and_optional_args(	step=step,
+									required_step_args=required_step_args,
+									optional_step_args=optional_step_args)
 	# if less than required arguments passed
 	if len(script_args) < len(required_step_args):
 		return False
@@ -109,17 +137,28 @@ def initialize_step(name,script_args):
 	logging.info("{} with args: {}  failed ...".format(name,script_args))				
 	return None
 
+
+def string_lst_to_lst(str_lst):
+	values = str_lst.split(STRING_LIST_SEPERATOR)
+	for value in values:
+		value = value.strip()
+	return values
+
+SUBLCALSSES_TO_IGNORE=[	"AsyncProcessingStep",
+						"Fork"]
+
 class ProcessingStep():
 	''' Abstract ProcessingStep Class'''
 	subclasses = []
 
 	def __init__(self):
-		self.__name__ = "ProcessingStep"
+		self.__description__ = "No description written yet."
 		self.next_step = None
 
 	def __init_subclass__(cls, **kwargs):
 		super().__init_subclass__(**kwargs)
-		cls.subclasses.append(cls)
+		if cls.__name__ not in SUBLCALSSES_TO_IGNORE:
+			cls.subclasses.append(cls)
 
 	def set_next_step(self,next_step):
 		self.next_step = next_step
@@ -144,7 +183,7 @@ class AsyncProcessingStep(ProcessingStep,threading.Thread):
 	def __init__(self):
 		ProcessingStep.__init__(self)
 		threading.Thread.__init__(self)
-		self.__name__  = "AbstractAsyncProcessingStep"
+		self.__description__ = "No description written yet."
 
 	def stop(self):
 		self.is_running = False
@@ -263,7 +302,7 @@ class AddTag(ProcessingStep):
 
 class NValueSumLinePlotProcessingStep(ProcessingStep):
 
-	def __init__(self,metric_names,tag,xlabel):
+	def __init__(self,metric_names : str,tag : str, xlabel : str):
 		'''
 		ProcessingStep to generate sum() plot of N tags and N values
 		metric_names: list of values
@@ -271,7 +310,7 @@ class NValueSumLinePlotProcessingStep(ProcessingStep):
 		xlabel: x-axes label 
 		'''
 		self.tag = tag
-		self.metric_names = metric_names
+		self.metric_names = string_lst_to_lst(metric_names)
 		self.values = {}
 
 	def __str__(self):
@@ -306,7 +345,7 @@ class NValueSumLinePlotProcessingStep(ProcessingStep):
 
 class NValueAvgLinePlotProcessingStep(ProcessingStep):
 
-	def __init__(self,metric_names,tag,xlabel,font_size=12):
+	def __init__(self, metric_names : str, tag : str, xlabel : str, font_size : int = 12):
 		'''
 		ProcessingStep to generate avg() plot of N tags and N values
 		metric_names: list of values
@@ -316,7 +355,7 @@ class NValueAvgLinePlotProcessingStep(ProcessingStep):
 		'''
 		self.font_size=font_size
 		self.tag = tag
-		self.metric_names = metric_names
+		self.metric_names = string_lst_to_lst(metric_names)
 		self.values = {}
 
 	def __str__(self):
@@ -354,7 +393,7 @@ class NValueAvgLinePlotProcessingStep(ProcessingStep):
 
 class TwoValueLinePlotProcessingStep(ProcessingStep):
 
-	def __init__(self,x_metric,y_matric):
+	def __init__(self,x_metric : str,y_matric : str):
 		'''
 		ProcessingStep to generate plot of one metric against another one
 		metric_name: value to plot
@@ -390,7 +429,7 @@ class TwoValueLinePlotProcessingStep(ProcessingStep):
 
 class SimpleLinePlot(ProcessingStep):
 
-	def __init__(self,metric_name):
+	def __init__(self,metric_name : str):
 		'''
 		ProcessingStep to generate plot of one metric against time
 		metric_name: value to plot
@@ -418,16 +457,14 @@ class SimpleLinePlot(ProcessingStep):
 		super().on_close()
 
 
-
 class SumBarPlotForValuesProcessingStep(ProcessingStep):
 
-	def __init__(self,metric_names,xlabel):
+	def __init__(self, metric_names : str, xlabel : str):
 		'''
 		ProcessingStep to generate barplot of multiple metrics
 		metric_names: list of values to abs() and barplot
 		'''
-		self.metric_names = metric_names
-		self.values = [0 for x in range(len(self.metric_names))]
+		self.metric_names = string_lst_to_lst(metric_names)
 		self.xlabel = xlabel
 
 	def __str__(self):
@@ -456,7 +493,7 @@ class BoxPlotSeperateByTagProcessingStep(ProcessingStep):
 
 	DEFAULT_FORMAT = "png"
 
-	def __init__(self,metric_name,tag,ylabel,show_xlabel=True,format="png",right_adjustment=0.95,left_adjustment=0.15,bottom_adjustment=0.3,top_adjustment=0.0,font_size=12,showfliers=True):
+	def __init__(self,metric_name : str,tag : str,ylabel : str,show_xlabel : bool =True,format : str ="png",right_adjustment : float =0.95,left_adjustment : float =0.15,bottom_adjustment : float = 0.3,top_adjustment : float =0.0,font_size : float = 12,showfliers: bool = True):
 		'''
 		ProcessingStep to generate plot of one metric
 		metric_name: value to plot
