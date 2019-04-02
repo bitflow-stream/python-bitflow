@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 import logging
 import sys
@@ -10,7 +10,7 @@ from bitflow.processingstep import *
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
 from bitflow.source import FileSource, ListenSource, DownloadSource
-from bitflow.fork import Tag_Fork
+from bitflow.fork import *
 
 LOGGING_LEVEL=logging.DEBUG
 
@@ -25,25 +25,84 @@ def remove_file(f):
         logging.info("deleted file {} ...".format(f))
 
 
+class WildcardCompare(unittest.TestCase):
+
+    def test_string_to_string(self):
+        string = "test"
+        wildcard = "test"
+        self.assertTrue(wildcard_compare(wildcard,string))
+
+    def test_string_to_upper_string(self):
+        string = "test"
+        wildcard = "TesT"
+        self.assertTrue(wildcard_compare(wildcard,string))
+
+    def test_string_to_star_string(self):
+        string = "test"
+        wildcard = "t*t"
+        self.assertTrue(wildcard_compare(wildcard,string))
+
+    def test_upper_string_to_string(self):
+        string = "TEST"
+        wildcard = "test"
+        self.assertTrue(wildcard_compare(wildcard,string))
+
+    def test_numbers_to_star_string(self):
+        string = "1111"
+        wildcard = "1*1"
+        self.assertTrue(wildcard_compare(wildcard,string))
+
+
+class ExactCompare(unittest.TestCase):
+
+    def test_string_to_string(self):
+        string = "test"
+        expression = "test"
+        self.assertTrue(exact_compare(expression,string))
+
+    def test_string_to_upper_string(self):
+        string = "test"
+        expression = "TEST"
+        self.assertTrue(exact_compare(expression,string))
+        
+    def test_upper_string_to_string(self):
+        string = "TEST"
+        expression = "test"
+        self.assertTrue(exact_compare(expression,string))
+        
+    def test_number_to_number(self):
+        string = "34234"
+        expression = "34234"
+        self.assertTrue(exact_compare(expression,string))
+        
+    def test_number_string_to_number_string(self):
+        string = "test23"
+        expression = "test23"
+        self.assertTrue(exact_compare(expression,string))
+        
+    def test_string_char_to_string_char(self):
+        string = "?tes_23!"
+        expression = "?tes_23!"
+        self.assertTrue(exact_compare(expression,string))
+
+
 class TestFork(unittest.TestCase):
 
     def test_pipeline_and_fork(self):
         global LOGGING_LEVEL
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
-        fork_pipeline = Pipeline()
-        fork_pipeline.add_processing_step(TerminalOut())
-        fork_pipeline.start()
+
+        fork = Fork_Tags(tag="blub")
+        fork.add_processing_steps([TerminalOut()],["bla","blub"])
 
         pipeline = Pipeline()
         pipeline.add_processing_step(DebugGenerationStep())
-        pipeline.add_processing_step(Tag_Fork([fork_pipeline],"test"))
-        #pipeline.add_processing_step(TerminalOut())
+        pipeline.add_processing_step(fork)
         pipeline.start()
 
         time.sleep(5)
         pipeline.stop()
-        fork_pipeline.stop()
 
         time.sleep(2)
         self.assertTrue(True)
@@ -62,7 +121,6 @@ class TestPipeline(unittest.TestCase):
         time.sleep(5)
         pipeline.stop()
         self.assertTrue(True)
-
 
     def test_generative_processing_step(self):
         global LOGGING_LEVEL
@@ -187,7 +245,6 @@ class TestInputOutput(unittest.TestCase):
         b_file_source.stop()
         time.sleep(2)
         a_listen_source.stop()
-
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE,TESTING_OUT_FILE))

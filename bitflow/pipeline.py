@@ -10,10 +10,10 @@ class Pipeline(threading.Thread):
 	
 	def __init__(self,maxsize=10000,multiprocessing_input=True):
 		self.__name__ = "Pipeline"
-		if multiprocessing_input:
-			self.queue = multiprocessing.Queue(maxsize=maxsize)
-		else:
-			self.queue = queue.Queue(maxsize=maxsize)
+		self.queue = None
+		self.maxsize = maxsize
+
+		self.multiprocessing_input = multiprocessing_input
 
 		self.processing_steps = []
 		self.running = True
@@ -33,18 +33,21 @@ class Pipeline(threading.Thread):
 				self.processing_steps[i-1].set_next_step(self.processing_steps[i])
 		if self.next_step:
 			self.processing_steps[len(self.processing_steps)-1] = self.next_step
-			#logging.debug(i,self.processing_steps[i-1],self.processing_steps[i-1].next_step)			
-	
+
 	def prepare_processing_steps(self):
 		for processing_step in self.processing_steps:
-			# start threads etc....
 			if isinstance(processing_step, AsyncProcessingStep):
 				processing_step.start()
 			elif isinstance(processing_step, Pipeline):
 				processing_step.start()
 
 	def run(self):
-		self.prepare_processing_steps()		
+		if self.multiprocessing_input:
+			self.queue = multiprocessing.Queue(maxsize=self.maxsize)
+		else:
+			self.queue = queue.Queue(maxsize=self.maxsize)
+
+		self.prepare_processing_steps()
 		while self.running:
 			try:
 				sample = self.queue.get(timeout=1)

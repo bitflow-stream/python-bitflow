@@ -234,17 +234,18 @@ def parse_named_subpipeline(named_subpipeline_ctx):
         for name_ctx in named_subpipeline_ctx.name():
             name_str = parse_name(name_ctx)
             names.append(name_str)
-    pipeline = build_subpipeline(named_subpipeline_ctx.subPipeline())
-    return pipeline,names
+    subpipeline_processing_step_list = build_subpipeline(named_subpipeline_ctx.subPipeline())
+    return subpipeline_processing_step_list,names
 
 #G4:   subPipeline : pipelineTailElement (NEXT pipelineTailElement)* ;
 def build_subpipeline(subpipeline_ctx):
-    pipeline = Pipeline()
+    # MAYBE CHANGE IN FUTURE COMMITS
+    subpipeline_processing_step_list = []
     if subpipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
             pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
-            pipeline.add_processing_step(pte)
-    return pipeline
+            subpipeline_processing_step_list.append(pte)
+    return subpipeline_processing_step_list
 
 #G4:   fork : name parameters schedulingHints? OPEN namedSubPipeline (EOP namedSubPipeline)* 
 def build_fork(fork_ctx):
@@ -258,10 +259,8 @@ def build_fork(fork_ctx):
     fork  = initialize_fork(name_str,parameters_dict)
 
     for named_subpipeline_ctx in fork_ctx.namedSubPipeline():
-        pipeline,names = parse_named_subpipeline(named_subpipeline_ctx)
-
-        pipeline.start()
-        fork.add_pipeline(pipeline=pipeline,names=names)
+        subpipeline_processing_step_list,names = parse_named_subpipeline(named_subpipeline_ctx)
+        fork.add_processing_steps(processing_steps=subpipeline_processing_step_list,names=names)
     return fork
 
 #G4:   window : WINDOW parameters schedulingHints? OPEN processingStep (NEXT processingStep)* CLOSE ;
@@ -338,7 +337,7 @@ def parse_pipelines(pipelines_ctx):
 
 def parse_script(script : str):
         input = InputStream(script)
-        logging.info("ScriptParser: parsing: {} ".format(script))
+        logging.info("ScriptParser: parsing:\n {} ".format(script))
         lexer = BitflowLexer(input)
         stream = CommonTokenStream(lexer)
         parser = BitflowParser(stream)

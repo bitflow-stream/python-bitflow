@@ -1,6 +1,7 @@
 import copy
 import logging
 from bitflow.processingstep import *
+from bitflow.pipeline import Pipeline
 
 def initialize_fork(name,script_args):
 	fork_steps = Fork.subclasses
@@ -18,6 +19,15 @@ def initialize_fork(name,script_args):
 	logging.info("{} with args: {}  failed ...".format(name,script_args))
 	return None
 
+def wildcard_compare(wildcard_expression, string):
+	import fnmatch
+	return fnmatch.fnmatch(string.lower(),wildcard_expression.lower())
+
+def exact_compare(expression,string):
+	if expression.lower() == string.lower():
+		return True
+	return False
+
 class Fork(ProcessingStep):
 	"""
 	receives sample and executes fork_decision, if fork decision is true, 
@@ -32,16 +42,16 @@ class Fork(ProcessingStep):
 	def __init__(self):
 		super().__init__()
 		self.fork_pipelines = []
+		self.running_pipelines = {}
 
 	def __init_subclass__(cls, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls.subclasses.append(cls)
 
-	def fork_decision(self,sample):
-		raise NotImplementedError
-
-	def add_pipeline(self,pipeline,names=[]):
-		self.fork_pipelines.append((pipeline,names))
+	# current workarround for bitflow script, parse names and processingsteps for new
+	# subpipeline. generate new pipeline if required by incoming sample
+	def add_processing_steps(self,processing_steps=[],names=[]):
+		self.fork_pipelines.append((processing_steps,names))
 
 	def remove_pipeline(self,i : int):
 		self.fork_pipelines.remove(i)
@@ -50,26 +60,55 @@ class Fork(ProcessingStep):
 		return self.fork_pipelines
 
 	def execute(self,sample):
-		if self.fork_decision(sample):
-			for p in self.fork_pipelines:
-				s = copy.copy(sample)
-				p.execute(s)
-		self.write(sample)
+		raise NotImplementedError
 
 	def on_close(self):
 		super().on_close()
-		for p,names in self.fork_pipelines:
-			p.stop()
+		for p in list(self.running_pipelines.keys()):
+			self.running_pipelines[p].stop()
 
 # stop and on_close inherit from processingstep
 
 class Fork_Tags(Fork):
 
-	def __init__(self,tag : str):
+	supported_compare_methods = ["wildcard","exact"]
+
+	def __init__(self,tag : str, mode : str = "wildcard"):
 		super().__init__()
+		self.__name__ = "Fork_Tags"
+		if mode in self.supported_compare_methods:
+			self.mode = mode
+		else:
+			raise NotSupportedError("{}: {} method not supported. Only support {}".format(
+																					self.__name__,compare, 
+																					self.supported_compare_methods))
 		self.tag = tag
 
-	def fork_decision(self,sample):
-		if sample.get_tag(self.tag):
+	def compare(self,tag_value,names,mode):
+		if mode == "wildcard":
+			l_cmp = [ name for name in names if wildcard_compare(name,tag_value) ]
+		if mode == "exact":
+			l_cmp = [ name for name in names if exact_compare(name,tag_value) ]
+		if len(l_cmp) > 0:
 			return True
 		return False
+
+	def execute(self,sample):
+		if sample.get_tag(self.tag):
+			tag_value = sample.get_tag(self.tag)
+			for processing_steps_list,names in self.fork_pipelines:
+				if not self.compare(tag_value,names,self.mode):
+					continue
+
+				if tag_value in self.running_pipelines:
+					p = self.running_pipelines[tag_value]
+				else:
+					p = Pipeline(multiprocessing_input=False)
+					for ps in processing_steps_list:
+						p.add_processing_step(ps)
+					p.start()
+					self.running_pipelines[tag_value] = p
+
+				s = copy.deepcopy(sample)
+				p.execute(s)
+	
