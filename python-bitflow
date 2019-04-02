@@ -20,10 +20,6 @@ def configure_logging(debug,filename=None):
 			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.DEBUG)
 		else:
 			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.INFO)
-def configure_script(script_file):
-	f = open(script_file, "r")
-	contents = f.read()
-	return contents
 
 def strg_c_exit():
 	global PIPES_INPUTS
@@ -42,19 +38,26 @@ def sig_int_handler(signal, frame):
 	strg_c_exit()
 
 
+def read_script(script_file):
+	script = ""
+	with open(script_file) as f:
+		script += f.read()
+	return script
+
 def main():
 	global PIPES_INPUTS
 	signal.signal(signal.SIGINT, sig_int_handler)
 	parser = argparse.ArgumentParser()
-
-	parser.add_argument('-script',type=str,help="bitflow script.  (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
-	parser.add_argument("-f", help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
+	
+	# argparse does not support no flag optional arguments ...
+	script_group = parser.add_mutually_exclusive_group(required=True)
+	script_group.add_argument('-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
+	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	parser.add_argument("-capabilities",action='store_true',help="list all available processing steps")
 
 	parser.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
 	parser.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
 	args = parser.parse_args()
-
 
 	#################
 	# MANAGE DEBUG  #
@@ -70,43 +73,32 @@ def main():
 	else:
 		configure_logging(debug)
 		logging.debug("debug mode enabled")
-
-
+	
 	if args.capabilities:
 		pass
 		#capabilities()
 		sys.exit(0)
-
-
-	script = None
-
+	
 	if args.f:
-		script_file = args.f
-		script = configure_script(script_file)
-
+		script = read_script(args.f)
 	if args.script:
 		script = args.script
 
+	try:
+		PIPES_INPUTS = parse_script(script)
+	except NotSupportedError as nse:
+		logging.error(nse)
+		sys.exit(1)
+	except NotSupportedWarning as nsw:
+		logging.warning(nsw)
+	except ProcessingStepNotKnow as psnk:
+		logging.error(psnk)
+		sys.exit(1)
+	except ParsingError as pe:
+		logging.error(pe)
+		sys.exit(1)
+	exit(0)
 
-	if script != None:
-		try:
-			PIPES_INPUTS = parse_script(args.script)
-		except NotSupportedError as nse:
-			logging.error(nse)
-			sys.exit(1)
-		except NotSupportedWarning as nsw:
-			logging.warning(nsw)
-		except ProcessingStepNotKnow as psnk:
-			logging.error(psnk)
-			sys.exit(1)
-		except ParsingError as pe:
-			logging.error(pe)
-			sys.exit(1)
-		exit(0)
-	else:
-		print("SEVERE")
-		logging.ERROR("No Bitflow Script was given. Use arguments -f for file input or -script for direct script input.")
-		exit(0)
 
 
 if __name__ == '__main__':

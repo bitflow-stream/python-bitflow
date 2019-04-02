@@ -124,8 +124,6 @@ class DownloadSource:
 
 class _DownloadSource(Source):
 
-	TIMEOUT = 2
-
 	def __init__(self,running,host,port,queue,marshaller,buffer_size=2048,timeout_after_failed_to_connect=0.5):
 		self.running = running
 		self.host = host
@@ -151,6 +149,7 @@ class _DownloadSource(Source):
 				self.s.close()
 				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
+				return
 			except:
 				logging.error("{}: unknown socket error ...".format(self.__name__))
 				self.stop()
@@ -281,7 +280,6 @@ class _ListenSource(Source):
 						continue
 					continue
 				data = s.recv(self.buffer_size).decode()
-				print(data)
 				if data is "":
 					self.close_connection(s,self.connections,self.inputs)
 					return
