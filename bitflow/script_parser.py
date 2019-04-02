@@ -11,7 +11,7 @@ from bitflow.processingstep import *
 from bitflow.fork import *
 
 from bitflow.marshaller import CsvMarshaller
-
+from bitflow.helper import *
 # download input regex
 R_str_and_port = re.compile(r'(^[a-z0-9_\-]+:[0-9]+)')
 
@@ -63,25 +63,23 @@ def build_data_input(data_input_ctx,pipeline):
     data_inputs = []
     for input in data_input_ctx.name():
         input_str = input.getText()
-        if R_str_and_port.match(input_str):
-            logging.info("Download Source: " + input_str)
-            try:
+        if ":" in input_str:
+            if R_port.match(input_str):
+                logging.info("Listen Source: " + input_str)
+                port_str = input_str[1:]
+                port = int(port_str)
+                data_input = ListenSource(  port=port,
+                                        marshaller=CsvMarshaller(),
+                                        pipeline=pipeline)
+
+            else:
+                logging.info("Download Source: " + input_str)
                 hostname,port = input_str.split(":")
-            except:
-                raise ParsingError("Unable to parse {} ...".format(input_str))
-            data_input = DownloadSource(
+                data_input = DownloadSource(
                                 host=hostname,
                                 port=int(port),
-                                pipeline=pipeline, 
-                                marshaller=CsvMarshaller())# 
+                                pipeline=pipeline)
 
-        elif R_port.match(input_str):
-            logging.info("Listen Source: " + input_str)
-            port_str = input_str[1:]
-            port = int(port_str)
-            data_input = ListenSource(  port=port,
-                                        marshaller=CsvMarshaller(),
-                                        pipeline=pipeline) # todo
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")
         else:
@@ -111,7 +109,7 @@ def explicit_data_output(output_type, output_url):
     if output_type == "file":
         if not data_format:
             data_format = DEFAULT_FILE_DATA_FORMAT
-        logging.info("FileSink: " + str(output_url))     
+        logging.info("FileSink: " + str(output_url))
         output_ps = FileSink(   filename=output_url,
                                 data_format=data_format)
 
@@ -136,7 +134,7 @@ def explicit_data_output(output_type, output_url):
             raise ParsingError("Unable to parse {} ...".format(output_url))
         logging.info("TCPSink: " + output_url)
         port = int(port_str)
-        output_ps = TCPSink(host=hostname, 
+        output_ps = TCPSink(host=hostname,
                             port=port, 
                             data_format=data_format)
 
@@ -154,23 +152,22 @@ def explicit_data_output(output_type, output_url):
 
 def implicit_data_output(output_str):
     output_ps = None
-    if R_str_and_port.match(output_str):
-        logging.info("TCPSink: " + output_str)
-        try:
+    
+    if ":" in output_str:
+        if R_port.match(output_str):
+            logging.info("ListenSink: " + output_str)
+            port_str = output_str[1:]
+            port = int(port_str)
+            output_ps = ListenSink( port=port,
+                                    data_format=DEFAULT_TCP_DATA_FORMAT) 
+
+        else:
+            logging.info("TCPSink: " + output_str)
             hostname,port_str = output_str.split(":")
             port = int(port_str)
-        except:
-            raise ParsingError("Unable to parse {} ...".format(output_str))
-        output_ps = TCPSink(host=hostname, 
-                            port=port, 
-                            data_format=DEFAULT_TCP_DATA_FORMAT)
-
-    elif R_port.match(output_str):
-        logging.info("ListenSink: " + output_str)
-        port_str = output_str[1:]
-        port = int(port_str)
-        output_ps = ListenSink( port=port,
-                                data_format=DEFAULT_TCP_DATA_FORMAT)    
+            output_ps = TCPSink(host=hostname, 
+                                port=port, 
+                                data_format=DEFAULT_TCP_DATA_FORMAT)
 
     elif output_str == "-":
         logging.info("TerminalOut: " + output_str)
