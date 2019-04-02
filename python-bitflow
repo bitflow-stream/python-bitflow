@@ -1,10 +1,14 @@
 #!/usr/bin/env 	python3
 
-import argparse, logging, configparser, re, queue, signal, sys
+import argparse
+import logging
+import re
+import queue
+import signal
+import sys
 
 from bitflow.script_parser import * 
 from bitflow.source import *
-
 
 PIPES_INPUTS = []
 CLOSING = False
@@ -88,14 +92,21 @@ def main():
 		PIPES_INPUTS = parse_script(script)
 	except NotSupportedError as nse:
 		logging.error(nse)
+		strg_c_exit()
 		sys.exit(1)
 	except NotSupportedWarning as nsw:
 		logging.warning(nsw)
 	except ProcessingStepNotKnow as psnk:
 		logging.error(psnk)
+		strg_c_exit()
 		sys.exit(1)
 	except ParsingError as pe:
 		logging.error(pe)
+		strg_c_exit()
+		sys.exit(1)
+	except Exception as e:
+		logging.error(pe)
+		strg_c_exit()
 		sys.exit(1)
 	exit(0)
 
