@@ -266,7 +266,7 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(2)
 
         b_pipeline = Pipeline()
-        b_download_source = DownloadSource(marshaller=CsvMarshaller(),host=host,port=port,pipeline=b_pipeline)
+        b_download_source = DownloadSource(host=host,port=port,pipeline=b_pipeline)
         b_pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE))
         b_pipeline.start()
         b_download_source.start()

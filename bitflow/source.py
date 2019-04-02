@@ -4,7 +4,7 @@ import time
 import select
 import ctypes
 import multiprocessing 
-from bitflow.marshaller import CsvMarshaller
+from bitflow.marshaller import *
 
 def read_header(marshaller, s, buffer_size=2048):
 	b = ""
@@ -18,18 +18,17 @@ def read_header(marshaller, s, buffer_size=2048):
 
 class Source(multiprocessing.Process):
 
-	def __init__(self, queue, marshaller):
+	def __init__(self, queue):
 		self.queue = queue
-		self.marshaller = marshaller
 		self.header = None
 		super().__init__()
 
 	def __str__(self):
 		return "Source"
 
-	def into_pipeline(self, line, header):
+	def into_pipeline(self, marshaller, line, header):
 		try:
-			sample = self.marshaller.unmarshall_sample(header, line)
+			sample = marshaller.unmarshall_sample(header, line)
 		except:
 			logging.info("{}: marshalling of header {} \n and sample {} failed",self.__name__, header, line)
 			return
@@ -50,7 +49,7 @@ class FileSource:
 
 	def __init__(self, filename, pipeline, marshaller):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
-		self.pipeline = pipeline
+		self.pipeline = 2
 		self.filesource = _FileSource(self.running,filename,pipeline.queue,marshaller)
 
 	def start(self):
@@ -67,8 +66,9 @@ class _FileSource(Source):
 		self.filename = filename
 		self.f = None
 		self.header = None
+		self.marshaller = marshaller
 		self.__name__ = "FileSource"
-		super().__init__(queue, marshaller)
+		super().__init__(queue)
 
 	def __str__(self):
 		return "FileSource"
@@ -97,7 +97,7 @@ class _FileSource(Source):
 		if line == "":
 			self.stop()	
 			return 
-		self.into_pipeline(line, self.header)
+		self.into_pipeline(line=line, header=self.header, marshaller=self.marshaller)
 
 	def read_line(self):
 		line = self.f.readline().strip()
@@ -110,10 +110,10 @@ class _FileSource(Source):
 # Pulls / Downloads incoming data on the specified host:port
 class DownloadSource:
 
-	def __init__(self, marshaller, pipeline, host, port, buffer_size=2048):
+	def __init__(self, pipeline, host, port, buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
-		self.downloadsource = _DownloadSource(self.running, host, port, pipeline.queue, marshaller, buffer_size)
+		self.downloadsource = _DownloadSource(self.running, host, port, pipeline.queue, buffer_size)
 
 	def start(self):
 		self.downloadsource.start()
@@ -124,7 +124,7 @@ class DownloadSource:
 
 class _DownloadSource(Source):
 
-	def __init__(self,running,host,port,queue,marshaller,buffer_size=2048,timeout_after_failed_to_connect=0.5):
+	def __init__(self,running,host,port,queue,buffer_size=2048,timeout_after_failed_to_connect=1):
 		self.running = running
 		self.host = host
 		self.port = port
@@ -135,10 +135,24 @@ class _DownloadSource(Source):
 		self.cached_lines = []
 		self.buffer_size = buffer_size
 		self.__name__ = "DownloadSource"
-		super().__init__(queue, marshaller)
+		super().__init__(queue)
 
 	def __str__(self):
 		return "DownloadSource"
+
+	def connect(self):
+		logging.info("{}: trying to connect to {}:{} ...".format(self.__name__,self.host,self.port))
+		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.s.settimeout(1)
+
+		self.s.connect((self.host, self.port))
+		logging.info("{}: connected to {}:{} ...".format(self.__name__,self.host,self.port))
+
+	def is_connected(self):
+		if self.s != None:
+			return True
+		else:
+			return False
 
 	def loop(self):
 		if not self.is_connected():
@@ -146,22 +160,14 @@ class _DownloadSource(Source):
 				self.connect()
 			except socket.gaierror as gai:
 				logging.warning("{}: Could not connect to {}:{} ...".format(self.__name__,self.host, self.port))
-				self.s.close()
 				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
 				return
-			except:
-				logging.error("{}: unknown socket error ...".format(self.__name__))
-				self.stop()
-		
-			try:
-				self.header, self.b = read_header(
-					marshaller=self.marshaller,
-					s = self.s,
-					buffer_size=self.buffer_size)
-			except:
-				logging.error("{}: parsing header failed ...".format(self.__name__))
-				self.stop()
+			except ConnectionRefusedError:
+				logging.warning("{}: Connection refused from {}:{} ...".format(self.__name__,self.host, self.port))
+				time.sleep(self.timeout_after_failed_to_connect)
+				self.s = None
+				return
 
 		try:
 			self.b += self.s.recv(self.buffer_size).decode()
@@ -172,31 +178,36 @@ class _DownloadSource(Source):
 			logging.warning("{}: encoding error ...".format(self.__name__))
 			logging.warning(self.s.recv(self.buffer_size))
 			self.close_connection()
+		except socket.timeout:
+			return
 
 		lines = self.b.split("\n")
 		last_element= lines[len(lines)-1]
 		if not last_element.endswith("\n"):
 			self.b=lines.pop()
 		for line in lines:
-			self.into_pipeline(line,self.header)	
+			if not self.header: 
+				if line.startswith(CSV_HEADER_START_STRING):
+					self.marshaller = CsvMarshaller()
+					self.header = self.marshaller.unmarshall_header(line)
+					logging.info("{}: found header with {} values ...".format(self.__name__,len(self.header.header)))
+					continue
+				elif line.startswith(BIN_HEADER_START_STRING):
+					raise Exception("Binary format not supported yet ...")
+				else:
+					raise Exception("Unsupported data format, or missing header")
+
+			if line.startswith(self.marshaller.HEADER_START_STRING):
+				self.header = self.marshaller.unmarshall_header(line)
+				logging.info("{}: header changed, new header has {} values ...".format(self.__name__,len(self.header.header)))
+				continue
+
+			self.into_pipeline(line=line,header=self.header,marshaller=self.marshaller)
 
 	def close_connection(self):
 		self.s.close()
 		self.s = None
 		time.sleep(0.1)
-
-	def connect(self):
-		logging.info("{}: trying to connect to {}:{} ...".format(self.__name__,self.host,self.port))
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-		self.s.connect((self.host, self.port))
-		logging.info("{}: connected to {}:{} ...".format(self.__name__,self.host,self.port))
-
-	def is_connected(self):
-		if self.s != None:
-			return True
-		else:
-			return False
 
 	def on_close(self):
 		self.s.close()
@@ -240,7 +251,7 @@ class _ListenSource(Source):
 			exit(1)
 		self.inputs = [self.server]
 		self.connections = {}
-		super().__init__(queue,marshaller)
+		super().__init__(queue)
 
 	def close_connection(self,s,connections,inputs):
 		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
@@ -251,8 +262,6 @@ class _ListenSource(Source):
 	def bind_port(self,host,port):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		# MAYBE INCLUDE AGAIN
-		# server.setblocking(0)
 		server.bind((host, port))
 		server.listen(1)
 		return server
@@ -290,7 +299,7 @@ class _ListenSource(Source):
 				if not last_element.endswith("\n"):
 					self.connections[s]["remainng_bytes"]=lines.pop()
 				for line in lines:
-					self.into_pipeline(line,self.connections[s]["header"])
+					self.into_pipeline(marshaller=self.marshaller,line=line,header=self.connections[s]["header"])
 
 		for s in exceptional:
 			self.close_connection(s,self.connections,self.inputs)

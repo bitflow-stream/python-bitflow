@@ -13,7 +13,10 @@ class Pipeline(threading.Thread):
 		self.queue = None
 		self.maxsize = maxsize
 
-		self.multiprocessing_input = multiprocessing_input
+		if multiprocessing_input:
+			self.queue = multiprocessing.Queue(maxsize=self.maxsize)
+		else:
+			self.queue = queue.Queue(maxsize=self.maxsize)
 
 		self.processing_steps = []
 		self.running = True
@@ -42,10 +45,6 @@ class Pipeline(threading.Thread):
 				processing_step.start()
 
 	def run(self):
-		if self.multiprocessing_input:
-			self.queue = multiprocessing.Queue(maxsize=self.maxsize)
-		else:
-			self.queue = queue.Queue(maxsize=self.maxsize)
 
 		self.prepare_processing_steps()
 		while self.running:

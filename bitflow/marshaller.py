@@ -2,8 +2,11 @@ import logging,datetime
 
 from bitflow.sample import Sample,Header
 
+CSV_HEADER_START_STRING = "time"
+BIN_HEADER_START_STRING = "timB"
+
 class Marshaller:
-	
+
 	def marshall_header(self, sink,header):
 		raise NotImplementedError
 
@@ -21,6 +24,7 @@ class CsvMarshaller(Marshaller):
 	SEPERATOR=","
 	NEWLINE='\n'
 	SPACE=" " 
+	HEADER_START_STRING = "time"
 
 	def __init__(self):
 		pass
