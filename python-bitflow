@@ -7,8 +7,9 @@ import queue
 import signal
 import sys
 
+from bitflow.helper import *
 from bitflow.script_parser import * 
-from bitflow.source import *
+
 
 PIPES_INPUTS = []
 CLOSING = False
@@ -54,13 +55,15 @@ def main():
 	parser = argparse.ArgumentParser()
 	
 	# argparse does not support no flag optional arguments ...
+	# mutually_exclusive groups cannot have name ...
 	script_group = parser.add_mutually_exclusive_group(required=True)
 	script_group.add_argument('-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
-	parser.add_argument("-capabilities",action='store_true',help="list all available processing steps")
+	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
 
-	parser.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
-	parser.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
+	ld_group = parser.add_argument_group("logging and debug")
+	ld_group.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
+	ld_group.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
 	args = parser.parse_args()
 
 	#################
@@ -79,8 +82,8 @@ def main():
 		logging.debug("debug mode enabled")
 	
 	if args.capabilities:
-		pass
-		#capabilities()
+		import bitflow.fork
+		bitflow.fork.capabilities()
 		sys.exit(0)
 	
 	if args.f:
@@ -105,7 +108,7 @@ def main():
 		strg_c_exit()
 		sys.exit(1)
 	except Exception as e:
-		logging.error(pe)
+		logging.error(e)
 		strg_c_exit()
 		sys.exit(1)
 	exit(0)

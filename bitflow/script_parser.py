@@ -8,9 +8,11 @@ from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline
 from bitflow.processingstep import *
+from bitflow.steps.plotprocessingsteps import *
 from bitflow.fork import *
-
+from bitflow.helper import *
 from bitflow.marshaller import CsvMarshaller
+
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
@@ -24,17 +26,7 @@ DEFAULT_TCP_DATA_FORMAT = "csv"
 DEFAULT_STD_DATA_FORMAT = "csv"
 
 
-class NotSupportedError(Exception):
-    pass
 
-class NotSupportedWarning(Exception):
-    pass
-
-class ProcessingStepNotKnow(Exception):
-    pass
-
-class ParsingError(Exception):
-    pass
 
 #G4:   processingStep : name parameters schedulingHints? ;
 def build_processing_step(processing_step_ctx):

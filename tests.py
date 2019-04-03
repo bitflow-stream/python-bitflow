@@ -25,6 +25,11 @@ def remove_file(f):
         logging.info("deleted file {} ...".format(f))
 
 
+class PythonBitflow(unittest.TestCase):
+
+    def test_capabilities(self):
+        capabilities()
+
 class WildcardCompare(unittest.TestCase):
 
     def test_string_to_string(self):
@@ -227,6 +232,7 @@ class TestInputOutput(unittest.TestCase):
                         marshaller=CsvMarshaller(),
                         pipeline=a_pipeline,
                         port=port)
+        
         a_pipeline.start()
         a_listen_source.start()
 
