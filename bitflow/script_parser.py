@@ -26,6 +26,34 @@ DEFAULT_TCP_DATA_FORMAT = "csv"
 DEFAULT_STD_DATA_FORMAT = "csv"
 
 
+def capabilities():
+    ''' returns all steps as json '''
+
+    steps_lst = []
+
+    processing_steps = ProcessingStep.subclasses
+    for step in processing_steps:
+        step_dict = {}
+        step_dict["Name"] = step.__name__
+        if isinstance(step,Fork):
+            step_dict["isFork"] = True
+        else:
+            step_dict["isFork"] = False
+        if step.__description__:
+            step_dict["Description"] = step.__description__
+        required_step_args = {}
+        optional_step_args = {}
+
+        get_required_and_optional_args( step=step,
+                                        required_step_args=required_step_args,
+                                        optional_step_args=optional_step_args)
+
+        step_dict["RequiredParms"] = [ parm for parm in required_step_args.keys() ]
+        step_dict["OptionalParms"] = [ parm for parm in optional_step_args.keys() ]
+        steps_lst.append(step_dict)
+
+    import json
+    print(json.dumps(steps_lst,sort_keys=True))
 
 
 #G4:   processingStep : name parameters schedulingHints? ;

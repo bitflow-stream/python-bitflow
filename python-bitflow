@@ -82,8 +82,7 @@ def main():
 		logging.debug("debug mode enabled")
 	
 	if args.capabilities:
-		import bitflow.fork
-		bitflow.fork.capabilities()
+		capabilities()
 		sys.exit(0)
 	
 	if args.f:
