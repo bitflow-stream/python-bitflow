@@ -2,7 +2,6 @@ import threading
 import logging
 import queue
 import multiprocessing
-from bitflow.processingstep import AsyncProcessingStep
 
 class Pipeline(threading.Thread):
 
@@ -39,7 +38,7 @@ class Pipeline(threading.Thread):
 
 	def prepare_processing_steps(self):
 		for processing_step in self.processing_steps:
-			if isinstance(processing_step, AsyncProcessingStep):
+			if isinstance(processing_step, threading.Thread):
 				processing_step.start()
 			elif isinstance(processing_step, Pipeline):
 				processing_step.start()
@@ -76,7 +75,7 @@ class Pipeline(threading.Thread):
 	def close_processing_steps(self):
 		for ps in self.processing_steps:
 			ps.stop()
-			if isinstance(ps, AsyncProcessingStep):
+			if isinstance(ps, threading.Thread):
 				ps.join()
 
 
