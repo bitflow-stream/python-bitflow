@@ -60,7 +60,7 @@ def main():
 	script_group.add_argument('-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
-
+	#parser.add_argument("-p",help="dynamic import processing steps from a .py file")
 	ld_group = parser.add_argument_group("logging and debug")
 	ld_group.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
 	ld_group.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
@@ -81,6 +81,15 @@ def main():
 		configure_logging(debug)
 		logging.debug("debug mode enabled")
 	
+
+	#if args.p:
+	#	import importlib.util
+	#	file_path = args.p
+	#	module_name = '*'
+	#	spec = importlib.util.spec_from_file_location(module_name, file_path)
+	#	module = importlib.util.module_from_spec(spec)
+	#	spec.loader.exec_module(module)
+
 	if args.capabilities:
 		capabilities()
 		sys.exit(0)
@@ -89,6 +98,7 @@ def main():
 		script = read_script(args.f)
 	if args.script:
 		script = args.script
+
 
 	try:
 		PIPES_INPUTS = parse_script(script)
