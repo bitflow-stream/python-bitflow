@@ -11,7 +11,7 @@ class PlotTagBoxplot(ProcessingStep):
 
 	def __init__(self,
 				metric_name : str,
-				tag : str,
+				tag : str = "",
 				filename : str = "",
 				ylabel : str = "",
 				xlabel : str = "",
@@ -64,10 +64,15 @@ class PlotTagBoxplot(ProcessingStep):
 		except ValueError:
 			self.write(sample)
 
-		tv = sample.get_tag(self.tag)
-		if tv not in self.values:
-			self.values[tv] = []
-		self.values[tv].append(float(sample.metrics[index]))
+		if self.tag == "":
+			if not self.metric_name in self.values:
+				self.values[self.metric_name]= []
+			self.values[self.metric_name].append(float(sample.metrics[index]))
+		else:
+			tv = sample.get_tag(self.tag)
+			if tv not in self.values:
+				self.values[tv] = []
+			self.values[tv].append(float(sample.metrics[index]))
 
 		self.write(sample)
 
@@ -134,7 +139,7 @@ class PlotLinePlot(ProcessingStep):
 			raise NotSupportedError("{}: file format, {}, not supported ...".format(file_format))
 
 		if filename == "":
-			self.filename = self.__name__ + "-" + metric_name + "." + file_format
+			self.filename = self.__name__ + "-" + self.metric_names[0] + "." + file_format
 		else: 
 			self.filename = filename
 		if ylabel == "":
