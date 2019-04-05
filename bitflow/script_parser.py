@@ -10,6 +10,11 @@ from bitflow.pipeline import Pipeline
 from bitflow.fork import *
 from bitflow.processingstep import *
 from bitflow.steps.plotprocessingsteps import *
+<<<<<<< HEAD
+=======
+from bitflow.steps.examplestep import *
+from bitflow.fork import *
+>>>>>>> 2bb613d4d48c64cfb8b7ca5224014debd48dd011
 from bitflow.helper import *
 from bitflow.marshaller import CsvMarshaller
 
