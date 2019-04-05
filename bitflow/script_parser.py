@@ -9,7 +9,6 @@ from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline
 from bitflow.processingstep import *
 from bitflow.steps.plotprocessingsteps import *
-from bitflow.steps.examplestep import *
 from bitflow.fork import *
 from bitflow.helper import *
 from bitflow.marshaller import CsvMarshaller
