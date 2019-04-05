@@ -14,17 +14,12 @@ from bitflow.script_parser import *
 PIPES_INPUTS = []
 CLOSING = False
 
-def configure_logging(debug,filename=None):
+def configure_logging(logging_level,filename=None):
 	if filename is None:
-		if debug:
-			logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
-		else:
-			logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+		logging.basicConfig(format='%(asctime)s %(message)s', level=logging_level)
 	else:
-		if debug:
-			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.DEBUG)
-		else:
-			logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging.INFO)
+		logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging_level)
+
 
 def strg_c_exit():
 	global PIPES_INPUTS
@@ -57,38 +52,53 @@ def main():
 	# argparse does not support no flag optional arguments ...
 	# mutually_exclusive groups cannot have name ...
 	script_group = parser.add_mutually_exclusive_group(required=True)
-	script_group.add_argument('-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
+	script_group.add_argument('-s','-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
-
+	parser.add_argument("-p",metavar="my_steps.py",help="dynamic import processing steps from a .py file")
 	ld_group = parser.add_argument_group("logging and debug")
 	ld_group.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
-	ld_group.add_argument("-v",action='store_true',help="Enable verbose logging Sink")
+	# general groups can not be combined with mutex groups....
+	ld_group.add_argument("-v",action='store_true',help=" Set log level to Debug (default is Info)")
+	ld_group.add_argument("-q",action='store_true',help=" Set log level to Warning")
+	ld_group.add_argument("-qq",action='store_true',help=" Set log level to Error")
+
 	args = parser.parse_args()
 
-	#################
-	# MANAGE DEBUG  #
-	#################
+	##########################
+	# MANAGE DEBUG & LOGGING #
+	##########################
 
-	debug = False
+	log_level = logging.INFO
+	if args.qq:
+		log_level = logging.ERROR
+	if args.q:
+		log_level = logging.WARNING
 	if args.v:
-		debug = True
-
+		log_level = logging.DEBUG
 	if args.log:
 		logfile = args.log
-		configure_logging(debug,logfile)
+		configure_logging(log_level,logfile)
 	else:
-		configure_logging(debug)
+		configure_logging(log_level)
 		logging.debug("debug mode enabled")
 	
+	if args.p:
+		import importlib.util
+		file_path = args.p
+		module_name = '*'
+		spec = importlib.util.spec_from_file_location(module_name, file_path)
+		module = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(module)
+
 	if args.capabilities:
 		capabilities()
 		sys.exit(0)
 	
 	if args.f:
 		script = read_script(args.f)
-	if args.script:
-		script = args.script
+	if args.s:
+		script = args.s
 
 	try:
 		PIPES_INPUTS = parse_script(script)

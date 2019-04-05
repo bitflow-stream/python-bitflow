@@ -161,7 +161,7 @@ class AsyncProcessingStep(ProcessingStep,threading.Thread):
 
 class DebugGenerationStep(AsyncProcessingStep):
 	"""example generativ processing step"""
-	__name__ = "DebugGenerationStep"
+	__name__ = "debug-generation-step"
 	__description__ = "DEBUG. Generates random samples with different tages."
 
 	def __init__(self):
@@ -196,7 +196,7 @@ class DebugGenerationStep(AsyncProcessingStep):
 class Noop(ProcessingStep):
 
 	__description__ = "DEBUG. Noop."
-
+	__name__ = "noop"
 
 	def __init__(self):
 		super().__init__()
@@ -211,6 +211,7 @@ class ModifyTimestamp(ProcessingStep):
 	interval: in seconds
 	"""
 	__description__ = "Modifies Timestamp so that the first sample will get timestamp of start_time parameter"
+	__name__ = "modify-timestamp"
 
 	def __init__(self,interval : int ,start_time : str = "now"):
 		try:
@@ -238,8 +239,8 @@ class ListenForTags(ProcessingStep):
 
 	port: port to listen on
 	"""
-
 	__description__ = "Opens a rest-interface to add tags to traversing samples"
+	__name__ = "listen-for-tags"
 
 	def __init__(self,port : int = 7777):
 		from bitflow.rest import RestServer
@@ -268,8 +269,8 @@ class AddTag(ProcessingStep):
 	tag: tag name
 	value: value string 
 	"""
-
 	__description__ = "Adds a give tag and value to the samples"
+	__name__ = "add-tag"
 
 	def __init__(self, tag : str, value : str):	
 		super().__init__()

@@ -39,7 +39,7 @@ def main():
 	# port to provide data on
 	listen_port=5012
 	# file to provide via port
-	in_file = "/tmp/test_filea.txt"
+	in_file = "testing/testing_file_in.txt"
 
 	# prepare ListenSink
 	ls = ListenSink(host="localhost",

@@ -6,7 +6,7 @@ import sys
 from bitflow.sinksteps import TerminalOut
 from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline
-from bitflow.processingstep import SimpleLinePlot  
+from bitflow.steps.plotprocessingsteps import PlotLinePlot  
 from bitflow.source import FileSource
 
 
@@ -23,12 +23,12 @@ def main():
 	pipeline = Pipeline()
 
 	# add processingsteps to pipeline
-	pipeline.add_processing_step(SimpleLinePlot("pkg_out_1000-1100"))
+	pipeline.add_processing_step(PlotLinePlot(metric_names="pkg_out_1000-1100"))
 	# add terminal output to pipeline
 	pipeline.add_processing_step(TerminalOut())
 	
 	# start pipeline
-	pipeline.add_processing_step(SimpleLinePlot("pkg_out_1000-1100"))
+	pipeline.add_processing_step(PlotLinePlot(metric_names="pkg_out_1000-1100"))
 	pipeline.add_processing_step(TerminalOut())
 	pipeline.start()
 
