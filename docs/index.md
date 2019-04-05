@@ -47,9 +47,11 @@ python-bitflow -script "testing/testing_file_in.txt -> my_processing()" -p my_pr
 Current version does not close properly in all cases. Use strg-C to exit.
 
 ## Library Examples
-bitflow-example.py: provides a short overview about how to setup a pipeline and initialize source,sink, and processing steps.
-download-data.py: downloads data from a given endpoint, filters samples
-provide-data.py: reads a file and provides this file via a listen port
+**bitflow-example.py**: provides a short overview about how to setup a pipeline and initialize source,sink, and processing steps.
+
+**download-data.py**: downloads data from a given endpoint, filters samples
+
+**provide-data.py**: reads a file and provides this file via a listen port
 
 ## TODO
 * support binary bitflow format
