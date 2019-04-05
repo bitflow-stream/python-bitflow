@@ -5,6 +5,7 @@ import sys
 import time
 import unittest
 import os
+from bitflow.script_parser import *
 from bitflow.sinksteps import *
 from bitflow.processingstep import *
 from bitflow.marshaller import CsvMarshaller

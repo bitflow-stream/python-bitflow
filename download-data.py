@@ -49,7 +49,7 @@ def main():
 
 	# INSERT DOWNLOAD HOST
 	download_host=""
-	download_port=5025
+	download_port=5012
 	out_file = "/tmp/test_filea.txt"
 	serials = ["66"]
 
@@ -67,7 +67,6 @@ def main():
 	download_source = DownloadSource(host=download_host,
 									port=download_port,
 									pipeline=pipeline,
-									marshaller=CsvMarshaller(),
 									buffer_size=2048)
 	download_source.start()
 
