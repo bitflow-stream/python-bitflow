@@ -7,9 +7,9 @@ from bitflow.BitflowParser import BitflowParser
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline
+from bitflow.fork import *
 from bitflow.processingstep import *
 from bitflow.steps.plotprocessingsteps import *
-from bitflow.fork import *
 from bitflow.helper import *
 from bitflow.marshaller import CsvMarshaller
 
@@ -344,8 +344,9 @@ def parse_pipelines(pipelines_ctx):
     for pipeline_ctx in pipelines_ctx.pipeline():
         pipeline,inputs = build_pipeline(pipeline_ctx)
         pipeline.start()
-        for i in inputs:
-            i.start()
+        if inputs:
+            for i in inputs:
+                i.start()
         pipes_and_inputs.append((pipeline,inputs))
     return pipes_and_inputs
 
