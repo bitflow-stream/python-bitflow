@@ -375,7 +375,7 @@ class TerminalOut(ProcessingStep):
 			for k,v in sample.tags.items():
 					t_str += ", {}={}".format(k,v)
 				
-		print("{} {} {}".format(sample.timestamp,t_str,s_str))
+		print("{} {} {}".format(sample.get_printable_timestamp(),t_str,s_str))
 
 	def execute(self,sample):
 		if self.header_printed is False:
