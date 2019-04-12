@@ -40,7 +40,7 @@ class TCPSink(AsyncProcessingStep):
 				host : str, 
 				port : int, 
 				data_format : str = CSV_FORMAT_IDENTIFIER,
-				reconnect_timeout : int =2):
+				reconnect_timeout : int = 2):
 	
 		super().__init__()
 		self.marshaller = get_marshaller(data_format)
@@ -56,13 +56,9 @@ class TCPSink(AsyncProcessingStep):
 		logging.info("{}: initialized ...".format(self.__name__))
 
 	def connect(self):
-		try:
 			self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.s.connect((self.host, self.port))
 			self.wrapper = SocketWrapper(self.s)
-		except socket.error:
-			logging.warning("{}: connection error in with {}:{} ...".format(self.__name__,self.host, self.port))
-			sys.exit(1)
 
 	def is_connected(self):
 		connected = False
@@ -110,8 +106,10 @@ class TCPSink(AsyncProcessingStep):
 		self.header = None
 		if self.s:
 			self.s.close()
+			self.s = None
 		if self.wrapper:
 			self.wrapper.socket.close()
+			self.wrapper = None
 
 	def stop(self):
 		#self.que.join()
@@ -375,7 +373,7 @@ class TerminalOut(ProcessingStep):
 			for k,v in sample.tags.items():
 					t_str += ", {}={}".format(k,v)
 				
-		print("{} {} {}".format(sample.timestamp,t_str,s_str))
+		print("{} {} {}".format(sample.get_printable_timestamp(),t_str,s_str))
 
 	def execute(self,sample):
 		if self.header_printed is False:
