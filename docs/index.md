@@ -1,7 +1,7 @@
 # python-bitflow
 **python-bitflow** is a python library for sending, receiving and transforming streams of data. Read the documentation under [bitflow.rtfd.io](https://bitflow.readthedocs.io/en/latest/ "Bitflow documentation") to learn more about bitflow and the correlated projects.
 
-Python-bitflow is current running in python3.6. It may run under other python3.x version but is not tested yet.
+Python-bitflow is current running in python3.7. It may run under other python3.x version but is not tested yet.
 
 ## Installation
 You can install python-bitflow by running the following command. This will put the exection script python-bitflow into your $PATH and will make the bitflow classes availble within your current python environmnet.

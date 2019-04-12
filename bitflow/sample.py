@@ -1,4 +1,7 @@
-import logging,datetime,copy
+import logging
+import numpy as np
+import copy
+import time
 
 class Sample:
 
@@ -6,8 +9,8 @@ class Sample:
 		self.header = Header(header.header,header.has_tags)
 		self.metrics = metrics
 		if not timestamp:
-			timestamp = datetime.datetime.now() 
-		self.timestamp = str(timestamp)
+			timestamp = np.datetime64(time.time_ns(),'ns')
+		self.timestamp =  np.datetime64(timestamp)
 		self.tags = {}
 
 	def extend(self,metric):
@@ -23,15 +26,20 @@ class Sample:
 		return m
 
 	def get_timestamp(self):
-		dt = datetime.datetime.strptime(self.timestamp,'%Y-%m-%d %H:%M:%S.%f')
-		return dt.timestamp()
+		ts = np.datetime64(self.timestamp)
+		return ts
+
+	def get_epoch_timestamp(self):
+		epoch_timestamp = self.timestamp.astype('datetime64[ns]').astype('float')
+		return epoch_timestamp
+
+	def get_printable_timestamp(self):
+		pts = str(self.timestamp).replace("T"," ")
+		return pts
 
 	def set_timestamp(self,timestamp):
-		self.timestamp = str(timestamp)
+		self.timestamp = np.datetime64(timestamp)
 
-	#def get_epoch_timestamp(self):
-	#	epoch_timestamp = datetime.datetime(self.timestamp).timestamp()
-	#	return epoch_timestamp
 
 	def remove_metrics(self,index):
 		self.header.header.remove(index)
