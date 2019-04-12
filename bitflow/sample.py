@@ -9,8 +9,9 @@ class Sample:
 		self.header = Header(header.header,header.has_tags)
 		self.metrics = metrics
 		if not timestamp:
-			timestamp = np.datetime64(time.time_ns(),'ns')
-		self.timestamp =  np.datetime64(timestamp)
+			self.timestamp = np.datetime64(time.time_ns(),'ns')
+		else:
+			self.timestamp =  np.datetime64(timestamp)
 		self.tags = {}
 
 	def extend(self,metric):
@@ -26,14 +27,13 @@ class Sample:
 		return m
 
 	def get_timestamp(self):
-		ts = np.datetime64(self.timestamp)
-		return ts
+		return self.timestamp
 
 	def get_printable_timestamp(self):
 		pts = str(self.timestamp).replace("T"," ")
 		return pts
 
-	def set_timestamp(self,timestamp):
+	def set_timestamp(self,timestamp : str):
 		self.timestamp = np.datetime64(timestamp)
 
 	def get_epoch_timestamp(self):
