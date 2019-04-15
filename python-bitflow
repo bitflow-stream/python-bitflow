@@ -25,8 +25,9 @@ def strg_c_exit():
 	global PIPES_INPUTS
 	logging.warning("Closing python-bitflow ...")
 	for p,inputs in PIPES_INPUTS:
-		for i in inputs:
-			i.stop()
+		if inputs:
+			for i in inputs:
+				i.stop()
 		p.stop()
 
 
@@ -56,6 +57,8 @@ def main():
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
 	parser.add_argument("-p",help="dynamic import processing steps from a .py file")
+	parser.add_argument("-d",type=int,help="duration to run in seconds")
+
 	ld_group = parser.add_argument_group("logging and debug")
 	ld_group.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
 	# general groups can not be combined with mutex groups....
@@ -120,6 +123,10 @@ def main():
 		logging.error(e)
 		strg_c_exit()
 		sys.exit(1)
+	if args.d:
+		import time
+		time.sleep(args.d)
+		strg_c_exit()
 	exit(0)
 
 
