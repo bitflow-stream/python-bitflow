@@ -56,6 +56,7 @@ def main():
 	script_group.add_argument('-s','-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
+
 	parser.add_argument("-p",help="dynamic import processing steps from a .py file")
 	parser.add_argument("-d",type=int,help="duration to run in seconds")
 

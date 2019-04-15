@@ -64,9 +64,9 @@ class CsvMarshaller(Marshaller):
 
 	def marshall_sample(self, sink, sample):
 		if len(sample.metrics) > 0 or sample.header.has_tags:
-			s = str(sample.timestamp) + self.SEPERATOR
+			s = str(sample.get_printable_timestamp()) + self.SEPERATOR
 		else:
-			s = str(sample.timestamp)+"\n"
+			s = str(sample.get_printable_timestamp())+"\n"
 		
 		if sample.header.has_tags:
 			s += str(self.build_csv_tags(sample.tags))
