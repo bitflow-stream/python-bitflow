@@ -126,7 +126,7 @@ def explicit_data_output(output_type, output_url):
     if output_type == "file":
         if not data_format:
             data_format = DEFAULT_FILE_DATA_FORMAT
-        logging.info("FileSink: " + str(output_url))
+        logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
         output_ps = FileSink(   filename=output_url,
                                 data_format=data_format)
 
@@ -191,7 +191,7 @@ def implicit_data_output(output_str):
         output_ps = TerminalOut()
 
     else:
-        logging.info("FileSink: " + output_str)
+        logging.info("FileSink: " + str(FileSink.get_filepath(output_str)))
         output_ps = FileSink(   filename=output_str,
                                 data_format=DEFAULT_FILE_DATA_FORMAT)
 
