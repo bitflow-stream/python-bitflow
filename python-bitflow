@@ -57,7 +57,7 @@ def main():
 	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
 	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
 
-	parser.add_argument("-p",help="dynamic import processing steps from a .py file")
+	parser.add_argument("-p",,metavar="my_steps.py",help="dynamic import processing steps from a .py file")
 	parser.add_argument("-d",type=int,help="duration to run in seconds")
 
 	ld_group = parser.add_argument_group("logging and debug")
