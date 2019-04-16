@@ -294,23 +294,34 @@ class FileSink(AsyncProcessingStep):
 		self.is_running = True
 		self.header = None
 
-	def check_file_exists(self,path):
+	def check_file_exists(path):
 		from pathlib import Path
 		my_file = Path(path)
 		if my_file.is_file():
 			return True
 		return False
 
-	def open_file(self):
-		suffix = ""
+	def get_filepath(filename):
 		i = 0
-		while self.check_file_exists(path=self.filename+suffix):
+		numbering = ""
+		file_ending = ""
+		last_dot_pos = filename.rfind(".")
+
+		if last_dot_pos == -1:
+			base_filename = filename
+		else:
+			base_filename = filename[0:last_dot_pos]
+			file_ending = filename[last_dot_pos:len(filename)]
+
+		while FileSink.check_file_exists(path=base_filename + numbering + file_ending):
 			i+=1
-			suffix="-{}".format(i)
-		try:
-			self.f = open(self.filename+suffix, 'w')
-		except:
-			logging.error("{}: could not open file,  {} ...".format(self.__name__,self.filename))
+			numbering="-{}".format(i)
+		return base_filename + numbering + file_ending
+
+	def open_file(self,filename):
+		final_filename = FileSink.get_filepath(filename)
+		self.f = open(final_filename, 'w')
+		return final_filename
 
 	def execute(self,sample):
 		self.que.put(sample)
@@ -329,7 +340,8 @@ class FileSink(AsyncProcessingStep):
 			self.header = sample.header
 			if self.f is not None:
 				self.f.close()
-			self.open_file()
+			new_filename = self.open_file(self.filename)
+			logging.info("header changed, opening new file {} ...".format(new_filename))
 			self.marshaller.marshall_header(sink=self.f, header=self.header)
 		self.marshaller.marshall_sample(sink=self.f, sample=sample)
 		self.f.flush()
