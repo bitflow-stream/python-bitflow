@@ -56,7 +56,6 @@ Current version does not close properly in all cases. Use strg-C to exit.
 ## TODO
 * support binary bitflow format
 * intensive testing
-* automatic source recognition (removes marshaller parameter from sources)
 * closing python-bitflow properly
 
 ## Known Issues:
