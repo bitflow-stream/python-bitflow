@@ -1,9 +1,30 @@
-import logging,datetime
+import logging
+import struct
 
 from bitflow.sample import Sample,Header
 
+
 CSV_HEADER_START_STRING = "time"
 BIN_HEADER_START_STRING = "timB"
+CSV_HEADER_START_BYTES = CSV_HEADER_START_STRING.encode("UTF-8")
+BIN_HEADER_START_BYTES = BIN_HEADER_START_STRING.encode("UTF-8")
+
+def parse_tags(tags_string):
+	tags_dict = {}
+	if tags_string == "":
+		return tags_dict
+	try:
+		tags_tuple = tags_string.split(" ")
+		for tags in tags_tuple:
+			if "=" in tags:
+				key,value = tags.split('=')
+				tags_dict[key] = value
+			else:
+				logging.warning("Unable to parse Tag: " + tags_string)
+	except Exception as e:
+		logging.error("Bad Tag parsing! \n " + e)
+		return ""
+	return tags_dict
 
 class Marshaller:
 
@@ -24,128 +45,140 @@ class CsvMarshaller(Marshaller):
 	SEPERATOR=","
 	NEWLINE='\n'
 	SPACE=" " 
-	HEADER_START_STRING = "time"
+	HEADER_START_STRING = CSV_HEADER_START_STRING
+	HEADER_START_BYTES = CSV_HEADER_START_BYTES
+	END_OF_HEADER_CHAR = b'\n'
+	END_OF_HEADER_CHAR_LEN = 1
 
 	def __init__(self):
 		pass
 
-	def build_csv_string(self, h):
+	def build_header_csv_string(self, header):
 		s = ""
-		string_count = len(list(h))
+		string_count = len(header)
 		list_position = 1
-		for i in h:
+		for value in header:
 			if(list_position == string_count):
-				s += str(h[-1]) + self.NEWLINE	
+				s += str(value) + CsvMarshaller.NEWLINE
 			else:
-				s += str(i) + self.SEPERATOR
+				s += str(value) + CsvMarshaller.SEPERATOR
 				list_position += 1
 		return s
 	
+	def build_metrics_csv_string(self, metrics):
+		s = ""
+		string_count = len(metrics)
+		list_position = 1
+		for metric in metrics:
+			if(list_position == string_count):
+				if metric.is_integer():
+					s += str(int(metric)) + CsvMarshaller.NEWLINE
+				else:
+					s += str(metric) + CsvMarshaller.NEWLINE
+			else:
+				if metric.is_integer():
+					s += str(int(metric)) + CsvMarshaller.SEPERATOR
+				else:
+					s += str(metric) + CsvMarshaller.SEPERATOR
+				list_position += 1
+		return s
+
 	def build_csv_tags(self,tags):
 		s = ""
 		tags_count = len(tags.items())
 		dict_position = 1
-		for k,v in tags.items(): # todo
+		for k,v in tags.items():
 			if(dict_position == tags_count):
-				s += str(k)+"="+str(v) + self.SEPERATOR
+				s += str(k)+"="+str(v) + CsvMarshaller.SEPERATOR
 			else:
-				s += str(k)+"="+str(v) + self.SPACE
+				s += str(k)+"="+str(v) + CsvMarshaller.SPACE
 				dict_position += 1
 		return s
 
 	def marshall_header(self, sink, header):
-		special_f = header.get_special_fields()
+		special_f = [self.HEADER_START_STRING,"tags"]
 		fields = special_f + header.header
-		s = self.build_csv_string(fields)
-		try:
-			sink.write(s)
-		except:
-			logging.error("writing sink failed to sink %s", str(sink))
-
-	def marshall_sample(self, sink, sample):
-		if len(sample.metrics) > 0 or sample.header.has_tags:
-			s = str(sample.get_printable_timestamp()) + self.SEPERATOR
-		else:
-			s = str(sample.get_printable_timestamp())+"\n"
-		
-		if sample.header.has_tags:
-			s += str(self.build_csv_tags(sample.tags))
-		
-		s += self.build_csv_string(sample.metrics)
+		s = self.build_header_csv_string(fields)
 		sink.write(s)
 
-	##############
-	# UNMARSHALL #
-	##############
-
-	def unmarshall_header(self,header_line):
-		try:
-			fields = header_line.split(',')
-		except:
-			pass #todo
-		has_tags = True
-
-		if len(fields) < 1 or fields[0] != Header.HEADER_TIME:
-			raise Exception('no '+ Header.HEADER_TIME +" set")
-			sys.exit(1)
-		if len(fields) == 1:
-			return Header([],False)
-
-		if fields[1] == Header.HEADER_TAGS:
-
-			has_tags = True
-			h = Header(fields[2:],has_tags)
-			return h
-
-		return Header(fields[1:],has_tags)
-		
-	def parse_tags(self,tags_string):
-		tags_dict = {}
-		if tags_string == "":
-			return tags_dict 
-		try:
-			tags_tuple = tags_string.split(' ')
-			for tags in tags_tuple:
-				if "=" in tags:
-					key,value = tags.split('=')
-					tags_dict[key] = value
-				else:
-					logging.warning("Unable to parse Tag: " + tags_string)
-		except Exception as e:
-			logging.error("Bad Tag parsing! \n " + e)
-			return ""
-		return tags_dict
-
-
-	def unmarshall_sample(self,header,metrics_line):
-		try:
-			metrics = metrics_line.split(",")
-		except Exception as metrics_split1:
-			logging.warning("unable to ,split " + metrics_line + "in CsvMarshaller->unmarshall_sample. " + str(metrics_split1))
-			return
-		timestamp = metrics[0]
-		if len(metrics)>1:
-			if header.has_tags:
-				tags_string = metrics[1]
-				metrics = metrics[2:]
-			else: 
-				metrics = metrics[1:]
-				tags_string = ""
-			# clean last newline
-			metrics[len(metrics)-1] = metrics[len(metrics)-1].strip()
-			tags = self.parse_tags(tags_string)
-			sample = Sample(header,metrics,timestamp)
-			for k,v in tags.items():
-				sample.add_tag(k,v)
+	def marshall_sample(self, sink, sample):
+		s = str(sample.get_printable_timestamp()) + CsvMarshaller.SEPERATOR
+		if sample.tags:
+			s += str(self.build_csv_tags(sample.tags))
 		else:
-			sample = Sample(header,[],timestamp)
+			s += ","
 
+		s += self.build_metrics_csv_string(sample.metrics)
+		sink.write(s)
+
+	def unmarshall_header(self,header):
+		header_line = header.decode("UTF-8").strip()
+		fields = header_line.split(',')
+		if len(fields) <= 1 or fields[0] != CsvMarshaller.HEADER_START_STRING:
+			raise Exception("Header to small or wrong data format ...")
+		return Header(fields[2:])
+
+	def unmarshall_sample(self,header,metrics):
+		metrics_line = metrics.decode("UTF-8").strip()
+		values = metrics_line.split(self.SEPERATOR)
+		metrics = [float(x) for x in values[2:len(values)]]
+		timestamp = values[0]
+		tags_string = values[1]
+		tags = parse_tags(tags_string)
+		sample = Sample(header=header,
+						metrics=metrics,
+						timestamp=timestamp,
+						tags=tags)
 		return sample
 
-	def is_header(self,header_line):
-		try:
-			if header_line.split(',')[0] == "time":
-				return True
-			return False
-		except:
-			return False
+class BinMarshaller:
+
+	NEWLINE='\n'
+	NEWLINE_BYTE = b'\n'
+	HEADER_START_STRING = BIN_HEADER_START_STRING
+	HEADER_START_BYTES = BIN_HEADER_START_BYTES
+	END_OF_HEADER_CHAR = b'\n\n'
+	END_OF_HEADER_CHAR_LEN = 3
+	BEGIN_OF_SAMPLE_BYTE = b'X'
+	TIMESTAMP_VALUE_BYTES_LEN = 8
+	METICS_VALUE_BYTES_LEN = 8
+
+	def __init__(self):
+		pass
+
+	def marshall_header(self, sink,header):
+		raise NotImplementedError
+
+	def marshall_sample(self, sink,sample):
+		raise NotImplementedError
+
+	def unmarshall_header(self,header):
+		header_lines = header.decode("UTF-8").strip()
+		fields = header_lines.split(BinMarshaller.NEWLINE)
+		if len(fields) <= 1 or fields[0] != BinMarshaller.HEADER_START_STRING:
+			raise Exception("Header to small or wrong data format ...")
+		return Header(fields[2:])
+
+	def unmarshall_sample(self,header,metrics):
+		offset = 0
+		# handle timestamp
+		timestamp_bytes = metrics[offset:offset + BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN]
+		timestamp = struct.unpack('>Q',timestamp_bytes)[0]
+		offset += BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
+		# handle tags
+		end_of_tags_byte = metrics.find(BinMarshaller.NEWLINE_BYTE)
+		tags_str = metrics[offset:end_of_tags_byte].decode("UTF-8")
+		tags_dict = parse_tags(tags_str)
+		offset = end_of_tags_byte + 1
+		# handle metrics
+		metrics_lst = []
+		for i in range(header.num_fields()):
+			metric = struct.unpack('>d',
+							metrics[offset:offset + BinMarshaller.METICS_VALUE_BYTES_LEN])[0]
+			metrics_lst.append(metric)
+			offset += BinMarshaller.METICS_VALUE_BYTES_LEN
+		sample = Sample(header=header,
+						metrics=metrics_lst,
+						timestamp=timestamp,
+						tags=tags_dict)
+		return sample

@@ -5,14 +5,20 @@ import time
 
 class Sample:
 
-	def __init__(self,header,metrics,timestamp=None):
-		self.header = Header(header.header,header.has_tags)
+	def __init__(self,header,metrics,timestamp=None,tags=None):
+		self.header = Header(header.header)
 		self.metrics = metrics
 		if not timestamp:
 			self.timestamp = np.datetime64(time.time_ns(),'ns')
 		else:
-			self.timestamp =  np.datetime64(timestamp)
-		self.tags = {}
+			if isinstance(timestamp,int):
+				self.timestamp =  np.datetime64(timestamp,'ns')
+			else:
+				self.timestamp =  np.datetime64(timestamp)
+		if tags:
+			self.tags = tags
+		else:
+			self.tags = {}
 
 	def extend(self,metric):
 		self.metrics.append(metric)
@@ -31,6 +37,8 @@ class Sample:
 
 	def get_printable_timestamp(self):
 		pts = str(self.timestamp).replace("T"," ")
+		while pts.endswith("0"):
+			pts = pts[0:len(pts)-1]
 		return pts
 
 	def set_timestamp(self,timestamp : str):
@@ -54,7 +62,7 @@ class Sample:
 		self.tags[tag_key] = tag_value
 
 	def header_changed(self,old_header):
-		return header.header_changed(old_header)
+		return header.has_changed(old_header)
 
 	@staticmethod
 	def new_empty_sample():
@@ -65,29 +73,15 @@ class Sample:
 
 class Header:
 
-	HEADER_TIME = "time"
-	HEADER_TAGS = "tags"
-
-	def __init__(self,header,has_tags=True):
-		self.has_tags = has_tags
+	def __init__(self,header):
 		self.header = list(header)
+		self.has_tags = True
 
 	def extend(self,metric_name):	
 		self.header.append(metric_name)
 
-	def num_special_fields(self):
-		if self.has_tags:
-			return 2
-		return 1
-
 	def num_fields(self):
 		return len(self.header)
-
-	def get_special_fields(self):
-		if self.has_tags:
-			return [self.HEADER_TIME, self.HEADER_TAGS]
-		else:
-			return [self.HEADER_TIME ]
 
 	def has_changed(self,new_header):
 		if self.num_fields() != new_header.num_fields() :
@@ -96,6 +90,4 @@ class Header:
 			for i in range(0,len(self.header)):
 				if self.header[i] != new_header.header[i]:
 					return True
-		if self.get_special_fields() != new_header.get_special_fields() :
-			return True
 		return False
