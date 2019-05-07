@@ -9,21 +9,20 @@ BIN_HEADER_START_STRING = "timB"
 CSV_HEADER_START_BYTES = CSV_HEADER_START_STRING.encode("UTF-8")
 BIN_HEADER_START_BYTES = BIN_HEADER_START_STRING.encode("UTF-8")
 
+class HeaderException:
+	pass
+
 def parse_tags(tags_string):
 	tags_dict = {}
 	if tags_string == "":
 		return tags_dict
-	try:
-		tags_tuple = tags_string.split(" ")
-		for tags in tags_tuple:
-			if "=" in tags:
-				key,value = tags.split('=')
-				tags_dict[key] = value
-			else:
-				logging.warning("Unable to parse Tag: " + tags_string)
-	except Exception as e:
-		logging.error("Bad Tag parsing! \n " + e)
-		return ""
+	tags_tuple = tags_string.split(" ")
+	for tags in tags_tuple:
+		if "=" in tags:
+			key,value = tags.split('=')
+			tags_dict[key] = value
+		else:
+			logging.warning("Unable to parse Tag: " + tags_string)
 	return tags_dict
 
 class Marshaller:
@@ -115,7 +114,7 @@ class CsvMarshaller(Marshaller):
 		header_line = header.decode("UTF-8").strip()
 		fields = header_line.split(',')
 		if len(fields) <= 1 or fields[0] != CsvMarshaller.HEADER_START_STRING:
-			raise Exception("Header to small or wrong data format ...")
+			raise HeaderException("Header to small or wrong data format ...")
 		return Header(fields[2:])
 
 	def unmarshall_sample(self,header,metrics):
@@ -156,7 +155,7 @@ class BinMarshaller:
 		header_lines = header.decode("UTF-8").strip()
 		fields = header_lines.split(BinMarshaller.NEWLINE)
 		if len(fields) <= 1 or fields[0] != BinMarshaller.HEADER_START_STRING:
-			raise Exception("Header to small or wrong data format ...")
+			raise HeaderException("Header to small or wrong data format ...")
 		return Header(fields[2:])
 
 	def unmarshall_sample(self,header,metrics):

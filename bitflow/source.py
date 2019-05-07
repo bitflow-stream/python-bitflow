@@ -121,7 +121,11 @@ class _FileSource(Source):
 				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 				return
 			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
-			self.header = self.marshaller.unmarshall_header(b_header)
+			try:
+				self.header = self.marshaller.unmarshall_header(b_header)
+			except HeaderException as e:
+				self.header = None
+				logging.warning("{}: {}".format(self.__name__,str(e)))
 			return
 		
 		newline = b'\n'
@@ -247,7 +251,11 @@ class _DownloadSource(Source):
 				self.b += self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 				return
 			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
-			self.header = self.marshaller.unmarshall_header(b_header)
+			try:
+				self.header = self.marshaller.unmarshall_header(b_header)
+			except HeaderException as e:
+				self.header = None
+				logging.warning("{}: {}".format(self.__name__,str(e)))
 			return
 
 		newline = b'\n'
@@ -374,7 +382,11 @@ class _ListenSource(Source):
 						if header_end_pos == -1:
 							break
 						b_header,self.connections[s]["b"] = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.connections[s]["b"])
-						self.connections[s]["header"] = self.marshaller.unmarshall_header(b_header)
+						try:
+							self.connections[s]["header"] = self.marshaller.unmarshall_header(b_header)
+						except HeaderException as e:
+							self.header = None
+							logging.warning("{}: {}".format(self.__name__,str(e)))
 
 					newline = b'\n'
 					cutting_pos = self.connections[s]["b"].find(newline)
