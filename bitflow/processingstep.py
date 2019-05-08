@@ -178,7 +178,7 @@ class DebugGenerationStep(AsyncProcessingStep):
 			time.sleep(1)
 			import random
 			v1 = random.random()
-			metrics = [str(v1)]
+			metrics = [float(v1)]
 			header = ["random_value"]
 			sample = Sample(header=Header(header=header),metrics=metrics)
 			r_tag = random.randint(0,1)

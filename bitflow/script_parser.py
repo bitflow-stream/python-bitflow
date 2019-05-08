@@ -87,7 +87,6 @@ def build_data_input(data_input_ctx,pipeline):
                 port_str = input_str[1:]
                 port = int(port_str)
                 data_input = ListenSource(  port=port,
-                                        marshaller=CsvMarshaller(),
                                         pipeline=pipeline)
 
             else:
@@ -103,8 +102,7 @@ def build_data_input(data_input_ctx,pipeline):
         else:
             logging.info("File Source: " + input_str)
             data_input = FileSource(filename=input_str,
-                                    pipeline=pipeline,
-                                    marshaller=CsvMarshaller())
+                                    pipeline=pipeline)
         data_inputs.append(data_input)
     return data_inputs
 

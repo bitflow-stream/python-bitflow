@@ -26,13 +26,35 @@ class Source(multiprocessing.Process):
 	def __str__(self):
 		return "Source"
 
-	def into_pipeline(self, marshaller, line, header):
+	def into_pipeline(self, marshaller, b_metrics, header):
 		try:
-			sample = marshaller.unmarshall_sample(header, line)
+			sample = marshaller.unmarshall_sample(header, b_metrics)
 		except:
-			logging.info("{}: marshalling of header {} \n and sample {} failed",self.__name__, header, line)
+			logging.info("{}: marshalling of header and corresponding sample failed",self.__name__)
 			return
 		self.queue.put(sample)
+
+	def cut_bytes(self,cutting_pos,len_cut_bytes,b):
+		begin = b[0:cutting_pos]
+		rest = b[cutting_pos+len_cut_bytes:len(b)]
+		return begin,rest
+
+	def get_start_bytes(self,b):
+		return b[0:4]
+
+	def is_header_start(self,b,marshaller):
+		if self.get_start_bytes(b) == marshaller.HEADER_START_BYTES:
+			return True
+		return False
+
+	def get_marshaller(self,b):
+		marshaller = None
+		header_start_bytes = self.get_start_bytes(b)
+		if header_start_bytes == CSV_HEADER_START_BYTES:
+			marshaller = CsvMarshaller()
+		elif header_start_bytes == BIN_HEADER_START_BYTES:
+			marshaller = BinMarshaller()
+		return  marshaller
 
 	def run(self):
 		while self.running.value:
@@ -47,61 +69,91 @@ class Source(multiprocessing.Process):
 
 class FileSource:
 
-	def __init__(self, filename, pipeline, marshaller):
+	def __init__(self, filename, pipeline):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = 2
-		self.filesource = _FileSource(self.running,filename,pipeline.queue,marshaller)
+		self.filesource = _FileSource(self.running,filename,pipeline.queue)
 
 	def start(self):
 		self.filesource.start()
-	
+
 	def stop(self):
 		self.running.value = 0
 		self.filesource.join()
 
 class _FileSource(Source):
 
-	def __init__(self,running,filename,queue,marshaller):
+	def __init__(self,running,filename,queue, buffer_size=2048):
 		self.running = running
 		self.filename = filename
 		self.f = None
 		self.header = None
-		self.marshaller = marshaller
+		self.marshaller = None
+		self.buffer_size = buffer_size
 		self.__name__ = "FileSource"
 		super().__init__(queue)
 
 	def __str__(self):
 		return "FileSource"
 
-	def open_file(self):
+	def open_file(self,filename):
 		try:
-			self.f = open(self.filename, 'r')
+			return open(filename, 'rb')
 		except FileNotFoundError:
 			logging.error("{}: could not open file {} ...".format(str(self), self.filename))
 			self.stop()
 			exit(1)
 
+	def read_bytes(self,s,buffer_size):
+		return s.read(buffer_size)
+
 	def loop(self):
 		if not self.f:
-			self.open_file()
-			header_line = self.read_line()
-			if self.marshaller.is_header(header_line):
-				self.header = self.marshaller.unmarshall_header(header_line)
-			else:
-				logging.error("{}: header line not found, closing file ...".format(self.__name__))
+			self.f = self.open_file(self.filename)
+			self.b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
+
+			if not self.marshaller:
+				self.marshaller = self.marshaller = self.get_marshaller(self.b)
+
+		if self.is_header_start(self.b,self.marshaller):
+			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
+			if header_end_pos == -1:
+				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
+				return
+			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
+			try:
+				self.header = self.marshaller.unmarshall_header(b_header)
+			except HeaderException as e:
+				self.header = None
+				logging.warning("{}: {}".format(self.__name__,str(e)))
+			return
+		
+		newline = b'\n'
+		cutting_pos = self.b.find(newline)
+		if cutting_pos == -1:
+			read_b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
+			if not read_b:
 				self.stop()
+				return
+			self.b += read_b
+			return
+		if isinstance(self.marshaller,BinMarshaller):
+			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN
+			if len(self.b) < cutting_pos + metric_bytes_len:
+				read_b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
+				if not read_b:
+					self.stop()
+					return
+				self.b += read_b
+				return
+			else:
+				cutting_pos += metric_bytes_len + 1
 
-		line = ""
-		line = self.read_line()
-		# EOF
-		if line == "":
-			self.stop()	
-			return 
-		self.into_pipeline(line=line, header=self.header, marshaller=self.marshaller)
-
-	def read_line(self):
-		line = self.f.readline().strip()
-		return line
+		b_metrics,self.b = self.cut_bytes(cutting_pos ,len(newline),self.b)
+		if len(b_metrics) == 0:
+			return
+		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
+		return
 
 	def on_close(self):
 		self.f.close()
@@ -131,8 +183,8 @@ class _DownloadSource(Source):
 		self.timeout_after_failed_to_connect = timeout_after_failed_to_connect
 		self.s = None
 		self.header = None
-		self.b = ""
-		self.cached_lines = []
+		self.b = b''
+		self.marshaller = None
 		self.buffer_size = buffer_size
 		self.__name__ = "DownloadSource"
 		super().__init__(queue)
@@ -144,7 +196,6 @@ class _DownloadSource(Source):
 		logging.info("{}: trying to connect to {}:{} ...".format(self.__name__,self.host,self.port))
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.settimeout(1)
-
 		self.s.connect((self.host, self.port))
 		logging.info("{}: connected to {}:{} ...".format(self.__name__,self.host,self.port))
 
@@ -154,14 +205,33 @@ class _DownloadSource(Source):
 		else:
 			return False
 
+	def read_bytes(self,s,buffer_size):
+		try:
+			b = s.recv(buffer_size)
+		except ConnectionResetError:
+			logging.warning("{}: ConnectionResetError: connection was reset by peer, reconnecting ...".format(self.__name__))
+			self.close_connection()
+			return None
+		except UnicodeError:
+			logging.warning("{}: encoding error ...".format(self.__name__))
+			self.close_connection()
+			return None
+		except socket.timeout:
+			return
+		if b == b'':
+			logging.warning("{}: Connection closed by peer, trying to reconnect ...".format(self.__name__))
+			self.close_connection()
+			return None
+		return b
+		
 	def loop(self):
 		if not self.is_connected():
 			try:
 				self.connect()
 			except socket.gaierror as gai:
 				logging.warning("{}: Could not connect to {}:{} ...".format(self.__name__,self.host, self.port))
-				self.s = None
 				time.sleep(self.timeout_after_failed_to_connect)
+				self.s = None
 				return
 			except ConnectionRefusedError:
 				logging.warning("{}: Connection refused from {}:{} ...".format(self.__name__,self.host, self.port))
@@ -169,40 +239,51 @@ class _DownloadSource(Source):
 				self.s = None
 				return
 
-		try:
-			self.b += self.s.recv(self.buffer_size).decode()
-		except ConnectionResetError:
-			logging.warning("{}: ConnectionResetError: connection was reset by peer, reconnecting ...".format(self.__name__))
-			self.close_connection()
-		except UnicodeError:
-			logging.warning("{}: encoding error ...".format(self.__name__))
-			logging.warning(self.s.recv(self.buffer_size))
-			self.close_connection()
-		except socket.timeout:
+			read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
+			if read_b:
+				self.b = read_b
+			if not self.marshaller:
+				self.marshaller = self.get_marshaller(b=self.b)
+
+		if self.is_header_start(self.b,self.marshaller):
+			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
+			if header_end_pos == -1:
+				self.b += self.read_bytes(s=self.s,buffer_size=self.buffer_size)
+				return
+			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
+			try:
+				self.header = self.marshaller.unmarshall_header(b_header)
+			except HeaderException as e:
+				self.header = None
+				logging.warning("{}: {}".format(self.__name__,str(e)))
 			return
 
-		lines = self.b.split("\n")
-		last_element= lines[len(lines)-1]
-		if not last_element.endswith("\n"):
-			self.b=lines.pop()
-		for line in lines:
-			if not self.header: 
-				if line.startswith(CSV_HEADER_START_STRING):
-					self.marshaller = CsvMarshaller()
-					self.header = self.marshaller.unmarshall_header(line)
-					logging.info("{}: found header with {} values ...".format(self.__name__,len(self.header.header)))
-					continue
-				elif line.startswith(BIN_HEADER_START_STRING):
-					raise Exception("Binary format not supported yet ...")
-				else:
-					raise Exception("Unsupported data format, or missing header")
+		newline = b'\n'
+		cutting_pos = self.b.find(newline)
+		if cutting_pos == -1:
+			read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
+			if not read_b:
+				self.stop()
+				return
+			self.b += read_b
+			return
+		if isinstance(self.marshaller,BinMarshaller):
+			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN  
+			if len(self.b) < cutting_pos + metric_bytes_len:
+				read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
+				if not read_b:
+					self.stop()
+					return
+				self.b += read_b
+				return
+			else:
+				cutting_pos += metric_bytes_len + 1
 
-			if line.startswith(self.marshaller.HEADER_START_STRING):
-				self.header = self.marshaller.unmarshall_header(line)
-				logging.info("{}: header changed, new header has {} values ...".format(self.__name__,len(self.header.header)))
-				continue
-
-			self.into_pipeline(line=line,header=self.header,marshaller=self.marshaller)
+		b_metrics,self.b = self.cut_bytes(cutting_pos ,len(newline),self.b)
+		if len(b_metrics) == 0:
+			return
+		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
+		return
 
 	def close_connection(self):
 		self.s.close()
@@ -216,26 +297,27 @@ class _DownloadSource(Source):
 # Listens for incoming data on the specified host:port
 class ListenSource():
 
-	def __init__(self,port,marshaller,pipeline,buffer_size=2048):
+	def __init__(self,port,pipeline,max_number_of_peers=5,buffer_size=2048):
 		self.running = multiprocessing.Value(ctypes.c_int, 1)
 		self.pipeline = pipeline
 		self.listensource  = _ListenSource(running=self.running,
-											marshaller=marshaller,
 											queue=pipeline.queue,
 											port=port,
+											max_number_of_peers=max_number_of_peers,
 											buffer_size=buffer_size)
 
 	def start(self):
 		self.listensource.start()
-	
+
 	def stop(self):
 		self.running.value = 0
 		self.listensource.join()
 
 class _ListenSource(Source):
 
-	def __init__(self,running,port,marshaller,queue,buffer_size=2048):
-		self.marshaller = marshaller
+	def __init__(self,running,port,queue,max_number_of_peers,buffer_size):
+		self.marshaller = None
+		self.max_number_of_peers = max_number_of_peers
 		self.buffer_size = buffer_size
 		self.host = "0.0.0.0"
 		self.port = port
@@ -244,12 +326,12 @@ class _ListenSource(Source):
 		self.__name__ = "ListenSource"
 
 		try:
-			self.server = self.bind_port(self.host,self.port)
+			self.server = self.bind_port(self.host,self.port,self.max_number_of_peers)
 		except socket.error as se:
-			logging.error("{}: Could not bind socket ...".format(self.__name__))
+			logging.error("{}: Could not bind socket ...".format(self.__name__)) # TODO exit properly here
 			logging.error(str(se))
 			exit(1)
-		self.inputs = [self.server]
+		self.inputs = [ self.server ]
 		self.connections = {}
 		super().__init__(queue)
 
@@ -259,12 +341,18 @@ class _ListenSource(Source):
 		del connections[s]
 		inputs.remove(s)
 
-	def bind_port(self,host,port):
+	def bind_port(self,host,port,max_number_of_peers):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		server.bind((host, port))
-		server.listen(1)
+		server.listen(max_number_of_peers)
 		return server
+
+	def read_bytes(self,s,buffer_size):
+		b = s.recv(buffer_size)
+		if b is "":
+			return None
+		return b
 
 	def loop(self):
 		readable, __, exceptional = select.select(
@@ -275,31 +363,47 @@ class _ListenSource(Source):
 				connection.setblocking(0)
 				self.inputs.append(connection)
 				self.connections[connection] = {}
-				self.connections[connection]["remainng_bytes"] = ""
+				self.connections[connection]["b"] = b''
 				self.connections[connection]["header"] = None
 			else:
-				if self.connections[s]["header"] is None:
-					try:
-						h,rb = read_header(	marshaller=self.marshaller,
-											s=s,
-											buffer_size=self.buffer_size)
-						self.connections[s]["header"] = h
-						self.connections[s]["remainng_bytes"] = rb
-					except:
-						continue
-					continue
-				data = s.recv(self.buffer_size).decode()
-				if data is "":
+
+				read_b = self.read_bytes(s=s,buffer_size=self.buffer_size)
+				if read_b:
+					self.connections[s]["b"] += read_b
+				else:
 					self.close_connection(s,self.connections,self.inputs)
 					return
-				data = self.connections[s]["remainng_bytes"] + data
+				if not self.marshaller:
+					self.marshaller = self.get_marshaller(b=self.connections[s]["b"])
 
-				lines = data.split("\n")
-				last_element= lines[len(lines)-1]
-				if not last_element.endswith("\n"):
-					self.connections[s]["remainng_bytes"]=lines.pop()
-				for line in lines:
-					self.into_pipeline(marshaller=self.marshaller,line=line,header=self.connections[s]["header"])
+				while True:	
+					if self.is_header_start(self.connections[s]["b"],self.marshaller):
+						header_end_pos = self.connections[s]["b"].find(self.marshaller.END_OF_HEADER_CHAR)
+						if header_end_pos == -1:
+							break
+						b_header,self.connections[s]["b"] = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.connections[s]["b"])
+						try:
+							self.connections[s]["header"] = self.marshaller.unmarshall_header(b_header)
+						except HeaderException as e:
+							self.header = None
+							logging.warning("{}: {}".format(self.__name__,str(e)))
+
+					newline = b'\n'
+					cutting_pos = self.connections[s]["b"].find(newline)
+					if cutting_pos == -1:
+						break
+					if isinstance(self.marshaller,BinMarshaller):
+						metric_bytes_len = self.connections[s]["header"].num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN
+						if len(self.connections[s]["b"]) < cutting_pos + metric_bytes_len:
+							break
+						else:
+							cutting_pos += metric_bytes_len + 1
+
+					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,len(newline),self.connections[s]["b"])
+					if len(b_metrics) == 0:
+						break
+					self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"], marshaller=self.marshaller)
+			return
 
 		for s in exceptional:
 			self.close_connection(s,self.connections,self.inputs)

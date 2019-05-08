@@ -161,12 +161,9 @@ class ListenSink (AsyncProcessingStep):
 			logging.error("{}: could not bind socket ...".format(self.__name__))
 			logging.error(str(se))
 			sys.exit(1)
-
 		self.header = None
 		self.inputs = [self.server]
 		self.outputs = []
-
-
 
 	def bind_port(self,host,port,max_receivers):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -183,7 +180,7 @@ class ListenSink (AsyncProcessingStep):
 		outputs = []
 		sample_queues = {}
 
-	def close_connection(s,outputs,sample_queues):
+	def close_connection(self,s,outputs,sample_queues):
 		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
 		outputs.remove(s)
 		s.close()
@@ -230,7 +227,8 @@ class ListenSink (AsyncProcessingStep):
 					self.sample_queues[s]["header"] = sample.header
 				self.marshaller.marshall_sample(sw, sample)
 			except socket.error:
-				close_connection(s,self.outputs,self.sample_queues)
+				self.close_connection(s,self.outputs,self.sample_queues)
+				continue
 			self.sample_queues[s]["queue"].task_done()
 
 		for s in exceptional:
@@ -262,7 +260,6 @@ class ListenSink (AsyncProcessingStep):
 		while self.is_running:
 			self.loop()
 		self.on_close()		
-
 
 	def stop(self):
 		for k,v in self.sample_queues.items():
@@ -338,10 +335,14 @@ class FileSink(AsyncProcessingStep):
 		sample = self.que.get()
 		if header_check(old_header=self.header,new_header=sample.header):
 			self.header = sample.header
-			if self.f is not None:
+			if self.f:
 				self.f.close()
-			new_filename = self.open_file(self.filename)
-			logging.info("header changed, opening new file {} ...".format(new_filename))
+				new_filename = self.open_file(self.filename)
+				logging.info("header changed, opening new file {} ...".format(new_filename))
+			else:
+				new_filename = self.open_file(self.filename)
+				logging.info("Opening new file {} ...".format(new_filename))
+
 			self.marshaller.marshall_header(sink=self.f, header=self.header)
 		self.marshaller.marshall_sample(sink=self.f, sample=sample)
 		self.f.flush()
@@ -372,20 +373,23 @@ class TerminalOut(ProcessingStep):
 		h_str = ""
 		for h in sample.header.header:
 			h_str += "," + h
-		print("time, tags " + h_str)
+		print("time,tags" + h_str)
 
 	def print_metrics(self,sample):
 		s_str = ""
 		for s in sample.metrics:
-				s_str += "," + s
+				if s.is_integer():
+					s_str += "," + str(int(s))
+				else:
+					s_str += ",{}".format(s,type='d')
 		t_str = ""
 		if len(sample.tags.keys()) == 0:
 			t_str = ","
 		else:
 			for k,v in sample.tags.items():
-					t_str += ", {}={}".format(k,v)
+					t_str += ",{}={}".format(k,v)
 				
-		print("{} {} {}".format(sample.get_printable_timestamp(),t_str,s_str))
+		print("{}{}{}".format(sample.get_printable_timestamp(),t_str,s_str))
 
 	def execute(self,sample):
 		if self.header_printed is False:
