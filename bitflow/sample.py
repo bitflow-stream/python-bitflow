@@ -44,9 +44,11 @@ class Sample:
 
 	def get_printable_timestamp(self):
 		pts = str(self.timestamp).replace("T"," ")
+		print(pts)
 		while pts.endswith("0"):
 			pts = pts[0:len(pts)-1] 
 		#pts = timestamp_no_t.rstrip('0')
+		print(pts)
 		return pts
 
 	def set_timestamp(self,timestamp : str):
