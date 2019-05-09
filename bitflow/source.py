@@ -27,12 +27,9 @@ class Source(multiprocessing.Process):
 		return "Source"
 
 	def into_pipeline(self, marshaller, b_metrics, header):
-		try:
-			sample = marshaller.unmarshall_sample(header, b_metrics)
-		except:
-			logging.info("{}: marshalling of header and corresponding sample failed",self.__name__)
-			return
-		self.queue.put(sample)
+		sample = marshaller.unmarshall_sample(header, b_metrics)
+		if sample:
+			self.queue.put(sample)
 
 	def cut_bytes(self,cutting_pos,len_cut_bytes,b):
 		begin = b[0:cutting_pos]
@@ -127,9 +124,15 @@ class _FileSource(Source):
 				self.header = None
 				logging.warning("{}: {}".format(self.__name__,str(e)))
 			return
-		
+
 		newline = b'\n'
 		cutting_pos = self.b.find(newline)
+		btlen = BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
+		if cutting_pos <= btlen:
+			if len(self.b) > btlen:
+				cutting_pos = self.b[btlen:len(self.b)].find(newline)
+				cutting_pos += btlen if cutting_pos != -1 else False
+
 		if cutting_pos == -1:
 			read_b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 			if not read_b:
@@ -138,8 +141,8 @@ class _FileSource(Source):
 			self.b += read_b
 			return
 		if isinstance(self.marshaller,BinMarshaller):
-			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN
-			if len(self.b) < cutting_pos + metric_bytes_len:
+			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN 
+			if len(self.b) <= cutting_pos + metric_bytes_len:
 				read_b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 				if not read_b:
 					self.stop()
@@ -223,7 +226,7 @@ class _DownloadSource(Source):
 			self.close_connection()
 			return None
 		return b
-		
+
 	def loop(self):
 		if not self.is_connected():
 			try:
@@ -260,6 +263,11 @@ class _DownloadSource(Source):
 
 		newline = b'\n'
 		cutting_pos = self.b.find(newline)
+		btlen = BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
+		if cutting_pos <= btlen:
+			if len(self.b) > btlen:
+				cutting_pos = self.b[btlen:len(self.b)].find(newline)
+				cutting_pos += btlen if cutting_pos != -1 else False
 		if cutting_pos == -1:
 			read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 			if not read_b:
@@ -267,6 +275,7 @@ class _DownloadSource(Source):
 				return
 			self.b += read_b
 			return
+
 		if isinstance(self.marshaller,BinMarshaller):
 			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN  
 			if len(self.b) < cutting_pos + metric_bytes_len:
@@ -366,8 +375,8 @@ class _ListenSource(Source):
 				self.connections[connection]["b"] = b''
 				self.connections[connection]["header"] = None
 			else:
-
 				read_b = self.read_bytes(s=s,buffer_size=self.buffer_size)
+
 				if read_b:
 					self.connections[s]["b"] += read_b
 				else:
@@ -376,7 +385,7 @@ class _ListenSource(Source):
 				if not self.marshaller:
 					self.marshaller = self.get_marshaller(b=self.connections[s]["b"])
 
-				while True:	
+				while self.running:
 					if self.is_header_start(self.connections[s]["b"],self.marshaller):
 						header_end_pos = self.connections[s]["b"].find(self.marshaller.END_OF_HEADER_CHAR)
 						if header_end_pos == -1:
@@ -387,9 +396,15 @@ class _ListenSource(Source):
 						except HeaderException as e:
 							self.header = None
 							logging.warning("{}: {}".format(self.__name__,str(e)))
+							break
 
 					newline = b'\n'
 					cutting_pos = self.connections[s]["b"].find(newline)
+					btlen = BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
+					if cutting_pos <= btlen:
+						if len(self.connections[s]["b"]) > btlen:
+							cutting_pos = self.connections[s]["b"][btlen:len(self.connections[s]["b"])].find(newline)
+							cutting_pos += btlen if cutting_pos != -1 else False
 					if cutting_pos == -1:
 						break
 					if isinstance(self.marshaller,BinMarshaller):
@@ -412,4 +427,5 @@ class _ListenSource(Source):
 		for i in self.inputs:
 			i.close()
 		self.server.close()
+		self.server = None
 		super().on_close()

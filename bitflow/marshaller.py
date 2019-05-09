@@ -143,7 +143,7 @@ class BinMarshaller:
 	METICS_VALUE_BYTES_LEN = 8
 
 	def __init__(self):
-		pass
+		self.__name__ = "BinaryMarshaller"
 
 	def marshall_header(self, sink,header):
 		raise NotImplementedError
@@ -165,8 +165,15 @@ class BinMarshaller:
 		timestamp = struct.unpack('>Q',timestamp_bytes)[0]
 		offset += BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
 		# handle tags
-		end_of_tags_byte = metrics.find(BinMarshaller.NEWLINE_BYTE)
-		tags_str = metrics[offset:end_of_tags_byte].decode("UTF-8")
+		# ignore timestamp bytes by searching for newline after tags
+		end_of_tags_byte = metrics[offset:len(metrics)].find(BinMarshaller.NEWLINE_BYTE)
+		end_of_tags_byte += offset
+		try:
+			tags_str = metrics[offset:end_of_tags_byte].decode("UTF-8")
+		except UnicodeDecodeError as e:
+			logging.warning("{}: Could not unmarshall sample correctly, dropping sample ...".format(self.__name__))
+			return None
+
 		tags_dict = parse_tags(tags_str)
 		offset = end_of_tags_byte + 1
 		# handle metrics
