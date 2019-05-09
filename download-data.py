@@ -48,7 +48,7 @@ def main():
 
 
 	# INSERT DOWNLOAD HOST
-	download_host=""
+	download_host="localhost"
 	download_port=5012
 	out_file = "/tmp/test_filea.txt"
 	serials = ["66"]

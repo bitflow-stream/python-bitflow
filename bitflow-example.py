@@ -17,7 +17,7 @@ def main():
 	logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 	# file to read from
-	input_filename = "testing/testing_file_in.txt"
+	input_filename = "testing/testing_file_in.csv"
 
 	# define pipeline
 	pipeline = Pipeline()
@@ -34,8 +34,7 @@ def main():
 
 	# define file source
 	filesource = FileSource(filename=input_filename,
-							pipeline=pipeline,
-							marshaller=CsvMarshaller())	
+							pipeline=pipeline)	
 	# start file source
 	filesource.start()
 

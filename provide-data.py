@@ -39,7 +39,7 @@ def main():
 	# port to provide data on
 	listen_port=5012
 	# file to provide via port
-	in_file = "testing/testing_file_in.txt"
+	in_file = "testing/testing_file_in.csv"
 
 	# prepare ListenSink
 	ls = ListenSink(host="localhost",
@@ -52,8 +52,7 @@ def main():
 
 	# prepare file source
 	file_source = FileSource(	filename=in_file,
-								pipeline=pipeline,
-								marshaller=CsvMarshaller())
+								pipeline=pipeline)
 	# start pipeline
 	pipeline.start()
 	# start file_source
