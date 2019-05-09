@@ -20,6 +20,13 @@ class Sample:
 		else:
 			self.tags = {}
 
+	def __str__(self):
+		return "{}, {}, {}, {}".format(
+										str(self.header),
+										self.get_printable_timestamp,
+										self.get_tags,
+										self.metrics)
+
 	def extend(self,metric):
 		self.metrics.append(metric)
 
@@ -37,6 +44,7 @@ class Sample:
 
 	def get_printable_timestamp(self):
 		pts = str(self.timestamp).replace("T"," ")
+		pts = pts.rstrip('0')
 		return pts
 
 	def set_timestamp(self,timestamp : str):
@@ -56,6 +64,9 @@ class Sample:
 		else:
 			return None
 
+	def get_tags(self):
+		return self.tags
+
 	def add_tag(self,tag_key,tag_value):
 		self.tags[tag_key] = tag_value
 
@@ -73,7 +84,9 @@ class Header:
 
 	def __init__(self,header):
 		self.header = list(header)
-		self.has_tags = True
+
+	def __str__(self):
+		return str(self.header)
 
 	def extend(self,metric_name):	
 		self.header.append(metric_name)
