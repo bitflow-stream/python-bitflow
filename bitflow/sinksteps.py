@@ -331,8 +331,13 @@ class FileSink(AsyncProcessingStep):
 
 	def loop(self):
 		if self.que.qsize() is 0:
-			return
-		sample = self.que.get()
+			try:
+				sample = self.que.get(timeout=1)
+			except queue.Empty:
+				return
+		else:
+			sample = self.que.get()
+
 		if header_check(old_header=self.header,new_header=sample.header):
 			self.header = sample.header
 			if self.f:

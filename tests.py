@@ -396,7 +396,7 @@ class TestInputOutput(unittest.TestCase):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
         remove_file(TESTING_OUT_FILE_CSV)
         host="localhost"
-        port=5011
+        port=5012
 
         a_pipeline = Pipeline()
         a_file_source = FileSource( filename=TESTING_IN_FILE_BIN,
