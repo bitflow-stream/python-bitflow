@@ -7,8 +7,6 @@ import time
 import select
 from collections import deque
 import datetime
-#import graphitesend, datetime
-
 from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
 from bitflow.marshaller import CsvMarshaller
 
@@ -179,7 +177,7 @@ class ListenSink (AsyncProcessingStep):
 		for s in outputs:
 			s.close()
 		outputs = []
-		sample_queues = {}
+		self.sample_queues = {}
 
 	def close_connection(self,s,outputs,sample_queues):
 		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))

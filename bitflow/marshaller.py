@@ -178,7 +178,7 @@ class BinMarshaller:
 		offset = end_of_tags_byte + 1
 		# handle metrics
 		metrics_lst = []
-		for i in range(header.num_fields()):
+		for _ in range(header.num_fields()):
 			metric = struct.unpack('>d',
 							metrics[offset:offset + BinMarshaller.METICS_VALUE_BYTES_LEN])[0]
 			metrics_lst.append(metric)

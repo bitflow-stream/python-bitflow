@@ -56,7 +56,7 @@ class Sample:
 
 	def remove_metrics(self,index):
 		self.header.header.remove(index)
-		self.sample.metrics = self.sample.metrics[:index:]
+		self.metrics = self.metrics[:index:]
 
 	def get_tag(self,tag):
 		if tag in self.tags:

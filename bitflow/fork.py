@@ -8,14 +8,13 @@ def initialize_fork(name,script_args):
 
 	for f in fork_steps:
 
-		if f.__name__.lower() == name.lower():
-			if compare_args(f,script_args):
-				logging.info("{} with args: {}  ok ...".format(name,script_args))
-				try:
-					f_obj = f(**script_args)
-				except Exception  as e:
-					logging.error(str(e))
-				return f_obj
+		if f.__name__.lower() == name.lower() and compare_args(f,script_args):
+			logging.info("{} with args: {}  ok ...".format(name,script_args))
+			try:
+				f_obj = f(**script_args)
+			except Exception  as e:
+				logging.error(str(e))
+			return f_obj
 	logging.info("{} with args: {}  failed ...".format(name,script_args))
 	return None
 
