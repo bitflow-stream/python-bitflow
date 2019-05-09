@@ -1,3 +1,5 @@
+[![Build Status](https://ci.bitflow.team/jenkins/buildStatus/icon?job=Bitflow%2Fpython-bitflow%2Fmaster&build=lastBuild)](http://wally144.cit.tu-berlin.de/jenkins/blue/organizations/jenkins/Bitflow%2Fpython-bitflow/activity)
+
 # python-bitflow
 **python-bitflow** is a python library for sending, receiving and transforming streams of data. Read the documentation under [bitflow.rtfd.io](https://bitflow.readthedocs.io/en/latest/ "Bitflow documentation") to learn more about bitflow and the correlated projects.
 

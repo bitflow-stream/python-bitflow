@@ -40,6 +40,8 @@ class Source(multiprocessing.Process):
 		return b[0:4]
 
 	def is_header_start(self,b,marshaller):
+		if not self.marshaller:
+			return False
 		if self.get_start_bytes(b) == marshaller.HEADER_START_BYTES:
 			return True
 		return False
@@ -109,8 +111,8 @@ class _FileSource(Source):
 			self.f = self.open_file(self.filename)
 			self.b = self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 
-			if not self.marshaller:
-				self.marshaller = self.marshaller = self.get_marshaller(self.b)
+		if not self.marshaller:
+			self.marshaller = self.marshaller = self.get_marshaller(self.b)
 
 		if self.is_header_start(self.b,self.marshaller):
 			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
@@ -245,8 +247,11 @@ class _DownloadSource(Source):
 			read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 			if read_b:
 				self.b = read_b
-			if not self.marshaller:
-				self.marshaller = self.get_marshaller(b=self.b)
+			else:
+				return
+
+		if not self.marshaller:
+			self.marshaller = self.get_marshaller(b=self.b)
 
 		if self.is_header_start(self.b,self.marshaller):
 			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
@@ -271,7 +276,6 @@ class _DownloadSource(Source):
 		if cutting_pos == -1:
 			read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 			if not read_b:
-				self.stop()
 				return
 			self.b += read_b
 			return
