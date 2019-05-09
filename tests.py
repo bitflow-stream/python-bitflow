@@ -424,5 +424,8 @@ class TestInputOutput(unittest.TestCase):
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
 
+        def tearDown(self):
+            time.sleep(3)  # sleep time in seconds
+
 if __name__ == '__main__':
     unittest.main()
