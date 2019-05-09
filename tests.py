@@ -204,13 +204,8 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(5)
         pipeline.stop()
 
-        #import filecmp
-        with open(TESTING_IN_FILE_CSV) as f:
-            a = f.read()
-        with open(TESTING_OUT_FILE_CSV) as f:
-            b = f.read()
-        self.assertMultiLineEqual(a, b)
-        #self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
+        import filecmp
+        self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
 
     def test_bin_file_in__csv_file_out(self):
         global LOGGING_LEVEL
