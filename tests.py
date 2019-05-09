@@ -192,7 +192,6 @@ class TestInputOutput(unittest.TestCase):
         global TESTING_IN_FILE_CSV, TESTING_OUT_FILE_CSV
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
-        remove_file(TESTING_OUT_FILE_CSV)
 
         pipeline = Pipeline()
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV))
@@ -200,7 +199,7 @@ class TestInputOutput(unittest.TestCase):
         file_source = FileSource(   filename=TESTING_IN_FILE_CSV,
                                     pipeline=pipeline)
         file_source.start()
-        time.sleep(2)
+        time.sleep(5)
         pipeline.stop()
 
         import filecmp
@@ -211,8 +210,6 @@ class TestInputOutput(unittest.TestCase):
         global TESTING_IN_FILE_BIN, TESTING_IN_FILE_CSV, TESTING_OUT_FILE_CSV
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
-        remove_file(TESTING_OUT_FILE_CSV)
-
         pipeline = Pipeline()
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV))
         pipeline.start()
@@ -220,7 +217,7 @@ class TestInputOutput(unittest.TestCase):
                                     pipeline=pipeline)
         
         file_source.start()
-        time.sleep(2)
+        time.sleep(5)
         pipeline.stop()
 
         import filecmp
@@ -231,9 +228,6 @@ class TestInputOutput(unittest.TestCase):
         global TESTING_IN_FILE_CSV, TESTING_OUT_FILE_CSV, TESTING_OUT_FILE_CSV
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
-        remove_file(TESTING_OUT_FILE_CSV)
-        remove_file(TESTING_OUT_FILE_CSV_2)
-
         pipeline = Pipeline()
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV))
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV_2))
@@ -243,7 +237,7 @@ class TestInputOutput(unittest.TestCase):
                                     pipeline=pipeline)
 
         file_source.start()
-        time.sleep(2.0)
+        time.sleep(5)
         pipeline.stop()
 
         import filecmp
@@ -254,9 +248,6 @@ class TestInputOutput(unittest.TestCase):
         global TESTING_IN_FILE_BIN, TESTING_OUT_FILE_CSV, TESTING_OUT_FILE_CSV_2
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
-        remove_file(TESTING_OUT_FILE_CSV)
-        remove_file(TESTING_OUT_FILE_CSV_2)
-
         pipeline = Pipeline()
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV))
         pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_CSV_2))
@@ -265,7 +256,7 @@ class TestInputOutput(unittest.TestCase):
                                     pipeline=pipeline)
 
         file_source.start()
-        time.sleep(2.0)
+        time.sleep(5)
         pipeline.stop()
 
         import filecmp
@@ -275,9 +266,7 @@ class TestInputOutput(unittest.TestCase):
     def test_csv_listen_in__csv_send_out(self):
         global LOGGING_LEVEL
         global TESTING_OUT_FILE_CSV, TESTING_IN_FILE_CSV
-
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
-        remove_file(TESTING_OUT_FILE_CSV)
 
         host="localhost"
         port=5011
@@ -289,7 +278,7 @@ class TestInputOutput(unittest.TestCase):
                                         port=port)
         a_pipeline.start()
         a_listen_source.start()
-        time.sleep(2)
+        time.sleep(4)
         # BUILD FILE TO SEND
         b_pipeline = Pipeline()
         b_pipeline.add_processing_step(TCPSink(
@@ -303,10 +292,10 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(5)
         b_file_source.stop()
         b_pipeline.stop()
-        time.sleep(2)
+        time.sleep(5)
         a_listen_source.stop()
         a_pipeline.stop()
-        time.sleep(2)
+        time.sleep(5)
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
@@ -314,9 +303,7 @@ class TestInputOutput(unittest.TestCase):
     def test_bin_listen_in__csv_send_out(self):
         global LOGGING_LEVEL
         global TESTING_OUT_FILE_CSV, TESTING_IN_FILE_CSV, TESTING_IN_FILE_BIN
-
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
-        remove_file(TESTING_OUT_FILE_CSV)
        
         host="localhost"
         port=5011
@@ -329,7 +316,7 @@ class TestInputOutput(unittest.TestCase):
                         port=port)
         a_pipeline.start()
         a_listen_source.start()
-        time.sleep(2)
+        time.sleep(5)
         # BUILD FILE TO SEND
         b_pipeline = Pipeline()
         b_pipeline.add_processing_step(TCPSink(
@@ -343,10 +330,10 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(5)
         b_file_source.stop()
         b_pipeline.stop()
-        time.sleep(2)
+        time.sleep(5)
         a_listen_source.stop()
         a_pipeline.stop()
-        time.sleep(2)
+        time.sleep(5)
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
@@ -355,7 +342,7 @@ class TestInputOutput(unittest.TestCase):
         global LOGGING_LEVEL
         global TESTING_OUT_FILE_CSV, TESTING_IN_FILE_CSV
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
-        remove_file(TESTING_OUT_FILE_CSV)
+
         host="localhost"
         port=5011
 
@@ -368,7 +355,7 @@ class TestInputOutput(unittest.TestCase):
         a_file_source.start()
         a_pipeline.start()
 
-        time.sleep(2)
+        time.sleep(5)
 
         b_pipeline = Pipeline()
         b_download_source = DownloadSource( host=host,
@@ -381,10 +368,10 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(5)
         a_file_source.stop()
         a_pipeline.stop()
-        time.sleep(1)
+        time.sleep(5)
         b_download_source.stop()
         b_pipeline.stop()
-        time.sleep(3)
+        time.sleep(5)
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
@@ -394,7 +381,7 @@ class TestInputOutput(unittest.TestCase):
         global LOGGING_LEVEL
         global TESTING_OUT_FILE_CSV, TESTING_IN_FILE_CSV, TESTING_IN_FILE_BIN
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
-        remove_file(TESTING_OUT_FILE_CSV)
+
         host="localhost"
         port=5011
 
@@ -405,7 +392,7 @@ class TestInputOutput(unittest.TestCase):
         a_file_source.start()
         a_pipeline.start()
 
-        time.sleep(2)
+        time.sleep(5)
 
         b_pipeline = Pipeline()
         b_download_source = DownloadSource(host=host,port=port,pipeline=b_pipeline)
@@ -416,15 +403,17 @@ class TestInputOutput(unittest.TestCase):
         time.sleep(5)
         a_file_source.stop()
         a_pipeline.stop()
-        time.sleep(1)
+        time.sleep(5)
         b_download_source.stop()
         b_pipeline.stop()
-        time.sleep(3)
+        time.sleep(5)
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
 
         def tearDown(self):
+            remove_file(TESTING_OUT_FILE_CSV)
+            remove_file(TESTING_OUT_FILE_CSV_2)
             time.sleep(3)  # sleep time in seconds
 
 if __name__ == '__main__':
