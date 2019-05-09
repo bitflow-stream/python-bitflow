@@ -269,7 +269,7 @@ class TestInputOutput(unittest.TestCase):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
         host="localhost"
-        port=5011
+        port=5010
 
         # BUILD LISTEN TO FILE
         a_pipeline = Pipeline()
@@ -344,7 +344,7 @@ class TestInputOutput(unittest.TestCase):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
         host="localhost"
-        port=5011
+        port=5012
 
         a_pipeline = Pipeline()
         a_file_source = FileSource( filename=TESTING_IN_FILE_CSV,
@@ -383,7 +383,7 @@ class TestInputOutput(unittest.TestCase):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
         host="localhost"
-        port=5011
+        port=5013
 
         a_pipeline = Pipeline()
         a_file_source = FileSource( filename=TESTING_IN_FILE_BIN,
