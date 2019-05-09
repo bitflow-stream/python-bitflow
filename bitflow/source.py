@@ -157,6 +157,7 @@ class _FileSource(Source):
 		b_metrics,self.b = self.cut_bytes(cutting_pos ,len(newline),self.b)
 		if len(b_metrics) == 0:
 			return
+		print(b_metrics)
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
