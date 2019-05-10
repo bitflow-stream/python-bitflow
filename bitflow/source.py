@@ -151,6 +151,7 @@ class _FileSource(Source):
 			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN 
 			if len(self.b) <= cutting_pos + metric_bytes_len:
 				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
+
 				return
 			else:
 				cutting_pos += metric_bytes_len + 1
