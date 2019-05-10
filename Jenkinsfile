@@ -7,31 +7,36 @@ pipeline {
     stages {
         stage('Test') { 
             steps {
-                sh '''
-                pip install pytest
-                pip install -r requirements.txt
-                '''
-                sh 'py.test --junitxml test.xml tests.py'
+                sh 'pip install pytest pytest-cov'
+                sh 'pip install -r requirements.txt'
+                sh 'py.test --junitxml test-report.xml --cov-report xml:coverage-report.xml --cov=bitflow tests.py'
             }
             post {
                 always {
-                    junit "test.xml"
+                    junit 'test-report.xml'
+                    archiveArtifacts '*-report.xml'
                 }
             }
         }
         stage('SonarQube') {
+            when {
+                branch 'master'
+            }
             steps {
                 script {
                     // sonar-scanner which don't rely on JVM
                     def scannerHome = tool 'sonar-scanner-linux'
                     withSonarQubeEnv('CIT SonarQube') {
-                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow"
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow \
+                                -Dsonar.sources=bitflow/ -Dsonar.tests=tests.py \
+                                -Dsonar.inclusions="**/*.py" \
+                                -Dsonar.exclusions="**/Bitflow*.py" \
+                                -Dsonar.python.coverage.reportPaths=coverage-report.xml \
+                                -Dsonar.test.reportPath=test-report.xml
+                        """
                     }
                 }
-            }
-        }
-        stage("Quality Gate") {
-            steps {
                 timeout(time: 30, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -39,9 +44,7 @@ pipeline {
         }
         stage('Notify Slack') {
             steps {
-                script {
-                    sh 'true'
-                }
+                sh 'true'
             }
             post {
                 success {
@@ -50,9 +53,7 @@ pipeline {
                     }
                }
                failure {
-                    withSonarQubeEnv('CIT SonarQube') {
-                        slackSend color: 'danger', message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
-                    }
+                    slackSend color: 'danger', message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
                }
             }
         }

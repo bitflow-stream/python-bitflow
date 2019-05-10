@@ -38,9 +38,7 @@ class Pipeline(threading.Thread):
 
 	def prepare_processing_steps(self):
 		for processing_step in self.processing_steps:
-			if isinstance(processing_step, threading.Thread):
-				processing_step.start()
-			elif isinstance(processing_step, Pipeline):
+			if isinstance(processing_step, threading.Thread) or isinstance(processing_step, Pipeline): 
 				processing_step.start()
 
 	def run(self):

@@ -7,8 +7,6 @@ import time
 import select
 from collections import deque
 import datetime
-#import graphitesend, datetime
-
 from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
 from bitflow.marshaller import CsvMarshaller
 
@@ -41,7 +39,7 @@ class TCPSink(AsyncProcessingStep):
 				port : int, 
 				data_format : str = CSV_FORMAT_IDENTIFIER,
 				reconnect_timeout : int = 2):
-	
+
 		super().__init__()
 		self.marshaller = get_marshaller(data_format)
 		self.__name__ = "TCPSink"
@@ -80,15 +78,16 @@ class TCPSink(AsyncProcessingStep):
 				time.sleep(self.reconnect_timeout)
 				self.s = None
 				return
+
 		if self.que.qsize() is 0:
 			try:
-				self.que.get(timeout=1)
+				sample = self.que.get(timeout=1)
 			except queue.Empty:
 				return
+		else:
+			sample = self.que.get()
 
-		sample = self.que.get()
-
-		try:		
+		try:
 			if header_check(self.header,sample.header):
 				self.header = sample.header
 				self.marshaller.marshall_header(self.wrapper, self.header)
@@ -153,7 +152,7 @@ class ListenSink (AsyncProcessingStep):
 			self.sample_buffer = deque(maxlen=None)
 		else:
 			self.sample_buffer = deque(maxlen=sample_buffer_size)
-		
+
 		self.is_running = True
 		try:
 			self.server = self.bind_port(self.host,self.port,self.max_receivers)
@@ -178,7 +177,7 @@ class ListenSink (AsyncProcessingStep):
 		for s in outputs:
 			s.close()
 		outputs = []
-		sample_queues = {}
+		self.sample_queues = {}
 
 	def close_connection(self,s,outputs,sample_queues):
 		logging.info("{}: closing connection to peer {} ...".format(self.__name__,s))
@@ -393,7 +392,7 @@ class TerminalOut(ProcessingStep):
 		else:
 			for k,v in sample.tags.items():
 					t_str += ",{}={}".format(k,v)
-				
+
 		print("{}{}{}".format(sample.get_printable_timestamp(),t_str,s_str))
 
 	def execute(self,sample):
@@ -406,4 +405,3 @@ class TerminalOut(ProcessingStep):
 
 	def on_close(self):
 		logging.info("{}: closing ...".format(self.__name__))
-

@@ -70,18 +70,15 @@ def compare_args(step,script_args):
 	for i in range(len(script_args)):
 		script_key_name = list(script_args.keys())[i]
 		script_value = script_args[script_key_name]
-		#script_value_type = type(script_value)
 
-		if script_key_name in required_step_args.keys():
-			if type_compare(required_step_args[script_key_name],script_value):
-				found_required_args += 1
-				logging.debug("Found required " + script_key_name + "...")
+		if script_key_name in required_step_args.keys() and type_compare(required_step_args[script_key_name],script_value):
+			found_required_args += 1
+			logging.debug("Found required " + script_key_name + "...")
 
 
-		if script_key_name in optional_step_args.keys():
-			if type_compare(optional_step_args[script_key_name],script_value):
-				found_optional_args += 1
-				logging.debug("Found optional " + script_key_name + "...")
+		if script_key_name in optional_step_args.keys() and type_compare(optional_step_args[script_key_name],script_value):
+			found_optional_args += 1
+			logging.debug("Found optional " + script_key_name + "...")
 
 	# no optinal arguments passed
 	if found_required_args == len(script_args):
@@ -97,14 +94,13 @@ def initialize_step(name,script_args):
 
 	for ps in processing_steps:
 
-		if ps.__name__.lower() == name.lower():
-			if compare_args(ps,script_args):
-				logging.info("{} with args: {}  ok ...".format(name,script_args))				
-				try:
-					ps_obj = ps(**script_args)
-				except Exception  as e:
-					logging.error(str(e))
-				return ps_obj
+		if ps.__name__.lower() == name.lower() and compare_args(ps,script_args):
+			logging.info("{} with args: {}  ok ...".format(name,script_args))				
+			try:
+				ps_obj = ps(**script_args)
+			except Exception  as e:
+				logging.error(str(e))
+			return ps_obj
 	logging.info("{} with args: {}  failed ...".format(name,script_args))				
 	return None
 
@@ -136,9 +132,8 @@ class ProcessingStep():
 		self.next_step = next_step
 
 	def write(self,sample):
-		if sample:
-			if self.next_step:
-				self.next_step.execute(sample)
+		if sample and self.next_step:
+			self.next_step.execute(sample)
 
 	def execute(self,sample):
 		raise NotImplementedError
