@@ -374,6 +374,11 @@ class TerminalOut(ProcessingStep):
 		self.__name__ = "TerminalOutput"
 		self.header_printed = False
 
+	def get_timestamp_string(self, sample):
+		pts = str(sample.get_timestamp()).replace("T"," ")
+		pts = pts.rstrip('0')
+		return pts
+
 	def print_header(self,sample):
 		h_str = ""
 		for h in sample.header.header:
@@ -394,7 +399,7 @@ class TerminalOut(ProcessingStep):
 			for k,v in sample.tags.items():
 					t_str += ",{}={}".format(k,v)
 
-		print("{}{}{}".format(sample.get_timestamp_string(),t_str,s_str))
+		print("{}{}{}".format(self.get_timestamp_string(sample=sample),t_str,s_str))
 
 	def execute(self,sample):
 		if self.header_printed is False:

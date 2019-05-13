@@ -1,6 +1,5 @@
 import logging
 import struct
-
 from bitflow.sample import Sample,Header
 
 
@@ -63,6 +62,27 @@ class CsvMarshaller(Marshaller):
 	def __init__(self):
 		pass
 
+	def __get_metric_string__(self, metric):
+		if metric.is_integer():
+			return str(int(metric))
+		return str(metric)
+
+	def get_metrics_string(self, sample, seperator_string):
+		s = ""
+		list_position = 1
+		for metric in sample.metrics:
+			if(list_position == len(sample.metrics)):
+				s += "{}".format(self.__get_metric_string__(metric))
+			else:
+				s += "{}{}".format(self.__get_metric_string__(metric), seperator_string)
+				list_position += 1
+		return s
+
+	def get_timestamp_string(self, sample):
+		pts = str(sample.get_timestamp()).replace("T"," ")
+		pts = pts.rstrip('0')
+		return pts
+
 	def marshall_header(self, sink, header):
 		special_f = [self.HEADER_START_STRING,"tags"]
 		column_names = special_f + header.metric_names
@@ -72,11 +92,12 @@ class CsvMarshaller(Marshaller):
 		sink.write(bytes(s,"UTF-8"))
 
 	def marshall_sample(self, sink, sample):
-		s = "{}{}{}{}{}{}".format(sample.get_timestamp_string(),
+		s = "{}{}{}{}{}{}".format(self.get_timestamp_string(sample=sample),
 							CsvMarshaller.SEPERATOR,
 							sample.get_tags_string(),
 							CsvMarshaller.SEPERATOR,
-							sample.get_metrics_string(seperator_string=CsvMarshaller.SEPERATOR),
+							self.get_metrics_string(sample=sample,
+													seperator_string=CsvMarshaller.SEPERATOR),
 							CsvMarshaller.NEWLINE)
 		sink.write(bytes(s,"UTF-8"))
 
@@ -116,6 +137,18 @@ class BinMarshaller:
 	def __init__(self):
 		self.__name__ = "BinaryMarshaller"
 
+	def get_timestamp_bytes(self,sample):
+		return struct.pack('>Q',sample.get_unix_timestamp())
+
+	def __get_metric_bytes__(self,metric):
+		return struct.pack('>d',metric)
+
+	def get_metrics_bytes(self,sample):
+		b = b''
+		for metric in sample.metrics:
+			b += self.__get_metric_bytes__(metric)
+		return b
+
 	def marshall_header(self, sink,header):
 		special_f = [self.HEADER_START_STRING,"tags"]
 		column_names = special_f + header.metric_names
@@ -126,11 +159,10 @@ class BinMarshaller:
 
 	def marshall_sample(self, sink,sample):
 		sample_bytes = BinMarshaller.BEGIN_OF_SAMPLE_BYTE \
-					 + sample.get_timestamp_bytes() \
+					 + self.get_timestamp_bytes(sample=sample) \
 					 + bytes(sample.get_tags_string(),"UTF-8") \
 					 + BinMarshaller.NEWLINE_BYTE \
-					 + sample.get_metrics_bytes()
-
+					 + self.get_metrics_bytes(sample=sample)
 		sink.write(sample_bytes)
 
 	def unmarshall_header(self,header):

@@ -44,33 +44,6 @@ class Sample:
 		self.header.header.remove(index)
 		self.metrics = self.metrics[:index:]
 
-	def __get_metric_string__(self,metric):
-		if metric.is_integer():
-			return str(int(metric))
-		return str(metric)
-
-	def get_metrics_string(self, seperator_string):
-		s = ""
-		list_position = 1
-		for metric in self.metrics:
-			if(list_position == len(self.metrics)):
-				s += "{}".format(self.__get_metric_string__(metric))
-			else:
-				s += "{}{}".format(self.__get_metric_string__(metric), seperator_string)
-				list_position += 1
-		return s
-
-	def __get_metric_bytes__(self,metric,byte_order='='):
-		import struct
-		return struct.pack(byte_order+'d',metric)
-
-
-	def get_metrics_bytes(self, byte_order='>'):
-		b = b''
-		for metric in self.metrics:
-			b += self.__get_metric_bytes__(metric,byte_order)
-		return b
-
 # TIMESTAMP
 	def get_timestamp(self):
 		return self.timestamp
@@ -80,9 +53,6 @@ class Sample:
 		pts = pts.rstrip('0')
 		return pts
 
-	def get_timestamp_bytes(self,byte_order=">"):
-		import struct
-		return struct.pack(byte_order+'Q',self.get_unix_timestamp())
 	
 	def set_timestamp(self,timestamp : str):
 		self.timestamp = np.datetime64(timestamp)
