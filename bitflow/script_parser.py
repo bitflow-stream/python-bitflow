@@ -12,19 +12,32 @@ from bitflow.processingstep import *
 from bitflow.steps.plotprocessingsteps import *
 from bitflow.fork import *
 from bitflow.helper import *
-from bitflow.marshaller import CsvMarshaller
+from bitflow.marshaller import CsvMarshaller, BinMarshaller
 
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
 # output seperation str
-output_seperation = "://"
-output_type_seperation = "+"
-output_formats = ["csv","bin"]
+OUTPUT_SEPERATION_STRING = "://"
+OUTPUT_TYPE_SEPERATION_CHAR = "+"
+BINARY_DATA_FORMAT_IDENTIFIER = "bin"
+CSV_DATA_FORMAT_IDENTIFIER = "csv"
+DATA_FORMATS = [BINARY_DATA_FORMAT_IDENTIFIER,
+                CSV_DATA_FORMAT_IDENTIFIER]
+FILE_OUTPUT_TYPE = "file"
+TCP_LISTEN_OUTPUT_TYPE = "listen"
+TCP_SEND_OUTPUT_TYPE = "tcp"
+TERMINAL_OUTPUT_TYPE = "std"
+EMPTY_OUTPUT_TYPE = "empty"
+OUTPUT_TYPES = [FILE_OUTPUT_TYPE,
+                TCP_LISTEN_OUTPUT_TYPE,
+                TCP_SEND_OUTPUT_TYPE,
+                TERMINAL_OUTPUT_TYPE,
+                EMPTY_OUTPUT_TYPE]
 
-DEFAULT_FILE_DATA_FORMAT = "csv"
-DEFAULT_TCP_DATA_FORMAT = "csv"
-DEFAULT_STD_DATA_FORMAT = "csv"
+DEFAULT_FILE_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
+DEFAULT_TCP_DATA_FORMAT = BINARY_DATA_FORMAT_IDENTIFIER
+DEFAULT_STD_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
 
 
 def capabilities():
@@ -107,43 +120,22 @@ def build_data_input(data_input_ctx,pipeline):
     return data_inputs
 
 
-def explicit_data_output(output_type, output_url):
+def explicit_data_output(output_type, data_format, output_url):
     output_ps = None
     data_format = None
-
-    if output_type_seperation in output_type:
-        a,b = output_type.split(output_type_seperation)
-        if a.lower() in output_formats:
-            data_format = a.lower()
-            output_type = b.lower()
-        elif b.lower() in output_formats:
-            data_format = b.lower()
-            output_type = a.lower()
-        else:
-            raise ParsingError("Unable to parse {} ...".format(output_formats))
-
-    if output_type == "file":
-        if not data_format:
-            data_format = DEFAULT_FILE_DATA_FORMAT
+    if output_type == FILE_OUTPUT_TYPE:
         logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
         output_ps = FileSink(   filename=output_url,
                                 data_format=data_format)
-
-    elif output_type == "listen":
-        if not data_format:
-            data_format = DEFAULT_TCP_DATA_FORMAT
-        
+    elif output_type == TCP_LISTEN_OUTPUT_TYPE:
         if output_url[0] is not ":":
             raise ParsingError("Missing requred \':\' in port ...")
         output_url = output_url[1:]
         port = int(output_url)
         logging.info("ListenSink: :" + output_url)
-
         output_ps = ListenSink( port=port,
                                 data_format=data_format)
-    elif output_type == "tcp":
-        if not data_format:
-            data_format = DEFAULT_TCP_DATA_FORMAT
+    elif output_type == TCP_SEND_OUTPUT_TYPE:
         try:
             hostname,port_str = output_url.split(":")
         except:
@@ -153,48 +145,86 @@ def explicit_data_output(output_type, output_url):
         output_ps = TCPSink(host=hostname,
                             port=port, 
                             data_format=data_format)
-
-    elif output_type == "std":
-        if not data_format:
-            data_format = DEFAULT_STD_DATA_FORMAT
+    elif output_type == TERMINAL_OUTPUT_TYPE:
         # currently ignores data_format
         logging.info("TerminalOut: " + output_url)
         output_ps = TerminalOut()
-
-    elif output_type == "empty":
+    elif output_type == EMPTY_OUTPUT_TYPE:
         raise NotSupportedWarning("Empty output not supported ...")
-
     return output_ps
 
-def implicit_data_output(output_str):
+def get_file_data_format(data_format,output_url):
+    if data_format:
+        return data_format
+
+    if output_url.endswith(BINARY_DATA_FORMAT_IDENTIFIER):
+        return BINARY_DATA_FORMAT_IDENTIFIER
+    elif output_url.endswith(CSV_DATA_FORMAT_IDENTIFIER):
+        return CSV_DATA_FORMAT_IDENTIFIER
+    else:
+        return DEFAULT_FILE_DATA_FORMAT
+
+def implicit_data_output(output_url,data_format=None):
     output_ps = None
     
-    if ":" in output_str:
-        if R_port.match(output_str):
-            logging.info("ListenSink: " + output_str)
-            port_str = output_str[1:]
+    if ":" in output_url:
+        if R_port.match(output_url):
+            logging.info("ListenSink: " + output_url)
+            port_str = output_url[1:]
             port = int(port_str)
+            df = data_format if data_format else DEFAULT_TCP_DATA_FORMAT
             output_ps = ListenSink( port=port,
-                                    data_format=DEFAULT_TCP_DATA_FORMAT) 
-
+                                    data_format=df) 
         else:
-            logging.info("TCPSink: " + output_str)
-            hostname,port_str = output_str.split(":")
+            logging.info("TCPSink: " + output_url)
+            hostname,port_str = output_url.split(":")
             port = int(port_str)
+            df = data_format if data_format else DEFAULT_TCP_DATA_FORMAT
             output_ps = TCPSink(host=hostname, 
                                 port=port, 
-                                data_format=DEFAULT_TCP_DATA_FORMAT)
-
-    elif output_str == "-":
-        logging.info("TerminalOut: " + output_str)
+                                data_format=df)
+    elif output_url == "-":
+        logging.info("TerminalOut: " + output_url)
         output_ps = TerminalOut()
-
     else:
-        logging.info("FileSink: " + str(FileSink.get_filepath(output_str)))
-        output_ps = FileSink(   filename=output_str,
-                                data_format=DEFAULT_FILE_DATA_FORMAT)
-
+        logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
+        df = get_file_data_format(data_format,output_url)
+        output_ps = FileSink(   filename=output_url,
+                                data_format=df)
     return output_ps
+
+# parse output string before OUTPUT_TYPE_SEPERATION_CHAR, means if present the data_format and the output_type
+def parse_output_type_format_str(output_type_format_str):
+    if OUTPUT_TYPE_SEPERATION_CHAR in output_type_format_str:
+        values = output_type_format_str.split(OUTPUT_TYPE_SEPERATION_CHAR)
+        if len(values) > 2:
+            raise ParsingError("Unable to parse {}, too many values ...".format(output_type_format_str))
+    else:
+        values = [output_type_format_str]
+    data_format = None
+    output_type = None
+    for v in values:
+        if v in DATA_FORMATS:
+            data_format = v
+        elif v in OUTPUT_TYPES:
+            output_type = v
+        else:
+             raise ParsingError("Unable to parse {}, value not known ...".format(v))
+    return output_type, data_format
+
+# parse output string like:
+# :5555
+# tcp://web.de:5555
+# file+csv://myfile.csv
+def parse_output_str(output_str):
+    if len(output_str.split(OUTPUT_SEPERATION_STRING)) == 2:
+        output_type_format_str, output_url = output_str.split(OUTPUT_SEPERATION_STRING)
+        output_type, data_format = parse_output_type_format_str(output_type_format_str)
+    else:
+        output_url = output_str
+        output_type = None
+        data_format = None
+    return output_type, data_format, output_url
 
 #G4:   dataOutput : name schedulingHints? ;
 def build_data_output(data_output_ctx):
@@ -202,13 +232,15 @@ def build_data_output(data_output_ctx):
         scheduling_hints_ctx =  data_output_ctx.schedulingHints()
         parse_scheduling_hints(scheduling_hints_ctx)
     output_ctx =  data_output_ctx.name()
-    output_str = output_ctx.getText()
+    output_str = output_ctx.getText().lower()
+    output_type, data_format, output_url = parse_output_str(output_str)
 
-    if len(output_str.split(output_seperation)) == 2:
-        output_type, output_url = output_str.split(output_seperation)
-        output_ps = explicit_data_output(output_type=output_type.lower(),output_url=output_url.lower())
+    if output_type:
+        output_ps = explicit_data_output(   output_type=output_type,
+                                            data_format=data_format,
+                                            output_url=output_url)
     else:
-        output_ps = implicit_data_output(output_str)
+        output_ps = implicit_data_output(output_url=output_url,data_format=data_format)
     return output_ps
 
 #G4:   parameters : OPEN_PARAMS (parameterList SEP?)? CLOSE_PARAMS ;

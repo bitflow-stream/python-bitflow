@@ -174,8 +174,8 @@ class DebugGenerationStep(AsyncProcessingStep):
 			import random
 			v1 = random.random()
 			metrics = [float(v1)]
-			header = ["random_value"]
-			sample = Sample(header=Header(header=header),metrics=metrics)
+			metric_names = ["random_value"]
+			sample = Sample(header=Header(metric_names=metric_names),metrics=metrics)
 			r_tag = random.randint(0,1)
 			if r_tag == 0:
 				sample.add_tag("blub","bla")

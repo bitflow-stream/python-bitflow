@@ -8,10 +8,11 @@ import select
 from collections import deque
 import datetime
 from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
-from bitflow.marshaller import CsvMarshaller
+from bitflow.marshaller import CsvMarshaller, BinMarshaller
 
 CSV_FORMAT_IDENTIFIER = "csv"
 BIN_FORMAT_IDENTIFIER = "bin"
+DEFAULT_SINK_DATA_FORMAT = CSV_FORMAT_IDENTIFIER
 
 def header_check(old_header, new_header):
 		if old_header == None:
@@ -24,7 +25,7 @@ def get_marshaller(data_format):
 	if data_format.lower() == CSV_FORMAT_IDENTIFIER:
 		return CsvMarshaller()
 	elif data_format.lower() == BIN_FORMAT_IDENTIFIER:
-		raise NotImplementedError
+		return BinMarshaller()
 	else:
 		logging.error("Data format unknown ...")
 		sys.exit(1)
@@ -37,7 +38,7 @@ class TCPSink(AsyncProcessingStep):
 	def __init__(self,
 				host : str, 
 				port : int, 
-				data_format : str = CSV_FORMAT_IDENTIFIER,
+				data_format : str = DEFAULT_SINK_DATA_FORMAT,
 				reconnect_timeout : int = 2):
 
 		super().__init__()
@@ -123,9 +124,9 @@ class SocketWrapper:
 	def __init__(self, socket):
 		self.socket = socket
 	def write(self, data):
-		return self.socket.send(bytes(data, "utf-8"))
+		return self.socket.send(data)
 	def read(self, packet_size):
-		return self.socket.recv(packet_size).decode()
+		return self.socket.recv(packet_size)
 
 ####################
 # ListenSocketSink #
@@ -316,7 +317,7 @@ class FileSink(AsyncProcessingStep):
 
 	def open_file(self,filename):
 		final_filename = FileSink.get_filepath(filename)
-		self.f = open(final_filename, 'w')
+		self.f = open(final_filename, 'bw')
 		return final_filename
 
 	def execute(self,sample):
@@ -373,6 +374,11 @@ class TerminalOut(ProcessingStep):
 		self.__name__ = "TerminalOutput"
 		self.header_printed = False
 
+	def get_timestamp_string(self, sample):
+		pts = str(sample.get_timestamp()).replace("T"," ")
+		pts = pts.rstrip('0')
+		return pts
+
 	def print_header(self,sample):
 		h_str = ""
 		for h in sample.header.header:
@@ -393,7 +399,7 @@ class TerminalOut(ProcessingStep):
 			for k,v in sample.tags.items():
 					t_str += ",{}={}".format(k,v)
 
-		print("{}{}{}".format(sample.get_printable_timestamp(),t_str,s_str))
+		print("{}{}{}".format(self.get_timestamp_string(sample=sample),t_str,s_str))
 
 	def execute(self,sample):
 		if self.header_printed is False:

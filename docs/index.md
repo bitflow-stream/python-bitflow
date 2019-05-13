@@ -59,8 +59,7 @@ Current version does not close properly in all cases. Use strg-C to exit.
 **provide-data.py**: reads a file and provides this file via a listen port
 
 ## TODO
-* support binary bitflow format
-* intensive testing
+* more testing testing
 * closing python-bitflow properly
 
 ## Known Issues:
