@@ -39,12 +39,9 @@ DEFAULT_FILE_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
 DEFAULT_TCP_DATA_FORMAT = BINARY_DATA_FORMAT_IDENTIFIER
 DEFAULT_STD_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
 
-
+# returns all steps as json
 def capabilities():
-    ''' returns all steps as json '''
-
     steps_lst = []
-
     processing_steps = ProcessingStep.subclasses
     for step in processing_steps:
         step_dict = {}
@@ -68,7 +65,6 @@ def capabilities():
 
     import json
     print(json.dumps(steps_lst,sort_keys=True))
-
 
 #G4:   processingStep : name parameters schedulingHints? ;
 def build_processing_step(processing_step_ctx):
@@ -146,9 +142,8 @@ def explicit_data_output(output_type, data_format, output_url):
                             port=port, 
                             data_format=data_format)
     elif output_type == TERMINAL_OUTPUT_TYPE:
-        # currently ignores data_format
         logging.info("TerminalOut: " + output_url)
-        output_ps = TerminalOut()
+        output_ps = TerminalOut(data_format=data_format)
     elif output_type == EMPTY_OUTPUT_TYPE:
         raise NotSupportedWarning("Empty output not supported ...")
     return output_ps
@@ -185,7 +180,8 @@ def implicit_data_output(output_url,data_format=None):
                                 data_format=df)
     elif output_url == "-":
         logging.info("TerminalOut: " + output_url)
-        output_ps = TerminalOut()
+        df = data_format if data_format else DEFAULT_STD_DATA_FORMAT
+        output_ps = TerminalOut(data_format=df)
     else:
         logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
         df = get_file_data_format(data_format,output_url)

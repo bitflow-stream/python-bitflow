@@ -369,45 +369,23 @@ class FileSink(AsyncProcessingStep):
 
 class TerminalOut(ProcessingStep):
 
-	def __init__(self):
+	class ConsoleWriter():
+		def write(self,data):
+			sys.stdout.buffer.write(data)
+
+	def __init__(self, data_format : str = CSV_FORMAT_IDENTIFIER):
 		super().__init__()
 		self.__name__ = "TerminalOutput"
-		self.header_printed = False
-
-	def get_timestamp_string(self, sample):
-		pts = str(sample.get_timestamp()).replace("T"," ")
-		pts = pts.rstrip('0')
-		return pts
-
-	def print_header(self,sample):
-		h_str = ""
-		for h in sample.header.header:
-			h_str += "," + h
-		print("time,tags" + h_str)
-
-	def print_metrics(self,sample):
-		s_str = ""
-		for s in sample.metrics:
-				if s.is_integer():
-					s_str += "," + str(int(s))
-				else:
-					s_str += ",{}".format(s,type='d')
-		t_str = ""
-		if len(sample.tags.keys()) == 0:
-			t_str = ","
-		else:
-			for k,v in sample.tags.items():
-					t_str += ",{}={}".format(k,v)
-
-		print("{}{}{}".format(self.get_timestamp_string(sample=sample),t_str,s_str))
+		self.marshaller = get_marshaller(data_format)
+		self.header = None
+		self.console_writer = self.ConsoleWriter()
 
 	def execute(self,sample):
-		if self.header_printed is False:
-			self.print_header(sample)
-			self.header_printed = True
-		self.print_metrics(sample)
+		if header_check(self.header,sample.header):
+			self.header = sample.header
+			self.marshaller.marshall_header(sink=self.console_writer, header=self.header)
+		self.marshaller.marshall_sample(sink=self.console_writer, sample=sample)
 		self.write(sample)
-
 
 	def on_close(self):
 		logging.info("{}: closing ...".format(self.__name__))
