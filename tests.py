@@ -20,7 +20,7 @@ TESTING_OUT_FILE_CSV = "testing/testing_file_out.csv"
 TESTING_OUT_FILE_CSV_2 = "testing/testing_file_out2.csv"
 
 TESTING_IN_FILE_BIN = "testing/testing_file_in.bin"
-
+TESTING_OUT_FILE_BIN = "testing/testing_file_out.bin"
 def remove_file(f):
     if os.path.isfile(f):
         os.remove(f)
@@ -158,6 +158,65 @@ class TestPipeline(unittest.TestCase):
         self.assertTrue(True)
 
 
+class TestBitflowScriptParser(unittest.TestCase):
+
+    def test_get_file_data_format_BIN(self):
+        data_format = get_file_data_format(None,"blacsv.bin")
+        self.assertEqual(BINARY_DATA_FORMAT_IDENTIFIER, data_format)
+
+    def test_get_file_data_format_CSV(self):
+        data_format = get_file_data_format(None,"blabin.csv")
+        self.assertEqual(CSV_DATA_FORMAT_IDENTIFIER, data_format)
+
+    def test_get_file_data_format_PRE(self):
+        data_format = get_file_data_format(CSV_DATA_FORMAT_IDENTIFIER,"blacsv.bin")
+        self.assertEqual(CSV_DATA_FORMAT_IDENTIFIER, data_format)
+
+    def test_parse_output_str__data_format__filename(self):
+        output_str = "csv://test.csv"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, None)
+        self.assertEqual(data_format, CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(output_url, "test.csv")
+
+    def test_parse_output_str__data_type__filename(self):
+        output_str = "file://test.txt"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, FILE_OUTPUT_TYPE)
+        self.assertEqual(data_format, None)
+        self.assertEqual(output_url, "test.txt")
+
+    def test_parse_output_str__data_type__data_format__filename(self):
+        output_str = "file+csv://test.csv"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, FILE_OUTPUT_TYPE)
+        self.assertEqual(data_format, CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(output_url, "test.csv")
+
+    def test_parse_output_str__data_type__host_port_url(self):
+        output_str = "tcp://test:5555"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, TCP_SEND_OUTPUT_TYPE)
+        self.assertEqual(data_format, None)
+        self.assertEqual(output_url, "test:5555")
+
+    def test_parse_output_str__data_type__data_format__host_port_url(self):
+        output_str = "tcp+csv://test:5555"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, TCP_SEND_OUTPUT_TYPE)
+        self.assertEqual(data_format, CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(output_url, "test:5555")
+
+    def test_parse_output_str__to_many_identifiers(self):
+        output_str = "listen+bin+csv://:5555"
+        with self.assertRaises(ParsingError):
+            output_type, data_format, output_url = parse_output_str(output_str)
+
+    def test_parse_output_str__unknown_data_format(self):
+        output_str = "listen+bid://:5555"
+        with self.assertRaises(ParsingError):
+            output_type, data_format, output_url = parse_output_str(output_str)
+
 class TestInputOutput(unittest.TestCase):
 
     def test_csv_file_in_no_out(self):
@@ -207,6 +266,25 @@ class TestInputOutput(unittest.TestCase):
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
 
+    def test_csv_file_in__bin_file_out(self):
+        global LOGGING_LEVEL
+        global TESTING_IN_FILE_CSV, TESTING_OUT_FILE_BIN, TESTING_IN_FILE_BIN
+        logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
+
+        remove_file(TESTING_OUT_FILE_BIN)
+
+        pipeline = Pipeline()
+        pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_BIN,data_format=BINARY_DATA_FORMAT_IDENTIFIER))
+        pipeline.start()
+        file_source = FileSource(   filename=TESTING_IN_FILE_CSV,
+                                    pipeline=pipeline)
+        file_source.start()
+        time.sleep(5)
+        pipeline.stop()
+
+        import filecmp
+        self.assertTrue(filecmp.cmp(TESTING_IN_FILE_BIN,TESTING_OUT_FILE_BIN))
+
     def test_bin_file_in__csv_file_out(self):
         global LOGGING_LEVEL
         global TESTING_IN_FILE_BIN, TESTING_IN_FILE_CSV, TESTING_OUT_FILE_CSV
@@ -227,6 +305,26 @@ class TestInputOutput(unittest.TestCase):
 
         import filecmp
         self.assertTrue(filecmp.cmp(TESTING_IN_FILE_CSV,TESTING_OUT_FILE_CSV))
+
+    def test_bin_file_in__bin_file_out(self):
+        global LOGGING_LEVEL
+        global TESTING_IN_FILE_BIN, TESTING_OUT_FILE_BIN
+        logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
+
+        remove_file(TESTING_OUT_FILE_BIN)
+
+        pipeline = Pipeline()
+        pipeline.add_processing_step(FileSink(filename=TESTING_OUT_FILE_BIN,data_format=BINARY_DATA_FORMAT_IDENTIFIER))
+        pipeline.start()
+        file_source = FileSource(   filename=TESTING_IN_FILE_BIN,
+                                    pipeline=pipeline)
+
+        file_source.start()
+        time.sleep(5)
+        pipeline.stop()
+
+        import filecmp
+        self.assertTrue(filecmp.cmp(TESTING_OUT_FILE_BIN,TESTING_IN_FILE_BIN))
 
     def test_csv_file_in__multiple_csv_files_out(self):
         global LOGGING_LEVEL
