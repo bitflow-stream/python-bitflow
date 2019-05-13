@@ -59,7 +59,6 @@ class CsvMarshaller(Marshaller):
 	HEADER_START_STRING = CSV_HEADER_START_STRING
 	HEADER_START_BYTES = CSV_HEADER_START_BYTES
 	END_OF_HEADER_CHAR = b'\n'
-	END_OF_HEADER_CHAR_LEN = 1
 
 	def __init__(self):
 		pass
@@ -109,7 +108,6 @@ class BinMarshaller:
 	END_OF_HEADER_CHAR = b'\n\n'
 	HEADER_START_STRING = BIN_HEADER_START_STRING
 	HEADER_START_BYTES = BIN_HEADER_START_BYTES
-	END_OF_HEADER_CHAR_LEN = 3
 	BEGIN_OF_SAMPLE_BYTE = b'X'
 
 	TIMESTAMP_VALUE_BYTES_LEN = 8
@@ -143,7 +141,8 @@ class BinMarshaller:
 		return Header(fields[2:])
 
 	def unmarshall_sample(self,header,metrics):
-		offset = 0
+		#offset 0 = BEGIN_OF_SAMPLE_BYTE
+		offset = 1
 		# handle timestamp
 		timestamp_bytes = metrics[offset:offset + BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN]
 		timestamp = struct.unpack('>Q',timestamp_bytes)[0]

@@ -31,9 +31,9 @@ class Source(multiprocessing.Process):
 		if sample:
 			self.queue.put(sample)
 
-	def cut_bytes(self,cutting_pos,len_cut_bytes,b):
+	def cut_bytes(self,cutting_pos,b,cut_len=0):
 		begin = b[0:cutting_pos]
-		rest = b[cutting_pos+len_cut_bytes:len(b)]
+		rest = b[cutting_pos+cut_len:len(b)]
 		return begin,rest
 
 	def get_start_bytes(self,b):
@@ -46,14 +46,15 @@ class Source(multiprocessing.Process):
 			return True
 		return False
 
+	# cuts at newline, end of line for csv end after tags for bin
 	def get_newline_cutting_pos(self,b):
 		newline = b'\n'
-		cutting_pos = b.find(newline)
 		btlen = BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
-		if cutting_pos <= btlen and len(b) > btlen:
+		if len(b) > btlen:
 			cutting_pos = b[btlen:len(b)].find(newline)
-			cutting_pos += btlen if cutting_pos != -1 else False
-		return cutting_pos
+			if cutting_pos > 0:
+				return cutting_pos + btlen
+		return -1
 
 	def get_marshaller(self,b):
 		marshaller = None
@@ -134,7 +135,7 @@ class _FileSource(Source):
 			if header_end_pos == -1:
 				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 				return
-			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
+			b_header,self.b = self.cut_bytes(header_end_pos,self.b,len(self.marshaller.END_OF_HEADER_CHAR))
 			try:
 				self.header = self.marshaller.unmarshall_header(b_header)
 			except HeaderException as e:
@@ -151,12 +152,11 @@ class _FileSource(Source):
 			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN 
 			if len(self.b) <= cutting_pos + metric_bytes_len:
 				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
-
 				return
 			else:
-				cutting_pos += metric_bytes_len + 1
+				cutting_pos += metric_bytes_len + 1 # add newline after tags byte
 
-		b_metrics,self.b = self.cut_bytes(cutting_pos ,1,self.b)
+		b_metrics,self.b = self.cut_bytes(cutting_pos, self.b)
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
@@ -258,7 +258,7 @@ class _DownloadSource(Source):
 			if header_end_pos == -1:
 				self.b += self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 				return
-			b_header,self.b = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.b)
+			b_header,self.b = self.cut_bytes(header_end_pos,self.b,len(self.marshaller.END_OF_HEADER_CHAR))
 			try:
 				self.header = self.marshaller.unmarshall_header(b_header)
 			except HeaderException as e:
@@ -276,7 +276,7 @@ class _DownloadSource(Source):
 
 		if isinstance(self.marshaller,BinMarshaller):
 			metric_bytes_len = self.header.num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN  
-			if len(self.b) < cutting_pos + metric_bytes_len:
+			if len(self.b) <= cutting_pos + metric_bytes_len:
 				read_b = self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 				if not read_b:
 					self.stop()
@@ -284,9 +284,9 @@ class _DownloadSource(Source):
 				self.b += read_b
 				return
 			else:
-				cutting_pos += metric_bytes_len + 1
+				cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-		b_metrics,self.b = self.cut_bytes(cutting_pos ,1,self.b)
+		b_metrics,self.b = self.cut_bytes(cutting_pos ,self.b)
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
@@ -386,7 +386,7 @@ class _ListenSource(Source):
 						header_end_pos = self.connections[s]["b"].find(self.marshaller.END_OF_HEADER_CHAR)
 						if header_end_pos == -1:
 							break
-						b_header,self.connections[s]["b"] = self.cut_bytes(header_end_pos,self.marshaller.END_OF_HEADER_CHAR_LEN,self.connections[s]["b"])
+						b_header,self.connections[s]["b"] = self.cut_bytes(header_end_pos,self.connections[s]["b"],len(self.marshaller.END_OF_HEADER_CHAR))
 						try:
 							self.connections[s]["header"] = self.marshaller.unmarshall_header(b_header)
 						except HeaderException as e:
@@ -399,12 +399,12 @@ class _ListenSource(Source):
 						break
 					if isinstance(self.marshaller,BinMarshaller):
 						metric_bytes_len = self.connections[s]["header"].num_fields() * BinMarshaller.METICS_VALUE_BYTES_LEN
-						if len(self.connections[s]["b"]) < cutting_pos + metric_bytes_len:
+						if len(self.connections[s]["b"]) <= cutting_pos + metric_bytes_len:
 							break
 						else:
-							cutting_pos += metric_bytes_len + 1
+							cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,1,self.connections[s]["b"])
+					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,self.connections[s]["b"])
 					self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"], marshaller=self.marshaller)
 			return
 
