@@ -44,9 +44,8 @@ pipeline {
                     withSonarQubeEnv('CIT SonarQube') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow \
-                                -Dsonar.sources=bitflow/ -Dsonar.tests=tests.py \
-                                -Dsonar.inclusions="**/*.py" \
-                                -Dsonar.exclusions="**/Bitflow*.py" \
+                                -Dsonar.sources=bitflow -Dsonar.tests=tests.py \
+                                -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
                                 -Dsonar.python.coverage.reportPaths=coverage-report.xml \
                                 -Dsonar.test.reportPath=test-report.xml
                         """
