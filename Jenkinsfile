@@ -8,6 +8,7 @@ pipeline {
     environment {
         registry = 'teambitflow/python-bitflow'
         registryCredential = 'dockerhub'
+        dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
     }
     stages {
         stage('Test') { 
@@ -56,19 +57,24 @@ pipeline {
                 }
             }
         }
-        stage('Docker') {
+        stage('Docker build') {
+            steps {
+                script {
+                    dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
+                }
+            }
+        }
+        stage('Docker push') {
             when {
                 branch 'master'
             }
             steps {
                 script {
-                    dockerImage = docker.build registry + ':build-$BUILD_NUMBER'
-                    docker.withRegistry('', registryCredential ) {
-                        dockerImage.push()
-                        dockerImage.push('latest')
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push("build-$BUILD_NUMBER")
+                        dockerImage.push("latest")
                     }
                 }
-                sh "docker rmi $registry:build-$BUILD_NUMBER"
             }
         }
     }
