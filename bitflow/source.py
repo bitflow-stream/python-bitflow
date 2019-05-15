@@ -296,7 +296,8 @@ class _DownloadSource(Source):
 		time.sleep(0.1)
 
 	def on_close(self):
-		self.s.close()
+		if self.s:
+			self.s.close()
 		super().on_close()
 
 # Listens for incoming data on the specified host:port

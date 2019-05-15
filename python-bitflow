@@ -96,7 +96,7 @@ def main():
 		spec.loader.exec_module(module)
 
 	if args.capabilities:
-		capabilities()
+		print(capabilities())
 		sys.exit(0)
 	
 	if args.f:

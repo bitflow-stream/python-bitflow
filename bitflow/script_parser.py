@@ -64,7 +64,7 @@ def capabilities():
         steps_lst.append(step_dict)
 
     import json
-    print(json.dumps(steps_lst,sort_keys=True))
+    return json.dumps(steps_lst,sort_keys=True)
 
 #G4:   processingStep : name parameters schedulingHints? ;
 def build_processing_step(processing_step_ctx):
