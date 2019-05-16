@@ -8,7 +8,7 @@ BIN_HEADER_START_STRING = "timB"
 CSV_HEADER_START_BYTES = CSV_HEADER_START_STRING.encode("UTF-8")
 BIN_HEADER_START_BYTES = BIN_HEADER_START_STRING.encode("UTF-8")
 
-class HeaderException:
+class HeaderException(Exception):
 	pass
 
 def parse_tags(tags_string):
@@ -111,7 +111,11 @@ class CsvMarshaller(Marshaller):
 	def unmarshall_sample(self,header,metrics):
 		metrics_line = metrics.decode("UTF-8").strip()
 		values = metrics_line.split(self.SEPERATOR)
-		metrics = [float(x) for x in values[2:len(values)]]
+		try:
+			metrics = [float(x) for x in values[2:len(values)]]
+		except ValueError:
+			logging.warning("Failed to marshall metrics, one metrics seems not to be a float value: {}".format(values))
+			return
 		timestamp = values[0]
 		tags_string = values[1]
 		tags = parse_tags(tags_string)

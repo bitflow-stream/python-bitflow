@@ -286,7 +286,7 @@ class _DownloadSource(Source):
 			else:
 				cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-		b_metrics,self.b = self.cut_bytes(cutting_pos ,self.b)
+		b_metrics,self.b = self.cut_bytes(cutting_pos ,self.b,1)
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
@@ -405,7 +405,7 @@ class _ListenSource(Source):
 						else:
 							cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,self.connections[s]["b"])
+					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,self.connections[s]["b"],1)
 					self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"], marshaller=self.marshaller)
 			return
 
