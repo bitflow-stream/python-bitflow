@@ -57,7 +57,9 @@ class CsvMarshaller(Marshaller):
 	SPACE=" " 
 	HEADER_START_STRING = CSV_HEADER_START_STRING
 	HEADER_START_BYTES = CSV_HEADER_START_BYTES
-	END_OF_HEADER_CHAR = b'\n'
+	END_OF_HEADER_BYTES = b'\n'
+	BEGIN_OF_SAMPLE_BYTES = b''
+	END_OF_SAMPLE_BYTES = b'\n'
 
 	def __init__(self):
 		pass
@@ -129,12 +131,13 @@ class BinMarshaller:
 
 	NEWLINE='\n'
 	NEWLINE_BYTE = b'\n'
-	END_OF_HEADER_STRING = "\n\n"
-	END_OF_HEADER_CHAR = b'\n\n'
+
 	HEADER_START_STRING = BIN_HEADER_START_STRING
 	HEADER_START_BYTES = BIN_HEADER_START_BYTES
-	BEGIN_OF_SAMPLE_BYTE = b'X'
-
+	END_OF_HEADER_STRING = "\n\n"
+	END_OF_HEADER_BYTES = b'\n\n'
+	BEGIN_OF_SAMPLE_BYTES = b'X'
+	END_OF_SAMPLE_BYTES = b''
 	TIMESTAMP_VALUE_BYTES_LEN = 8
 	METICS_VALUE_BYTES_LEN = 8
 
@@ -162,7 +165,7 @@ class BinMarshaller:
 		sink.write(bytes(s,"UTF-8"))
 
 	def marshall_sample(self, sink,sample):
-		sample_bytes = BinMarshaller.BEGIN_OF_SAMPLE_BYTE \
+		sample_bytes = BinMarshaller.BEGIN_OF_SAMPLE_BYTES \
 					 + self.get_timestamp_bytes(sample=sample) \
 					 + bytes(sample.get_tags_string(),"UTF-8") \
 					 + BinMarshaller.NEWLINE_BYTE \
