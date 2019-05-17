@@ -237,7 +237,6 @@ class TestBitflowScriptParser(unittest.TestCase):
         self.assertEqual(data_format,BINARY_DATA_FORMAT_IDENTIFIER)
         self.assertEqual(output_url, "web.de:5555")
 
-
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
@@ -429,7 +428,6 @@ class TestTcpIO(unittest.TestCase):
         b_pipeline.stop()
         a_listen_source.stop()
         a_pipeline.stop()
-
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
