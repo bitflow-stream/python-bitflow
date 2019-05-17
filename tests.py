@@ -230,6 +230,13 @@ class TestBitflowScriptParser(unittest.TestCase):
         with self.assertRaises(ParsingError):
             output_type, data_format, output_url = parse_output_str(output_str)
 
+    def test_parse_output_str__data_format__download(self):
+        output_str = "tcp+bin://web.de:5555"
+        output_type, data_format, output_url = parse_output_str(output_str)
+        self.assertEqual(output_type, TCP_SEND_OUTPUT_TYPE)
+        self.assertEqual(data_format,BINARY_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(output_url, "web.de:5555")
+
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
@@ -421,7 +428,6 @@ class TestTcpIO(unittest.TestCase):
         b_pipeline.stop()
         a_listen_source.stop()
         a_pipeline.stop()
-
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)

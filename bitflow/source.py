@@ -6,6 +6,11 @@ import ctypes
 import multiprocessing 
 from bitflow.marshaller import *
 
+NO_HEADER_LINE = 0
+HEADER_UPDATED = 1
+WAIT_TO_UPDATE = 2
+NO_END_OF_HEADER_FOUND = -1
+
 def read_header(marshaller, s, buffer_size=2048):
 	b = ""
 	while '\n' not in b:
@@ -44,6 +49,7 @@ class Source(multiprocessing.Process):
 			return False
 		if self.get_start_bytes(b) == marshaller.HEADER_START_BYTES:
 			return True
+
 		return False
 
 	# cuts at newline, end of line for csv end after tags for bin
@@ -64,6 +70,17 @@ class Source(multiprocessing.Process):
 		elif header_start_bytes == BIN_HEADER_START_BYTES:
 			marshaller = BinMarshaller()
 		return  marshaller
+
+	# TODO: if header change is forbidden for current data format -> exit
+	def update_header(self,b,header):
+		if self.is_header_start(b,self.marshaller):
+			header_end_pos = b.find(self.marshaller.END_OF_HEADER_BYTES)
+			if header_end_pos == -1:
+				return b,header, NO_END_OF_HEADER_FOUND
+			b_header,b = self.cut_bytes(header_end_pos,b,len(self.marshaller.END_OF_HEADER_BYTES))
+			header = self.marshaller.unmarshall_header(b_header)
+			return b,header, HEADER_UPDATED
+		return b,header, NO_HEADER_LINE
 
 	def run(self):
 		while self.running.value:
@@ -130,17 +147,14 @@ class _FileSource(Source):
 		if not self.marshaller:
 			self.marshaller = self.marshaller = self.get_marshaller(self.b)
 
-		if self.is_header_start(self.b,self.marshaller):
-			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
-			if header_end_pos == -1:
-				self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
-				return
-			b_header,self.b = self.cut_bytes(header_end_pos,self.b,len(self.marshaller.END_OF_HEADER_CHAR))
-			try:
-				self.header = self.marshaller.unmarshall_header(b_header)
-			except HeaderException as e:
-				self.header = None
+		header_update_status = WAIT_TO_UPDATE
+		try:
+			self.b, self.header, header_update_status  = self.update_header(b=self.b,header=self.header)
+		except HeaderException as e:
 				logging.warning("{}: {}".format(self.__name__,str(e)))
+				return
+		if header_update_status == NO_END_OF_HEADER_FOUND:
+			self.b += self.read_bytes(s=self.f,buffer_size=self.buffer_size)
 			return
 
 		cutting_pos = self.get_newline_cutting_pos(self.b)
@@ -156,7 +170,7 @@ class _FileSource(Source):
 			else:
 				cutting_pos += metric_bytes_len + 1 # add newline after tags byte
 
-		b_metrics,self.b = self.cut_bytes(cutting_pos, self.b)
+		b_metrics,self.b = self.cut_bytes(cutting_pos, self.b,len(self.marshaller.END_OF_SAMPLE_BYTES))
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
@@ -253,17 +267,14 @@ class _DownloadSource(Source):
 		if not self.marshaller:
 			self.marshaller = self.get_marshaller(b=self.b)
 
-		if self.is_header_start(self.b,self.marshaller):
-			header_end_pos = self.b.find(self.marshaller.END_OF_HEADER_CHAR)
-			if header_end_pos == -1:
-				self.b += self.read_bytes(s=self.s,buffer_size=self.buffer_size)
-				return
-			b_header,self.b = self.cut_bytes(header_end_pos,self.b,len(self.marshaller.END_OF_HEADER_CHAR))
-			try:
-				self.header = self.marshaller.unmarshall_header(b_header)
-			except HeaderException as e:
-				self.header = None
+		header_update_status = WAIT_TO_UPDATE
+		try:
+			self.b, self.header, header_update_status  = self.update_header(b=self.b,header=self.header)
+		except HeaderException as e:
 				logging.warning("{}: {}".format(self.__name__,str(e)))
+				return
+		if header_update_status == NO_END_OF_HEADER_FOUND:
+			self.b += self.read_bytes(s=self.s,buffer_size=self.buffer_size)
 			return
 
 		cutting_pos = self.get_newline_cutting_pos(self.b)
@@ -286,7 +297,7 @@ class _DownloadSource(Source):
 			else:
 				cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-		b_metrics,self.b = self.cut_bytes(cutting_pos ,self.b)
+		b_metrics,self.b = self.cut_bytes(cutting_pos ,self.b,len(self.marshaller.END_OF_SAMPLE_BYTES))
 		self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
 		return
 
@@ -383,17 +394,18 @@ class _ListenSource(Source):
 					self.marshaller = self.get_marshaller(b=self.connections[s]["b"])
 
 				while self.running:
-					if self.is_header_start(self.connections[s]["b"],self.marshaller):
-						header_end_pos = self.connections[s]["b"].find(self.marshaller.END_OF_HEADER_CHAR)
-						if header_end_pos == -1:
-							break
-						b_header,self.connections[s]["b"] = self.cut_bytes(header_end_pos,self.connections[s]["b"],len(self.marshaller.END_OF_HEADER_CHAR))
-						try:
-							self.connections[s]["header"] = self.marshaller.unmarshall_header(b_header)
-						except HeaderException as e:
-							self.header = None
+
+					header_update_status = WAIT_TO_UPDATE
+					try:
+						self.connections[s]["b"], self.connections[s]["header"], header_update_status = self.update_header(
+																						b=self.connections[s]["b"],
+																						header=self.connections[s]["header"])
+					except HeaderException as e:
 							logging.warning("{}: {}".format(self.__name__,str(e)))
 							break
+					if header_update_status == NO_END_OF_HEADER_FOUND:
+						self.b += self.read_bytes(s=s,buffer_size=self.buffer_size)
+						break
 
 					cutting_pos = self.get_newline_cutting_pos(self.connections[s]["b"])
 					if cutting_pos == -1:
@@ -405,7 +417,7 @@ class _ListenSource(Source):
 						else:
 							cutting_pos += metric_bytes_len + 1 # newline after tags byte
 
-					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,self.connections[s]["b"])
+					b_metrics,self.connections[s]["b"] = self.cut_bytes(cutting_pos,self.connections[s]["b"],len(self.marshaller.END_OF_SAMPLE_BYTES))
 					self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"], marshaller=self.marshaller)
 			return
 
