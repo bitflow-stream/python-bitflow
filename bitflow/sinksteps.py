@@ -161,9 +161,9 @@ class ListenSink (AsyncProcessingStep):
 			logging.error("{}: could not bind socket ...".format(self.__name__))
 			logging.error(str(se))
 			sys.exit(1)
-		self.header = None
 		self.inputs = [self.server]
 		self.outputs = []
+		self.lock = threading.Lock()
 
 	def bind_port(self,host,port,max_receivers):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -205,10 +205,12 @@ class ListenSink (AsyncProcessingStep):
 				connection, client_address = s.accept()
 				connection.setblocking(0)
 				self.outputs.append(connection)
+				self.lock.acquire()
 				self.sample_queues[connection] = {}
 				self.sample_queues[connection]["queue"] = self.get_new_queue(
 												sample_buffer=self.sample_buffer)
 				self.sample_queues[connection]["header"] = None
+				self.lock.release()
 				logging.info("{}: new connection established with {} ...".format(self.__name__,client_address))
 
 		for s in writable:
@@ -222,7 +224,7 @@ class ListenSink (AsyncProcessingStep):
 			except queue.Empty:
 				continue
 			try:
-				if 	self.sample_queues[s]["header"] is None:
+				if self.sample_queues[s]["header"] is None or self.sample_queues[s]["header"].has_changed(sample.header):
 					self.marshaller.marshall_header(sw,sample.header)
 					self.sample_queues[s]["header"] = sample.header
 				self.marshaller.marshall_sample(sw, sample)
@@ -244,22 +246,17 @@ class ListenSink (AsyncProcessingStep):
 				close_connection(s,self.outputs,self.sample_queues)
 
 	def execute(self,sample):
-		if self.header is None:
-			self.header = sample.header
-		elif self.header.has_changed(sample.header):
-			self.close_connections(	outputs=self.outputs,
-									sample_queues=sample_queues)
-			self.header = None
-
+		self.lock.acquire()
 		for k,v in self.sample_queues.items():
 			v["queue"].put(sample)
 		self.sample_buffer.append(sample)
+		self.lock.release()
 		self.write(sample)
 
 	def run(self):
 		while self.is_running:
 			self.loop()
-		self.on_close()		
+		self.on_close()
 
 	def stop(self):
 		for k,v in self.sample_queues.items():
@@ -340,14 +337,13 @@ class FileSink(AsyncProcessingStep):
 
 		if header_check(old_header=self.header,new_header=sample.header):
 			self.header = sample.header
-			if self.f:
+			if self.f and isinstance(self.marshaller,CsvMarshaller):
 				self.f.close()
 				new_filename = self.open_file(self.filename)
 				logging.info("header changed, opening new file {} ...".format(new_filename))
-			else:
+			elif not self.f:
 				new_filename = self.open_file(self.filename)
 				logging.info("Opening new file {} ...".format(new_filename))
-
 			self.marshaller.marshall_header(sink=self.f, header=self.header)
 		self.marshaller.marshall_sample(sink=self.f, sample=sample)
 		self.f.flush()
