@@ -4,7 +4,7 @@ import time
 import select
 import ctypes
 import multiprocessing 
-from bitflow.marshaller import CsvMarshaller, BinMarshaller
+from bitflow.marshaller import *
 
 NO_HEADER_LINE = 0
 HEADER_UPDATED = 1
