@@ -131,6 +131,8 @@ class SocketWrapper:
 ####################
 # ListenSocketSink #
 ####################
+NO_INPUT_TIMEOUT = 0.1
+SOCKET_ERROR_TIMEOUT = 0.5
 
 class ListenSink (AsyncProcessingStep):
 	
@@ -156,7 +158,7 @@ class ListenSink (AsyncProcessingStep):
 
 		self.is_running = True
 		try:
-			self.server = self.bind_port(self.host,self.port,self.max_receivers)
+			self.server = self.bind_socket(self.host,self.port,self.max_receivers)
 		except socket.error as se:
 			logging.error("{}: could not bind socket ...".format(self.__name__))
 			logging.error(str(se))
@@ -165,7 +167,7 @@ class ListenSink (AsyncProcessingStep):
 		self.outputs = []
 		self.lock = threading.Lock()
 
-	def bind_port(self,host,port,max_receivers):
+	def bind_socket(self,host,port,max_receivers):
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		server.setblocking(1)
@@ -192,57 +194,67 @@ class ListenSink (AsyncProcessingStep):
 			q.put(sample)
 		return q
 
-	def loop(self):
+	''' accept new connection from peer '''
+	def initialize_connection(self,s):
+		connection, client_address = s.accept()
+		connection.setblocking(0)
+		self.outputs.append(connection)
+		self.lock.acquire()
+		self.sample_queues[connection] = {}
+		self.sample_queues[connection]["queue"] = self.get_new_queue(
+										sample_buffer=self.sample_buffer)
+		self.sample_queues[connection]["header"] = None
+		self.lock.release()
+		logging.info("{}: new connection established with {} ...".format(self.__name__,client_address))
+
+	''' checks if there are samples to send to any of the connected peers '''
+	def has_to_send(self):
 		empty = True
 		for k,v in self.sample_queues.items():
 				if not v["queue"].empty():
 					empty = False
+		if empty:
+			return False
+		return True
 
+	def loop(self):
 		readable, writable, exceptional = select.select(
 		self.inputs, self.outputs, self.inputs,1)
 		for s in readable:
 			if s is self.server:
-				connection, client_address = s.accept()
-				connection.setblocking(0)
-				self.outputs.append(connection)
-				self.lock.acquire()
-				self.sample_queues[connection] = {}
-				self.sample_queues[connection]["queue"] = self.get_new_queue(
-												sample_buffer=self.sample_buffer)
-				self.sample_queues[connection]["header"] = None
-				self.lock.release()
-				logging.info("{}: new connection established with {} ...".format(self.__name__,client_address))
+				self.initialize_connection(s)
+
+		if not self.has_to_send():
+			time.sleep(NO_INPUT_TIMEOUT)
+			return
 
 		for s in writable:
 			sw = SocketWrapper(s)
-			try:
-				if empty:
-					sample = self.sample_queues[s]["queue"].get(timeout=1)
-					# TODO try to recv and check if "", connection test
-				else:
-					sample = self.sample_queues[s]["queue"].get_nowait()
-			except queue.Empty:
+			if self.sample_queues[s]["queue"].empty():
 				continue
+			sample = self.sample_queues[s]["queue"].get_nowait()
+
 			try:
+				# if no header send yet or header  has changed -> marshall header
 				if self.sample_queues[s]["header"] is None or self.sample_queues[s]["header"].has_changed(sample.header):
 					self.marshaller.marshall_header(sw,sample.header)
 					self.sample_queues[s]["header"] = sample.header
 				self.marshaller.marshall_sample(sw, sample)
 			except socket.error:
-				self.close_connection(s,self.outputs,self.sample_queues)
-				continue
+				exceptional.append(s)
 			self.sample_queues[s]["queue"].task_done()
 
 		for s in exceptional:
 			if s is self.server:
-				logging.warning("{}: socket error! Reinitiating ...".format(self.__init__))
+				logging.warning("{}: Unexpected socket error occured. Trying to rebind socket ...".format(self.__name__))
 				self.close_connections(	outputs=self.outputs,
 										sample_queues=self.sample_queues)
 				self.header = None
 				self.server.close()
-				time.sleep(1)
-				self.server = self.bind_port(self.host,self.port)
+				time.sleep(SOCKET_ERROR_TIMEOUT)
+				self.server = self.bind_socket(self.host,self.port)
 			elif s in self.outputs:
+				logging.warning("{}: Unexpected socket error occured ...")
 				close_connection(s,self.outputs,self.sample_queues)
 
 	def execute(self,sample):
