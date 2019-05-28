@@ -29,13 +29,15 @@ class Batch(ProcessingStep):
 	__description__ = "Batch instantiates a batch pipeline and pushes samples batch wise into this pipeline"
 
 	def __init__(	self,
-				 	batch_size : int,
-				 	flush_tag : str = None,
-				 	flush_header_change : bool = True):
+					size : int,
+					flush_tag : str = None,
+					flush_header_change : bool = True):
 
 		super().__init__()
-		self.batch_size = int(batch_size)
-		self.flush_tag = flush_tag
+		self.size = int(size)
+		if flush_tag:
+			raise NotSupportedError("Flushing batch by changing tag is not supported currently ...")
+		#self.flush_tag = flush_tag
 		self.flush_header = flush_header_change
 		self.batch_pipeline = None
 		self.batch = []
@@ -58,29 +60,28 @@ class Batch(ProcessingStep):
 	def get_batch_pipeline(self):
 		return self.batch_pipeline
 
-	def start_batch_pipeline(self):
-		# root_pipeline can be None if batch is pipeline_tail_element (bitflow_script),
-		# in that case BatchPipelineTerminator is not necessary
-		if self.root_pipeline:
-			self.batch_pipeline.add_processing_step(
-				Batch._BatchPipelineTerminator( batch_ps=self,
-												root_pipeline=self.root_pipeline))
-		self.batch_pipeline.start()
-
 	def set_next_step(self,next_step):
 		self.next_step = next_step
 
-	def add_to_batch(self,sample):
-		self.batch.append(sample)
+	def update_batch_pl_terminator(self):
+		bps_lst = self.batch_pipeline.get_processing_steps()
+		# check if last ps in batch pipeline is terminator,
+		# and root_pipeline is set or None because of tail element
+		if not isinstance(bps_lst[len(bps_lst) -1 ], Batch._BatchPipelineTerminator) and self.root_pipeline:
+			self.batch_pipeline.add_processing_step(
+				Batch._BatchPipelineTerminator( batch_ps=self,
+												root_pipeline=self.root_pipeline))
 
 	def execute(self,sample):
+		self.update_batch_pl_terminator()
+
 		if not self.header:
 			self.header = sample.header
 		elif sample.header.has_changed(self.header) and self.flush_header:
 			self.write(self.batch)
 			self.header = sample.header
-		self.add_to_batch(sample)
-		if len(self.batch) >= self.batch_size:
+		self.batch.append(sample)
+		if len(self.batch) >= self.size:
 			self.write(self.batch)
 
 	# sample in this case is a list of samples

@@ -357,7 +357,7 @@ def build_batch(batch_ctx,pipeline):
     # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
     # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
     batch.set_root_pipeline(pipeline)
-    batch.start_batch_pipeline()
+    batch_pipeline.start()
     return batch
 
 #G4:   multiplexFork : OPEN subPipeline (EOP subPipeline)* EOP? CLOSE ;
