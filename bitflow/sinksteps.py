@@ -280,7 +280,6 @@ class ListenSink (AsyncProcessingStep):
 		self.close_connections(self.outputs,self.sample_queues)
 		self.server.close()
 
-
 ##########################
 #  FILE TransportSink  #
 ##########################
