@@ -93,7 +93,6 @@ def initialize_step(name,script_args):
 	processing_steps = ProcessingStep.subclasses
 
 	for ps in processing_steps:
-
 		if ps.__name__.lower() == name.lower() and compare_args(ps,script_args):
 			logging.info("{} with args: {}  ok ...".format(name,script_args))				
 			try:
@@ -111,7 +110,7 @@ def string_lst_to_lst(str_lst):
 		value = value.strip()
 	return values
 
-SUBLCALSSES_TO_IGNORE=[	"AsyncProcessingStep",
+SUBCLASSES_TO_IGNORE=[	"AsyncProcessingStep",
 						"Fork"]
 
 class ProcessingStep():
@@ -119,13 +118,12 @@ class ProcessingStep():
 	subclasses = []
 	__description__ = "No description written yet."
 
-
 	def __init__(self):
 		self.next_step = None
 
 	def __init_subclass__(cls, **kwargs):
 		super().__init_subclass__(**kwargs)
-		if cls.__name__ not in SUBLCALSSES_TO_IGNORE:
+		if cls.__name__ not in SUBCLASSES_TO_IGNORE:
 			cls.subclasses.append(cls)
 
 	def set_next_step(self,next_step):
@@ -154,6 +152,7 @@ class AsyncProcessingStep(ProcessingStep,threading.Thread):
 	def stop(self):
 		self.is_running = False
 
+
 class DebugGenerationStep(AsyncProcessingStep):
 	"""example generativ processing step"""
 	__name__ = "debug-generation-step"
@@ -161,7 +160,6 @@ class DebugGenerationStep(AsyncProcessingStep):
 
 	def __init__(self):
 		super().__init__()
-
 		self.is_running = True
 
 	def execute(self,sample):

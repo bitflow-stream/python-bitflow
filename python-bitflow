@@ -6,10 +6,8 @@ import re
 import queue
 import signal
 import sys
-
 from bitflow.helper import *
 from bitflow.script_parser import * 
-
 
 PIPES_INPUTS = []
 CLOSING = False
@@ -20,7 +18,6 @@ def configure_logging(logging_level,filename=None):
 	else:
 		logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging_level)
 
-
 def strg_c_exit():
 	global PIPES_INPUTS
 	logging.warning("Closing python-bitflow ...")
@@ -30,14 +27,12 @@ def strg_c_exit():
 				i.stop()
 		p.stop()
 
-
 def sig_int_handler(signal, frame):
 	global CLOSING
 	if CLOSING:
 		sys.exit(1)
 	CLOSING = True
 	strg_c_exit()
-
 
 def read_script(script_file):
 	script = ""
@@ -129,8 +124,6 @@ def main():
 		time.sleep(args.d)
 		strg_c_exit()
 	exit(0)
-
-
 
 if __name__ == '__main__':
 	main()

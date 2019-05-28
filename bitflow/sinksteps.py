@@ -380,6 +380,7 @@ class TerminalOut(ProcessingStep):
 	class ConsoleWriter():
 		def write(self,data):
 			sys.stdout.buffer.write(data)
+			sys.stdout.buffer.flush()
 
 	def __init__(self, data_format : str = CSV_FORMAT_IDENTIFIER):
 		super().__init__()
