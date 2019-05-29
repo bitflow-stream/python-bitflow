@@ -223,7 +223,6 @@ class ListenSink (AsyncProcessingStep):
 		for s in readable:
 			if s is self.server:
 				self.initialize_connection(s)
-
 		if not self.has_to_send():
 			time.sleep(NO_INPUT_TIMEOUT)
 			return
