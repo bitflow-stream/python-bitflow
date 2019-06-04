@@ -6,14 +6,15 @@ from bitflow.BitflowLexer import BitflowLexer
 from bitflow.BitflowParser import BitflowParser
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
-from bitflow.pipeline import Pipeline
+from bitflow.pipeline import Pipeline, BatchPipeline
 from bitflow.fork import *
 from bitflow.processingstep import *
 from bitflow.steps.plotprocessingsteps import *
+from bitflow.batch import *
 from bitflow.fork import *
+from bitflow.batchprocessingstep import *
 from bitflow.helper import *
 from bitflow.marshaller import CsvMarshaller, BinMarshaller
-
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
@@ -39,19 +40,34 @@ DEFAULT_FILE_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
 DEFAULT_TCP_DATA_FORMAT = BINARY_DATA_FORMAT_IDENTIFIER
 DEFAULT_STD_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
 
+CAPABILITY_JSON_NAME_FIELD = "Name"
+CAPABILITY_JSON_FORK_FIELD = "isFork"
+CAPABILITY_JSON_BATCH_STEP_FIELD = "isBatch"
+CAPABILITY_JSON_DESCRIPTION_FIELD = "Description"
+CAPABILITY_JSON_OPTIONAL_PARM_FIELD = "OptionalParms"
+CAPABILITY_JSON_REQUIRED_PARM_FIELD = "RequiredParms"
+
 # returns all steps as json
 def capabilities():
     steps_lst = []
     processing_steps = ProcessingStep.subclasses
+    batch_processing_steps = BatchProcessingStep.subclasses
+    processing_steps.extend(batch_processing_steps)
     for step in processing_steps:
         step_dict = {}
-        step_dict["Name"] = step.__name__
-        if isinstance(step,Fork):
-            step_dict["isFork"] = True
+        step_dict[CAPABILITY_JSON_NAME_FIELD] = step.__name__
+        if issubclass(step,Fork):
+            step_dict[CAPABILITY_JSON_FORK_FIELD] = True
         else:
-            step_dict["isFork"] = False
+            step_dict[CAPABILITY_JSON_FORK_FIELD] = False
+
+        if issubclass(step,BatchProcessingStep):
+            step_dict[CAPABILITY_JSON_BATCH_STEP_FIELD] = True
+        else:
+            step_dict[CAPABILITY_JSON_BATCH_STEP_FIELD] = False
+
         if step.__description__:
-            step_dict["Description"] = step.__description__
+            step_dict[CAPABILITY_JSON_DESCRIPTION_FIELD] = step.__description__
         required_step_args = {}
         optional_step_args = {}
 
@@ -59,8 +75,8 @@ def capabilities():
                                         required_step_args=required_step_args,
                                         optional_step_args=optional_step_args)
 
-        step_dict["RequiredParms"] = [ parm for parm in required_step_args.keys() ]
-        step_dict["OptionalParms"] = [ parm for parm in optional_step_args.keys() ]
+        step_dict[CAPABILITY_JSON_REQUIRED_PARM_FIELD] = [ parm for parm in required_step_args.keys() ]
+        step_dict[CAPABILITY_JSON_OPTIONAL_PARM_FIELD] = [ parm for parm in optional_step_args.keys() ]
         steps_lst.append(step_dict)
 
     import json
@@ -114,7 +130,6 @@ def build_data_input(data_input_ctx,pipeline):
                                     pipeline=pipeline)
         data_inputs.append(data_input)
     return data_inputs
-
 
 def explicit_data_output(output_type, data_format, output_url):
     output_ps = None
@@ -245,7 +260,6 @@ def parse_parameters(parameters_ctx,parameters_dict):
         parameter_list_ctx = parameters_ctx.parameterList()
         parameters_dict = parse_parameter_list(parameter_list_ctx,parameters_dict)
 
-
 #G4:   parameterList : parameter (SEP parameter)* ;
 def parse_parameter_list(parameter_list_ctx,parameters_dict):
     for parameter_ctx in parameter_list_ctx.parameter():
@@ -267,7 +281,6 @@ def parse_parameter(parameter_ctx):
 def parse_scheduling_hints(scheduling_hints_ctx):
     raise NotSupportedWarning("Scheduling Hints are currently not supported and therefore ignored ...")
 
-
 #G4:   namedSubPipeline : name+ NEXT subPipeline ;
 def parse_named_subpipeline(named_subpipeline_ctx):
     names = []
@@ -284,7 +297,7 @@ def build_subpipeline(subpipeline_ctx):
     subpipeline_processing_step_list = []
     if subpipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, None) # maybe a pipeline is required here too
             subpipeline_processing_step_list.append(pte)
     return subpipeline_processing_step_list
 
@@ -297,27 +310,66 @@ def build_fork(fork_ctx):
     
     name_str = parse_name(fork_ctx.name())
     parse_parameters(fork_ctx.parameters(),parameters_dict)
-    fork  = initialize_fork(name_str,parameters_dict)
+    fork = initialize_fork(name_str,parameters_dict)
 
     for named_subpipeline_ctx in fork_ctx.namedSubPipeline():
         subpipeline_processing_step_list,names = parse_named_subpipeline(named_subpipeline_ctx)
         fork.add_processing_steps(processing_steps=subpipeline_processing_step_list,names=names)
     return fork
 
-#G4:   window : WINDOW parameters schedulingHints? OPEN processingStep (NEXT processingStep)* CLOSE ;
-def build_window(window_ctx):
-    raise NotSupportedScriptError("Windows currently not supported ...")
+def build_batch_processing_step(processing_step_ctx):
+    parameters_dict = {}
+    if processing_step_ctx.schedulingHints():
+        scheduling_hints_ctx = processing_step_ctx.schedulingHints()
+        parse_scheduling_hints(scheduling_hints_ctx)
+
+    name_str = processing_step_ctx.name().getText()
+    parse_parameters(processing_step_ctx.parameters(),parameters_dict)
+    ps  = initialize_batch_step(name_str,parameters_dict)
+    if not ps:
+        raise ProcessingStepNotKnown("{}: unsopported processing step ...".format(name_str))
+    return ps
+
+#G4:   batchPipeline : processingStep (NEXT processingStep)* ;
+def build_batch_pipeline(batch_pipeline_ctx):
+    batchpipeline_processing_step_list = []
+    batch_pipeline = BatchPipeline()
+    if batch_pipeline_ctx.processingStep():
+        for processing_step_ctx in batch_pipeline_ctx.processingStep():
+            ps = build_batch_processing_step(processing_step_ctx)
+            batch_pipeline.add_processing_step(ps)
+    return batch_pipeline
+
+#G4:   batch : name parameters schedulingHints? OPEN batchPipeline CLOSE ;
+def build_batch(batch_ctx,pipeline):
+    parameters_dict = {}
+    if batch_ctx.schedulingHints():
+        scheduling_hints_ctx =  batch_ctx.schedulingHints()
+        parse_scheduling_hints(scheduling_hints_ctx)
+
+    parse_parameters(batch_ctx.parameters(),parameters_dict)
+    name_str = parse_name(batch_ctx.name())
+    batch = initialize_step(name_str,parameters_dict)
+
+    batch_pipeline_ctx = batch_ctx.batchPipeline()
+    batch_pipeline = build_batch_pipeline(batch_pipeline_ctx)
+    batch.set_batch_pipeline(batch_pipeline)
+    # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
+    # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
+    batch.set_root_pipeline(pipeline)
+    batch_pipeline.start()
+    return batch
 
 #G4:   multiplexFork : OPEN subPipeline (EOP subPipeline)* EOP? CLOSE ;
 def build_multiplex_fork(multiplex_fork_ctx):
     raise NotSupportedScriptError("Multiplex-Forks are currently not supported ...")
 
 #G4:   pipelineTailElement : pipelineElement | multiplexFork | dataOutput ;
-def parse_pipeline_tail_element(pipeline_tail_element_ctx):
+def parse_pipeline_tail_element(pipeline_tail_element_ctx,pipeline):
     pe = None
     if pipeline_tail_element_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_tail_element_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx)
+        pe = parse_pipeline_element(pipeline_element_ctx,pipeline)
     elif pipeline_tail_element_ctx.multiplexFork():
         multiplex_fork_ctx = pipeline_tail_element_ctx.multiplexFork()
         pe = build_multiplex_fork(multiplex_fork_ctx)
@@ -326,8 +378,8 @@ def parse_pipeline_tail_element(pipeline_tail_element_ctx):
         pe = build_data_output(data_output_ctx)
     return pe
 
-#G4:   pipelineElement : processingStep | fork | window ;
-def parse_pipeline_element(pipeline_element_ctx):
+#G4:   pipelineElement : processingStep | fork | batch ;
+def parse_pipeline_element(pipeline_element_ctx,pipeline):
     pipeline_element = None
     if pipeline_element_ctx.processingStep():
         processing_step_ctx = pipeline_element_ctx.processingStep()
@@ -335,9 +387,9 @@ def parse_pipeline_element(pipeline_element_ctx):
     elif pipeline_element_ctx.fork():
         fork_ctx = pipeline_element_ctx.fork()
         pipeline_element = build_fork(fork_ctx)
-    elif pipeline_element_ctx.window():
-        window_ctx = window_ctx.fork()
-        pipeline_element = build_window(window_ctx)
+    elif pipeline_element_ctx.batch():
+        batch_ctx = pipeline_element_ctx.batch()
+        pipeline_element = build_batch(batch_ctx,pipeline)
     return pipeline_element
 
 #G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
@@ -350,17 +402,18 @@ def build_pipeline(pipeline_ctx):
 
     elif pipeline_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx)
+        pe = parse_pipeline_element(pipeline_element_ctx,pipeline)
         pipeline.add_processing_step(pe)
     
     elif pipeline_ctx.pipelines():
+        # TODO pipeline nesting
         #pipelines_ctx = pipeline_ctx.pipelines()
         #parse_pipelines(pipelines_ctx)
         raise NotSupportedScriptError("Pipeline nesting currently not supported ...")
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx,pipeline)
             pipeline.add_processing_step(pte)
     return pipeline,inputs
 

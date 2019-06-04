@@ -21,12 +21,15 @@ class Sample:
 			self.tags = {}
 
 	def __str__(self):
-		return "{}, {}, {}, {}".format(
+		return "{}:{}, {}, {}, {}".format(
+										"bitflow.sample",
 										str(self.header),
 										self.get_printable_timestamp,
 										self.get_tags,
 										self.metrics)
 # METRICS
+	def get_metrics(self):
+		return self.metrics
 
 	def extend(self,metric):
 		self.metrics.append(metric)
@@ -53,7 +56,6 @@ class Sample:
 		pts = pts.rstrip('0')
 		return pts
 
-	
 	def set_timestamp(self,timestamp : str):
 		self.timestamp = np.datetime64(timestamp)
 
@@ -64,7 +66,6 @@ class Sample:
 		return self.timestamp.astype('datetime64[ns]').astype('float')
 
 # TAGS
-
 	def get_tag(self,tag):
 		if tag in self.tags:
 			return self.tags[tag]
