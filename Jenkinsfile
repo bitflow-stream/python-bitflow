@@ -35,16 +35,13 @@ pipeline {
             }
         }
         stage('SonarQube') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     // sonar-scanner which don't rely on JVM
                     def scannerHome = tool 'sonar-scanner-linux'
                     withSonarQubeEnv('CIT SonarQube') {
                         sh """
-                            ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow \
+                            ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
                                 -Dsonar.sources=bitflow -Dsonar.tests=tests.py \
                                 -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
                                 -Dsonar.python.coverage.reportPaths=coverage-report.xml \
