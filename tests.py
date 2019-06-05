@@ -7,7 +7,8 @@ import unittest
 import os
 import filecmp
 import math
-from bitflow.script_parser import *
+
+from bitflow.script_parser import * 
 from bitflow.sinksteps import *
 from bitflow.processingstep import *
 from bitflow.batchprocessingstep import *
@@ -15,6 +16,7 @@ from bitflow.marshaller import CsvMarshaller
 from bitflow.pipeline import Pipeline, BatchPipeline
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.fork import *
+
 
 LOGGING_LEVEL=logging.ERROR
 
@@ -125,7 +127,7 @@ class ExactCompare(unittest.TestCase):
         expression = "?tes_23!"
         self.assertTrue(exact_compare(expression,string))
 
-class TestBitflowScriptParser(unittest.TestCase):
+class TestBitflowScriptFormatParser(unittest.TestCase):
 
     def test_get_file_data_format_BIN(self):
         data_format = get_file_data_format(None,"blacsv.bin")
@@ -190,6 +192,116 @@ class TestBitflowScriptParser(unittest.TestCase):
         self.assertEqual(output_type, TCP_SEND_OUTPUT_TYPE)
         self.assertEqual(data_format,BINARY_DATA_FORMAT_IDENTIFIER)
         self.assertEqual(output_url, "web.de:5555")
+
+    def setUp(self):
+        logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
+
+    def tearDown(self):
+        pass
+
+class TestBitflowScriptParser(unittest.TestCase):
+
+    def test_simple_pipeline(self):
+        parse_script("DebugGenerationStep()")
+
+    def test_ps_parse_float_to_float(self):
+        parse_script("noop(float=0.5)")
+    
+    def test_ps_parse_float_to_str(self):
+        #with self.assertRaises(ProcessingStepNotKnown):
+        parse_script("noop(str=0.5)")
+
+    def test_ps_parse_float_to_bool(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(bool=0.5)")
+
+    def test_ps_parse_float_to_list(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(list=0.5)")
+
+    def test_ps_parse_float_to_dict(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(dict=0.5)")
+
+    def test_ps_parse_str_to_float(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(float=str)")
+
+    def test_ps_parse_str_to_str(self):
+        parse_script("noop(str=str)")
+
+    def test_ps_parse_str_to_bool(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(bool=str)")
+
+    def test_ps_parse_str_to_list(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(list=str)")
+
+    def test_ps_parse_str_to_dict(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(dict=str)")
+
+    def test_ps_parse_bool_to_float(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(float=True)")
+
+    def test_ps_parse_bool_to_str(self):
+        parse_script("noop(str=True)")
+
+    def test_ps_parse_bool_to_bool(self):
+            parse_script("noop(bool=True)")
+
+    def test_ps_parse_bool_to_list(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(list=True)")
+
+    def test_ps_parse_bool_to_dict(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(dict=True)")
+
+    def test_ps_parse_list_to_float(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(float=[list,list])")
+
+    def test_ps_parse_list_to_str(self):
+        #with self.assertRaises(ProcessingStepNotKnown):
+        parse_script("noop(str=[list,list])")
+
+    def test_ps_parse_list_to_bool(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(bool=[list,list])")
+
+    def test_ps_parse_list_to_list(self):
+            parse_script("noop(list=[list,list])")
+
+    def test_ps_parse_list_to_dict(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(dict=[list,list])")
+
+    def test_ps_parse_dict_to_float(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(float={k=v,dict=dict})")
+
+    def test_ps_parse_dict_to_str(self):
+        #with self.assertRaises(ProcessingStepNotKnown):
+        parse_script("noop(str={k=v,dict=dict})")
+
+    def test_ps_parse_dict_to_bool(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(bool={k=v,dict=dict})")
+
+    def test_ps_parse_dict_to_list(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(list={k=v,dict=dict})")
+
+    def test_ps_parse_dict_to_dict(self):
+        parse_script("noop(dict={k=v,dict=dict})")
+
+    def test_unknown_processing_step(self):
+
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("abc(bla=blub)")
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
