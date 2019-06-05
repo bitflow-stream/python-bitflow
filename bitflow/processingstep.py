@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from bitflow.sample import Sample, Header
-from bitflow.helper import *
+#from bitflow.helper import *
 
 STRING_LIST_SEPERATOR=","
 
@@ -39,16 +39,23 @@ def type_compare(required_type, script_value):
 			script_value = int(script_value)
 		except:
 			return False
-	if required_type is float:
+	elif required_type is float:
 		try:
 			script_value = float(script_value)
 		except:
 			return False
-	if required_type is bool:
-		try:
-			script_value = bool(script_value)
-		except:
+	elif required_type is list:
+		if not isinstance(script_value,list):
 			return False
+	elif required_type is dict:
+		if not isinstance(script_value,dict):
+			return False
+	elif required_type is bool:
+		if not isinstance(script_value,str):
+			return False
+		if script_value.lower() not in ["true","yes",1]:
+			return False
+
 	return True
 
 def compare_args(step,script_args):
@@ -191,12 +198,11 @@ class Noop(ProcessingStep):
 	__description__ = "DEBUG. Noop."
 	__name__ = "noop"
 
-	def __init__(self):
+	def __init__(self,float: float = 0.5,str: str = "str", bool: bool = True, list: list = [], dict: dict = {}):
 		super().__init__()
 
 	def execute(self,sample):
 		self.write(sample)
-
 
 class ModifyTimestamp(ProcessingStep):
 	""" Modifies Timestamp of traversing samples
@@ -262,14 +268,14 @@ class AddTag(ProcessingStep):
 	tag: tag name
 	value: value string 
 	"""
-	__description__ = "Adds a give tag and value to the samples"
+	__description__ = "Adds a given tags and values to the samples. Requires arguments as a dict"
 	__name__ = "add-tag"
 
-	def __init__(self, tag : str, value : str):	
+	def __init__(self, tags : dict):
 		super().__init__()
-		self.tag = tag
-		self.value = value
+		self.tags = tags
 
 	def execute(self, sample):
-		sample.add_tag(self.tag,self.value)
+		for k,v in self.tags.items():
+			sample.add_tag(str(k),str(v))
 		self.write(sample)
