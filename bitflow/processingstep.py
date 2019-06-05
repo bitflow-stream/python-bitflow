@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from bitflow.sample import Sample, Header
-#from bitflow.helper import *
 
 STRING_LIST_SEPERATOR=","
 

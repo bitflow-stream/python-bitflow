@@ -106,7 +106,6 @@ def build_data_input(data_input_ctx,pipeline):
         parse_scheduling_hints(scheduling_hints_ctx)
     if len(data_input_ctx.name()) > 1:
         raise NotSupportedError("Currently only a single Data-Input is supported ...")
-    #data_inputs = []
     for input in data_input_ctx.name():
         input_str = input.getText()
         if ":" in input_str:
@@ -131,9 +130,7 @@ def build_data_input(data_input_ctx,pipeline):
             logging.info("File Source: " + input_str)
             data_input = FileSource(filename=input_str,
                                     pipeline=pipeline)
-        #data_inputs.append(data_input)
         THREAD_PROCESS_ELEMENTS.append(data_input)
-    #return data_inputs
 
 def explicit_data_output(output_type, data_format, output_url):
     output_ps = None
@@ -387,7 +384,6 @@ def build_batch(batch_ctx,pipeline):
     # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
     # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
     batch.set_root_pipeline(pipeline)
-    #atch_pipeline.start()
     THREAD_PROCESS_ELEMENTS.append(batch_pipeline)
     return batch
 
@@ -429,7 +425,6 @@ def build_pipeline(pipeline_ctx):
     inputs = None
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
-        #inputs = build_data_input(data_input_ctx,pipeline)
         build_data_input(data_input_ctx,pipeline)
 
     elif pipeline_ctx.pipelineElement():
@@ -448,18 +443,13 @@ def build_pipeline(pipeline_ctx):
             pte = parse_pipeline_tail_element(pipeline_tail_element_ctx,pipeline)
             pipeline.add_processing_step(pte)
     THREAD_PROCESS_ELEMENTS.append(pipeline)
-    #return pipeline,inputs
 
 #G4:   pipelines : pipeline (EOP pipeline)* EOP? ;
 #G4:   EOP? CLOSE ;
 def parse_pipelines(pipelines_ctx):
     pipes_and_inputs = []
     for pipeline_ctx in pipelines_ctx.pipeline():
-        #pipeline,inputs = build_pipeline(pipeline_ctx)
         build_pipeline(pipeline_ctx)
-
-        #pipes_and_inputs.append((pipeline,inputs))
-    #return pipes_and_inputs
 
 def parse_script(script : str):
         input = InputStream(script)
