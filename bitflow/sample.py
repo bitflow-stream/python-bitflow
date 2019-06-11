@@ -35,11 +35,11 @@ class Sample:
 		self.metrics.append(metric)
 
 	def get_metricsindex_by_name(self,metric_name):
-		index = self.header.metric_names.index(metric_name)
+		index = self.header.header.index(metric_name)
 		return index
 
 	def get_metricvalue_by_name(self,metric_name):
-		index = self.header.metric_names.index(metric_name)
+		index = self.header.header.index(metric_name)
 		m = self.metrics[index]
 		return m
 
