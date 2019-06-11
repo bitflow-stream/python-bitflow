@@ -76,12 +76,13 @@ def main():
 		log_level = logging.WARNING
 	if args.v:
 		log_level = logging.DEBUG
+		logging.debug("debug mode enabled")
+
 	if args.log:
 		logfile = args.log
 		configure_logging(log_level,logfile)
 	else:
 		configure_logging(log_level)
-		logging.debug("debug mode enabled")
 	
 	if args.p:
 		import importlib.util

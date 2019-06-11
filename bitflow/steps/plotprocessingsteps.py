@@ -60,7 +60,7 @@ class PlotTagBoxplot(ProcessingStep):
 	def execute(self,sample):
 		''' executed on each sample '''
 		try:
-			index = sample.header.header.index(self.metric_name	) # find index of metricq
+			index = sample.header.metric_names.index(self.metric_name	) # find index of metricq
 		except ValueError:
 			self.write(sample)
 
@@ -165,7 +165,7 @@ class PlotLinePlot(ProcessingStep):
 		''' executed on each sample '''
 		for metric in self.metric_names:
 			try:
-				index = sample.header.header.index(metric) # find index of metricq
+				index = sample.header.metric_names.index(metric) # find index of metricq
 			except ValueError:
 				self.write(sample)
 
@@ -263,7 +263,7 @@ class PlotBarPlot(ProcessingStep):
 		''' executed on each sample '''
 		for metric in self.metric_names:
 			try:
-				index = sample.header.header.index(metric) # find index of metricq
+				index = sample.header.metric_names.index(metric) # find index of metricq
 			except ValueError:
 				self.write(sample)
 
