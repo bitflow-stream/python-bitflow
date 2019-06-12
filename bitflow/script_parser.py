@@ -422,7 +422,6 @@ def parse_pipeline_element(pipeline_element_ctx,pipeline):
 #G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
 def build_pipeline(pipeline_ctx):
     pipeline = Pipeline()
-    inputs = None
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
         build_data_input(data_input_ctx,pipeline)
@@ -447,7 +446,6 @@ def build_pipeline(pipeline_ctx):
 #G4:   pipelines : pipeline (EOP pipeline)* EOP? ;
 #G4:   EOP? CLOSE ;
 def parse_pipelines(pipelines_ctx):
-    pipes_and_inputs = []
     for pipeline_ctx in pipelines_ctx.pipeline():
         build_pipeline(pipeline_ctx)
 

@@ -80,7 +80,7 @@ def type_compare_and_parse(required_type, args_dict,script_key_name):
 		rtn = compare_and_parse_float(args_dict,script_key_name)
 	elif required_type is bool:
 		rtn = compare_and_parse_bool(args_dict,script_key_name)
-	elif required_type is bool:
+	elif required_type is str:
 		rtn = compare_and_parse_str(args_dict,script_key_name)
 	elif required_type is list:
 		rtn = compare_and_parse_list(args_dict,script_key_name)
