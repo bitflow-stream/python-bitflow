@@ -275,8 +275,8 @@ def parse_name(name_ctx):
 # G4:   listValue : OPEN_HINTS (primitiveValue (SEP primitiveValue)*)? CLOSE_HINTS ;
 def parse_list_value(list_value_ctx):
     l = []
-    for value in list_value_ctx.primitiveValue():
-        l.append(value)
+    for primitive_value_ctx in list_value_ctx.primitiveValue():
+        l.append(parse_name(primitive_value_ctx.name()))
     return l
 
 # G4:   mapValueElement : name EQ primitiveValue ;
@@ -451,13 +451,20 @@ def parse_pipelines(pipelines_ctx):
     for pipeline_ctx in pipelines_ctx.pipeline():
         build_pipeline(pipeline_ctx)
 
+# reset global variable to so parse_script can be called more than once in a single process without confusion
+def priviatize_tp_elements():
+    global THREAD_PROCESS_ELEMENTS
+    tp = THREAD_PROCESS_ELEMENTS
+    THREAD_PROCESS_ELEMENTS = []
+    return tp
+
 def parse_script(script : str):
-        input = InputStream(script)
-        logging.info("ScriptParser: parsing:\n {} ".format(script))
-        lexer = BitflowLexer(input)
-        stream = CommonTokenStream(lexer)
-        parser = BitflowParser(stream)
-        ctx = parser.script()
-        parse_pipelines(ctx.pipelines())
-        return THREAD_PROCESS_ELEMENTS
+    input = InputStream(script)
+    logging.info("ScriptParser: parsing:\n {} ".format(script))
+    lexer = BitflowLexer(input)
+    stream = CommonTokenStream(lexer)
+    parser = BitflowParser(stream)
+    ctx = parser.script()
+    parse_pipelines(ctx.pipelines())
+    return priviatize_tp_elements()
 

@@ -13,8 +13,9 @@ from bitflow.sample import Sample, Header
 
 STRING_LIST_SEPERATOR=","
 
-StringList = typing.List[str]
-
+BOOL_TRUE_STRINGS = ["true","yes","1","ja","y","j"]
+BOOL_FALSE_STRINGS = ["false","no","0","nein","n"]
+ACCEPTED_BOOL_STRINGS = BOOL_TRUE_STRINGS + BOOL_FALSE_STRINGS
 
 def get_required_and_optional_args(step,required_step_args,optional_step_args):
 	step_args = typing.get_type_hints(step.__init__)
@@ -32,30 +33,60 @@ def get_required_and_optional_args(step,required_step_args,optional_step_args):
 
 	return required_step_args,optional_step_args
 
-def type_compare(required_type, script_value):
-	if required_type is int:
-		try:
-			script_value = int(script_value)
-		except:
-			return False
-	elif required_type is float:
-		try:
-			script_value = float(script_value)
-		except:
-			return False
-	elif required_type is list:
-		if not isinstance(script_value,list):
-			return False
-	elif required_type is dict:
-		if not isinstance(script_value,dict):
-			return False
-	elif required_type is bool:
-		if not isinstance(script_value,str):
-			return False
-		if script_value.lower() not in ["true","yes",1]:
-			return False
 
+def compare_and_parse_int(args_dict,script_key_name):
+	try:
+		args_dict[script_key_name] = int(args_dict[script_key_name])
+		return True
+	except:
+		return False
+
+def compare_and_parse_float(args_dict,script_key_name):
+	try:
+		args_dict[script_key_name] = float(args_dict[script_key_name])
+		return True
+	except:
+		return False
+
+def compare_and_parse_bool(args_dict,script_key_name):
+	if not isinstance(args_dict[script_key_name],str):
+		return False
+	if args_dict[script_key_name].lower() not in ACCEPTED_BOOL_STRINGS:
+		return False
+	if args_dict[script_key_name].lower() in BOOL_TRUE_STRINGS:
+		args_dict[script_key_name] = True
+	elif args_dict[script_key_name].lower() in BOOL_FALSE_STRINGS:
+		args_dict[script_key_name] = False
 	return True
+
+def compare_and_parse_str(args_dict,script_key_name):
+	return True
+
+def compare_and_parse_list(args_dict,script_key_name):
+	if not isinstance(args_dict[script_key_name],list):
+		return False
+	return True
+
+def compare_and_parse_dict(args_dict,script_key_name):
+	if not isinstance(args_dict[script_key_name],dict):
+		return False
+	return True
+
+def type_compare_and_parse(required_type, args_dict,script_key_name):
+	rtn = True
+	if required_type is int:
+		rtn = compare_and_parse_int(args_dict,script_key_name)
+	elif required_type is float:
+		rtn = compare_and_parse_float(args_dict,script_key_name)
+	elif required_type is bool:
+		rtn = compare_and_parse_bool(args_dict,script_key_name)
+	elif required_type is bool:
+		rtn = compare_and_parse_str(args_dict,script_key_name)
+	elif required_type is list:
+		rtn = compare_and_parse_list(args_dict,script_key_name)
+	elif required_type is dict:
+		rtn = compare_and_parse_dict(args_dict,script_key_name)
+	return rtn
 
 def compare_args(step,script_args):
 	if len(script_args) == 0:
@@ -69,35 +100,27 @@ def compare_args(step,script_args):
 	# if less than required arguments passed
 	if len(script_args) < len(required_step_args):
 		return False
-
 	# compare required aruguments
 	found_required_args = 0
 	found_optional_args = 0 
 	for i in range(len(script_args)):
 		script_key_name = list(script_args.keys())[i]
-		script_value = script_args[script_key_name]
-
-		if script_key_name in required_step_args.keys() and type_compare(required_step_args[script_key_name],script_value):
+		if script_key_name in required_step_args.keys() and type_compare_and_parse(required_type=required_step_args[script_key_name],args_dict=script_args,script_key_name=script_key_name):
 			found_required_args += 1
 			logging.debug("Found required " + script_key_name + "...")
-
-
-		if script_key_name in optional_step_args.keys() and type_compare(optional_step_args[script_key_name],script_value):
+			continue
+		if script_key_name in optional_step_args.keys() and type_compare_and_parse(required_type=optional_step_args[script_key_name],args_dict=script_args,script_key_name=script_key_name):
 			found_optional_args += 1
 			logging.debug("Found optional " + script_key_name + "...")
-
 	# no optinal arguments passed
 	if found_required_args == len(script_args):
 		return True
-	
 	if (found_required_args + found_optional_args) == len(script_args):
 		return True  
-
 	return False
 
 def initialize_step(name,script_args):
 	processing_steps = ProcessingStep.subclasses
-
 	for ps in processing_steps:
 		if ps.__name__.lower() == name.lower() and compare_args(ps,script_args):
 			logging.info("{} with args: {}  ok ...".format(name,script_args))				
@@ -108,7 +131,6 @@ def initialize_step(name,script_args):
 			return ps_obj
 	logging.info("{} with args: {}  failed ...".format(name,script_args))				
 	return None
-
 
 def string_lst_to_lst(str_lst):
 	values = str_lst.split(STRING_LIST_SEPERATOR)
@@ -148,7 +170,6 @@ class ProcessingStep():
 	def on_close(self):
 		logging.info("{}: closing ...".format(self.__name__))
 
-
 class AsyncProcessingStep(ProcessingStep,threading.Thread):
 
 	def __init__(self):
@@ -157,7 +178,6 @@ class AsyncProcessingStep(ProcessingStep,threading.Thread):
 
 	def stop(self):
 		self.is_running = False
-
 
 class DebugGenerationStep(AsyncProcessingStep):
 	"""example generativ processing step"""
@@ -197,8 +217,17 @@ class Noop(ProcessingStep):
 	__description__ = "DEBUG. Noop."
 	__name__ = "noop"
 
-	def __init__(self,float: float = 0.5,str: str = "str", bool: bool = True, list: list = [], dict: dict = {}):
+	def __init__(self,int: int = 42, float: float = 0.5,str: str = "str", bool: bool = True, list: list = [], dict: dict = {}):
+		self.int = int
+		self.bool = bool
+		self.str = str
+		self.list = list
+		self.float = float
+		self.dict = dict
 		super().__init__()
+
+	def __str__(self):
+		return "BOOLEAN: {}, INT: {}, FLOAT: {}, STRING: {}, LIST: {}, DICT: {}".format(self.bool, self.int, self.float, self.str, self.list, self.dict)
 
 	def execute(self,sample):
 		self.write(sample)

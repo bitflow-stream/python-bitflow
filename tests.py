@@ -204,16 +204,45 @@ class TestBitflowScriptParser(unittest.TestCase):
     def test_simple_pipeline(self):
         parse_script("DebugGenerationStep()")
 
+    def test_ps_parse_int_to_int(self):
+        tp = parse_script("noop(float=4321)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].int,int))
+
+    def test_ps_parse_int_to_float(self):
+        tp = parse_script("noop(float=4321)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].float,float))
+
+    def test_ps_parse_int_to_str(self):
+        tp = parse_script("noop(str=4321)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].str,str))
+
+    def test_ps_parse_int_to_bool(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(bool=4321)")
+
+    def test_ps_parse_int_to_list(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(list=4321)")
+
+    def test_ps_parse_int_to_dict(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(dict=4321)")
+
+    def test_ps_parse_float_to_int(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            tp = parse_script("noop(int=0.5)")
+
     def test_ps_parse_float_to_float(self):
-        parse_script("noop(float=0.5)")
+        tp = parse_script("noop(float=0.5)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].float,float))
     
     def test_ps_parse_float_to_str(self):
-        #with self.assertRaises(ProcessingStepNotKnown):
-        parse_script("noop(str=0.5)")
-
+        tp = parse_script("noop(str=0.5)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].str,str))
+        
     def test_ps_parse_float_to_bool(self):
         with self.assertRaises(ProcessingStepNotKnown):
-            parse_script("noop(bool=0.5)")
+            parse_script("noop(boolean=0.5)")
 
     def test_ps_parse_float_to_list(self):
         with self.assertRaises(ProcessingStepNotKnown):
@@ -223,12 +252,17 @@ class TestBitflowScriptParser(unittest.TestCase):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(dict=0.5)")
 
+    def test_ps_parse_str_to_int(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(int=str)")
+
     def test_ps_parse_str_to_float(self):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(float=str)")
 
     def test_ps_parse_str_to_str(self):
-        parse_script("noop(str=str)")
+        tp = parse_script("noop(str=str)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].str,str))
 
     def test_ps_parse_str_to_bool(self):
         with self.assertRaises(ProcessingStepNotKnown):
@@ -242,30 +276,56 @@ class TestBitflowScriptParser(unittest.TestCase):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(dict=str)")
 
+    def test_ps_parse_bool_to_int(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(int=False)")
+
     def test_ps_parse_bool_to_float(self):
         with self.assertRaises(ProcessingStepNotKnown):
-            parse_script("noop(float=True)")
+            parse_script("noop(float=False)")
 
     def test_ps_parse_bool_to_str(self):
-        parse_script("noop(str=True)")
+        tp = parse_script("noop(str=False)")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].str,str))
 
-    def test_ps_parse_bool_to_bool(self):
-            parse_script("noop(bool=True)")
+
+    def test_ps_parse_bool_to_bool_False(self):
+        tp = parse_script("noop(bool=False)")
+        self.assertTrue(tp[0].get_processing_steps()[0].bool==False)
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].bool,bool))
+
+    def test_ps_parse_bool_to_bool_True(self):
+        tp = parse_script("noop(bool=True)")
+        self.assertTrue(tp[0].get_processing_steps()[0].bool==True)
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].bool,bool))
+
+    def test_ps_parse_bool_to_bool_Yes(self):
+        tp = parse_script("noop(bool=Yes)")
+        self.assertTrue(tp[0].get_processing_steps()[0].bool==True)
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].bool,bool))
+
+    def test_ps_parse_bool_to_bool_0(self):
+        tp = parse_script("noop(bool=0)")
+        self.assertTrue(tp[0].get_processing_steps()[0].bool==False)
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].bool,bool))
 
     def test_ps_parse_bool_to_list(self):
         with self.assertRaises(ProcessingStepNotKnown):
-            parse_script("noop(list=True)")
+            parse_script("noop(list=False)")
 
     def test_ps_parse_bool_to_dict(self):
         with self.assertRaises(ProcessingStepNotKnown):
-            parse_script("noop(dict=True)")
+            parse_script("noop(dict=False)")
+
+    def test_ps_parse_list_to_int(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(int=[list,list])")
 
     def test_ps_parse_list_to_float(self):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(float=[list,list])")
 
     def test_ps_parse_list_to_str(self):
-        #with self.assertRaises(ProcessingStepNotKnown):
         parse_script("noop(str=[list,list])")
 
     def test_ps_parse_list_to_bool(self):
@@ -273,19 +333,23 @@ class TestBitflowScriptParser(unittest.TestCase):
             parse_script("noop(bool=[list,list])")
 
     def test_ps_parse_list_to_list(self):
-            parse_script("noop(list=[list,list])")
+        tp = parse_script("noop(list=[list,list])")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].list,list))
 
     def test_ps_parse_list_to_dict(self):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(dict=[list,list])")
+
+    def test_ps_parse_list_to_int(self):
+        with self.assertRaises(ProcessingStepNotKnown):
+            parse_script("noop(int={k=v,dict=dict})")
 
     def test_ps_parse_dict_to_float(self):
         with self.assertRaises(ProcessingStepNotKnown):
             parse_script("noop(float={k=v,dict=dict})")
 
     def test_ps_parse_dict_to_str(self):
-        #with self.assertRaises(ProcessingStepNotKnown):
-        parse_script("noop(str={k=v,dict=dict})")
+        tp = parse_script("noop(str={k=v,dict=dict})")
 
     def test_ps_parse_dict_to_bool(self):
         with self.assertRaises(ProcessingStepNotKnown):
@@ -296,7 +360,8 @@ class TestBitflowScriptParser(unittest.TestCase):
             parse_script("noop(list={k=v,dict=dict})")
 
     def test_ps_parse_dict_to_dict(self):
-        parse_script("noop(dict={k=v,dict=dict})")
+        tp = parse_script("noop(dict={k=v,dict=dict})")
+        self.assertTrue(isinstance(tp[0].get_processing_steps()[0].dict,dict))
 
     def test_unknown_processing_step(self):
 
