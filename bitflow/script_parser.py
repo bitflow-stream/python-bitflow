@@ -4,6 +4,7 @@ import logging
 from antlr4 import *
 from bitflow.BitflowLexer import BitflowLexer
 from bitflow.BitflowParser import BitflowParser
+
 from bitflow.source import FileSource, ListenSource, DownloadSource
 from bitflow.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.pipeline import Pipeline, BatchPipeline
@@ -46,6 +47,8 @@ CAPABILITY_JSON_BATCH_STEP_FIELD = "isBatch"
 CAPABILITY_JSON_DESCRIPTION_FIELD = "Description"
 CAPABILITY_JSON_OPTIONAL_PARM_FIELD = "OptionalParms"
 CAPABILITY_JSON_REQUIRED_PARM_FIELD = "RequiredParms"
+
+THREAD_PROCESS_ELEMENTS = []
 
 # returns all steps as json
 def capabilities():
@@ -103,7 +106,6 @@ def build_data_input(data_input_ctx,pipeline):
         parse_scheduling_hints(scheduling_hints_ctx)
     if len(data_input_ctx.name()) > 1:
         raise NotSupportedError("Currently only a single Data-Input is supported ...")
-    data_inputs = []
     for input in data_input_ctx.name():
         input_str = input.getText()
         if ":" in input_str:
@@ -128,8 +130,7 @@ def build_data_input(data_input_ctx,pipeline):
             logging.info("File Source: " + input_str)
             data_input = FileSource(filename=input_str,
                                     pipeline=pipeline)
-        data_inputs.append(data_input)
-    return data_inputs
+        THREAD_PROCESS_ELEMENTS.append(data_input)
 
 def explicit_data_output(output_type, data_format, output_url):
     output_ps = None
@@ -271,10 +272,36 @@ def parse_name(name_ctx):
         return name_ctx.STRING().getText()[1:len(name_ctx.STRING().getText())-1]
     return name_ctx.IDENTIFIER().getText()
 
-#G4:   parameter : name EQ name ;
-def parse_parameter(parameter_ctx):     
-    parameter_name = parse_name(parameter_ctx.name()[0])
-    parameter_value = parse_name(parameter_ctx.name()[1])
+# G4:   listValue : OPEN_HINTS (primitiveValue (SEP primitiveValue)*)? CLOSE_HINTS ;
+def parse_list_value(list_value_ctx):
+    l = []
+    for primitive_value_ctx in list_value_ctx.primitiveValue():
+        l.append(parse_name(primitive_value_ctx.name()))
+    return l
+
+# G4:   mapValueElement : name EQ primitiveValue ;
+def parse_map_value_element(map_value_element_ctx):
+    key = parse_name(map_value_element_ctx.name())
+    value = parse_name(map_value_element_ctx.primitiveValue().name())
+    return key,value
+
+# G4:   mapValue : OPEN (mapValueElement (SEP mapValueElement)*)? CLOSE ;
+def parse_map_value(map_value_ctx):
+    d = {}
+    for map_value_element_ctx in map_value_ctx.mapValueElement():
+        k,v = parse_map_value_element(map_value_element_ctx)
+        d[k] = v
+    return d
+
+# G4:   parameter : name EQ parameterValue ;
+def parse_parameter(parameter_ctx):
+    parameter_name = parse_name(parameter_ctx.name())
+    if parameter_ctx.parameterValue().primitiveValue():
+        parameter_value = parse_name(parameter_ctx.parameterValue().primitiveValue().name())
+    elif parameter_ctx.parameterValue().listValue():
+        parameter_value = parse_list_value(parameter_ctx.parameterValue().listValue())
+    elif parameter_ctx.parameterValue().mapValue():
+        parameter_value = parse_map_value(parameter_ctx.parameterValue().mapValue())
     return parameter_name,parameter_value
 
 #G4:   schedulingHints : OPEN_HINTS (parameterList SEP?)? CLOSE_HINTS ;
@@ -357,7 +384,7 @@ def build_batch(batch_ctx,pipeline):
     # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
     # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
     batch.set_root_pipeline(pipeline)
-    batch_pipeline.start()
+    THREAD_PROCESS_ELEMENTS.append(batch_pipeline)
     return batch
 
 #G4:   multiplexFork : OPEN subPipeline (EOP subPipeline)* EOP? CLOSE ;
@@ -395,10 +422,9 @@ def parse_pipeline_element(pipeline_element_ctx,pipeline):
 #G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
 def build_pipeline(pipeline_ctx):
     pipeline = Pipeline()
-    inputs = None
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
-        inputs = build_data_input(data_input_ctx,pipeline)
+        build_data_input(data_input_ctx,pipeline)
 
     elif pipeline_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_ctx.pipelineElement()
@@ -415,27 +441,28 @@ def build_pipeline(pipeline_ctx):
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
             pte = parse_pipeline_tail_element(pipeline_tail_element_ctx,pipeline)
             pipeline.add_processing_step(pte)
-    return pipeline,inputs
+    THREAD_PROCESS_ELEMENTS.append(pipeline)
 
 #G4:   pipelines : pipeline (EOP pipeline)* EOP? ;
 #G4:   EOP? CLOSE ;
 def parse_pipelines(pipelines_ctx):
-    pipes_and_inputs = []
     for pipeline_ctx in pipelines_ctx.pipeline():
-        pipeline,inputs = build_pipeline(pipeline_ctx)
-        pipeline.start()
-        if inputs:
-            for i in inputs:
-                i.start()
-        pipes_and_inputs.append((pipeline,inputs))
-    return pipes_and_inputs
+        build_pipeline(pipeline_ctx)
+
+# reset global variable to so parse_script can be called more than once in a single process without confusion
+def priviatize_tp_elements():
+    global THREAD_PROCESS_ELEMENTS
+    tp = THREAD_PROCESS_ELEMENTS
+    THREAD_PROCESS_ELEMENTS = []
+    return tp
 
 def parse_script(script : str):
-        input = InputStream(script)
-        logging.info("ScriptParser: parsing:\n {} ".format(script))
-        lexer = BitflowLexer(input)
-        stream = CommonTokenStream(lexer)
-        parser = BitflowParser(stream)
-        ctx = parser.script()
-        pipes_and_inputs = parse_pipelines(ctx.pipelines())
-        return pipes_and_inputs
+    input = InputStream(script)
+    logging.info("ScriptParser: parsing:\n {} ".format(script))
+    lexer = BitflowLexer(input)
+    stream = CommonTokenStream(lexer)
+    parser = BitflowParser(stream)
+    ctx = parser.script()
+    parse_pipelines(ctx.pipelines())
+    return priviatize_tp_elements()
+

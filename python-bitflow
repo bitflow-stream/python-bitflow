@@ -9,7 +9,7 @@ import sys
 from bitflow.helper import *
 from bitflow.script_parser import * 
 
-PIPES_INPUTS = []
+THREADS_AND_PROCESSES = []
 CLOSING = False
 
 def configure_logging(logging_level,filename=None):
@@ -19,13 +19,10 @@ def configure_logging(logging_level,filename=None):
 		logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging_level)
 
 def strg_c_exit():
-	global PIPES_INPUTS
+	global THREADS_AND_PROCESSES
 	logging.warning("Closing python-bitflow ...")
-	for p,inputs in PIPES_INPUTS:
-		if inputs:
-			for i in inputs:
-				i.stop()
-		p.stop()
+	for t_p in THREADS_AND_PROCESSES:
+		t_p.stop()
 
 def sig_int_handler(signal, frame):
 	global CLOSING
@@ -40,8 +37,12 @@ def read_script(script_file):
 		script += f.read()
 	return script
 
+def start_threads_and_processes(tp_list):
+	for t_p in tp_list:
+		t_p.start()
+
 def main():
-	global PIPES_INPUTS
+	global THREADS_AND_PROCESSES
 	signal.signal(signal.SIGINT, sig_int_handler)
 	parser = argparse.ArgumentParser()
 	
@@ -100,14 +101,15 @@ def main():
 		script = args.s
 
 	try:
-		PIPES_INPUTS = parse_script(script)
+		THREADS_AND_PROCESSES = parse_script(script)
+		start_threads_and_processes(THREADS_AND_PROCESSES)
 	except NotSupportedError as nse:
 		logging.error(nse)
 		strg_c_exit()
 		sys.exit(1)
 	except NotSupportedWarning as nsw:
 		logging.warning(nsw)
-	except ProcessingStepNotKnow as psnk:
+	except ProcessingStepNotKnown as psnk:
 		logging.error(psnk)
 		strg_c_exit()
 		sys.exit(1)

@@ -4,7 +4,7 @@ class NotSupportedError(Exception):
 class NotSupportedWarning(Exception):
     pass
 
-class ProcessingStepNotKnow(Exception):
+class ProcessingStepNotKnown(Exception):
     pass
 
 class ParsingError(Exception):
