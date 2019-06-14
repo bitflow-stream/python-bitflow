@@ -20,7 +20,7 @@ pipeline {
             post {
                 always {
                     junit 'tests/test-report.xml'
-                    archiveArtifacts '*-report.xml'
+                    archiveArtifacts 'tests/*-report.xml'
                 }
             }
         }
@@ -42,10 +42,10 @@ pipeline {
                     withSonarQubeEnv('CIT SonarQube') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
-                                -Dsonar.sources=bitflow -Dsonar.tests=tests.py \
+                                -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
                                 -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
-                                -Dsonar.python.coverage.reportPaths=coverage-report.xml \
-                                -Dsonar.test.reportPath=test-report.xml
+                                -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
+                                -Dsonar.test.reportPath=tests/test-report.xml
                         """
                     }
                 }
