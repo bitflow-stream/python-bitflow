@@ -36,18 +36,18 @@ python-bitflow -script "testing/testing_file_in.txt -> Noop()""
 #### Script example 2. reading file into PlotLinePlot processing step
 This will generate in .png file in the current path
 ```
-python-bitflow -script "testing/testing_file_in.txt -> PlotLinePlot(metric_names='ongoing_connections')"
+python-bitflow -script "testing/in.csv-> PlotLinePlot(metric_names='ongoing_connections')"
 ```
 
 #### Script example 3. reading file into PlotLinePlot processing step
 Reads testing file, if tag "filter" is set to "port_1935" the metric pkg_out_1300-1400 will be plottet, else if tag "filter" is set to "port_1936" the metric pkg_out_1400-1500. Afterwards both kind of samples got forwarded to a Noop() processing step.
 ```
-python-bitflow -script "testing/testing_file_in.txt -> Fork_Tags(tag='filter'){ port_1935 -> PlotLinePlot(metric_names='pkg_out_1300-1400') ; port_1936 -> PlotLinePlot(metric_names='pkg_out_1400-1500') } -> Noop()" 
+python-bitflow -script "testing/in.csv -> Fork_Tags(tag='filter'){ port_1935 -> PlotLinePlot(metric_names='pkg_out_1300-1400') ; port_1936 -> PlotLinePlot(metric_names='pkg_out_1400-1500') } -> Noop()"
 ```
 
 #### Script example 4. load processing step from external file (requires installation)
 ```
-python-bitflow -script "testing/testing_file_in.txt -> my_processing()" -p my_processing.py
+python-bitflow -script "testing/in.csv -> my_processing()" -p my_processing.py
 ```
 Current version does not close properly in all cases. Use strg-C to exit.
 
@@ -59,10 +59,7 @@ Current version does not close properly in all cases. Use strg-C to exit.
 **provide-data.py**: reads a file and provides this file via a listen port
 
 ## TODO
-* more testing testing
 * closing python-bitflow properly
 
 ## Known Issues:
-* not all implemented processing steps are prepared to run in bitflow scripts
-* sometimes a zombie process still exisits after closing python-bitflow with strg+c
 * Forks are currently not listed in -capabilities 
