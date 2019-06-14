@@ -14,12 +14,12 @@ pipeline {
         stage('Test') { 
             steps {
                 sh 'pip install pytest pytest-cov'
-                sh 'pip install -r requirements.txt'
-                sh 'py.test --junitxml test-report.xml --cov-report xml:coverage-report.xml --cov=bitflow tests.py'
+                sh 'make init'
+                sh 'make jenkins-test'
             }
             post {
                 always {
-                    junit 'test-report.xml'
+                    junit 'tests/test-report.xml'
                     archiveArtifacts '*-report.xml'
                 }
             }
