@@ -33,9 +33,24 @@ class Fork(ProcessingStep):
 	is copied and forwarded to each pipeline given via the constructor. After
 	a sample is processed by a subpipeline it will be put returned by the execute function
 	as a normal  processing step
-
-	pipelines: a list of pipelines to add sample to
 	"""
+	class _ForkPipelineTerminator(ProcessingStep):
+		__name__ = "SubPipelineTerminator"
+		__description__ =  "Terminates a subpipeline by forwarding samples to next ps in the outer pipeline. \
+							Goal Seperate Threads, Processes for each Pipeline"
+
+		def __init__(	self,
+						fork_ps,
+						outer_pipeline):
+			self.op = outer_pipeline
+			self.fork_ps = fork_ps
+
+		def execute(self,sample):
+			self.write(sample)
+
+		def write(self,sample):
+			self.op.execute_after(sample,self.fork_ps)
+
 	subclasses = []
 
 	def __init__(self):
@@ -58,6 +73,18 @@ class Fork(ProcessingStep):
 	def get_pipelines(self):
 		return self.fork_pipelines
 
+	def spawn_new_subpipeline(self,ps_list,name):
+		p = Pipeline(multiprocessing_input=False)
+		for ps in ps_list:
+			p.add_processing_step(ps)
+		p.start()
+		if self.outer_pipeline:
+			p.add_processing_step(	Fork._ForkPipelineTerminator(
+										fork_ps=self,
+										outer_pipeline=self.outer_pipeline))
+		self.running_pipelines[name] = p
+		return p
+
 	def execute(self,sample):
 		raise NotImplementedError
 
@@ -66,8 +93,6 @@ class Fork(ProcessingStep):
 		for p in list(self.running_pipelines.keys()):
 			self.running_pipelines[p].stop()
 
-# stop and on_close inherit from processingstep
-
 class Fork_Tags(Fork):
 
 	supported_compare_methods = ["wildcard","exact"]
@@ -75,12 +100,13 @@ class Fork_Tags(Fork):
 	def __init__(self,tag : str, mode : str = "wildcard"):
 		super().__init__()
 		self.__name__ = "Fork_Tags"
+		self.outer_pipeline = None
 		if mode in self.supported_compare_methods:
 			self.mode = mode
 		else:
 			raise NotSupportedError("{}: {} method not supported. Only support {}".format(
-																					self.__name__,compare, 
-																					self.supported_compare_methods))
+															self.__name__,compare,
+															self.supported_compare_methods))
 		self.tag = tag
 
 	def compare(self,tag_value,names,mode):
@@ -92,22 +118,20 @@ class Fork_Tags(Fork):
 			return True
 		return False
 
+	def set_root_pipeline(self,outer_pipeline):
+		self.outer_pipeline = outer_pipeline
+
 	def execute(self,sample):
 		if sample.get_tag(self.tag):
 			tag_value = sample.get_tag(self.tag)
 			for processing_steps_list,names in self.fork_pipelines:
 				if not self.compare(tag_value,names,self.mode):
+					# if tag value not known, igonre
 					continue
-
 				if tag_value in self.running_pipelines:
 					p = self.running_pipelines[tag_value]
 				else:
-					p = Pipeline(multiprocessing_input=False)
-					for ps in processing_steps_list:
-						p.add_processing_step(ps)
-					p.start()
-					self.running_pipelines[tag_value] = p
-
+					p = self.spawn_new_subpipeline(processing_steps_list,tag_value)
 				s = copy.deepcopy(sample)
 				p.execute(s)
 	
