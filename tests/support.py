@@ -3,8 +3,9 @@ import os
 
 LOGGING_LEVEL=logging.ERROR
 
-TESTING_IN_FILE_CSV = "in.csv"
-TESTING_IN_FILE_BIN = "in.bin"
+dir_path = os.path.dirname(os.path.realpath(__file__))
+TESTING_IN_FILE_CSV = dir_path+"/in.csv"
+TESTING_IN_FILE_BIN = dir_path+"/in.bin"
 
 OUT_FILE_DIR="/tmp"
 PREFIX = "/python-bitflow-testing-"
