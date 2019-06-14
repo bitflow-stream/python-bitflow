@@ -376,6 +376,21 @@ class TestBitflowScriptParser(unittest.TestCase):
 
 class TestFork(unittest.TestCase):
 
+    def test_fork_in_bf_script_simple(self):
+         tp = parse_script("debuggenerationstep() -> Fork_Tags(tag=blub){* -> addtag(tags={a=b})")
+
+    def test_fork_in_bf_script_intermediate(self):
+         tp = parse_script(
+            "debuggenerationstep() -> Fork_Tags(tag=blub){\
+                                        bla -> addtag( tags={a=b} ) }\
+                                    -> Noop()")
+    def test_fork_in_bf_script_advanced(self):
+         tp = parse_script(
+            "debuggenerationstep() -> Fork_Tags(tag=blub){\
+                                        bla -> addtag(tags={a=b});\
+                                        blub -> addtag(tags={a=c})}\
+                                    -> Noop()")
+
     def test_pipeline_and_fork(self):
         fork = Fork_Tags(tag="blub")
         fork.add_processing_steps([],["bla","blub"])
