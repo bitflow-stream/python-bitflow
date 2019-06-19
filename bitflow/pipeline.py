@@ -78,7 +78,8 @@ class Pipeline(threading.Thread):
 	# forward sample to ps after the given one
 	def execute_after(self,s,ps):
 		pos = self.get_processing_step_position(ps)
-		if pos == -1:
+		# do not forward after unknown ps or if there is no following ps
+		if pos == -1 or len(self.get_processing_steps()) <= pos + 1:
 			return
 		q = self.get_subqueue(pos + 1) # ps after the searched one
 		q.put(s)

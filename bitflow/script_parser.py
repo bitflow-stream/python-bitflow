@@ -320,16 +320,16 @@ def parse_named_subpipeline(named_subpipeline_ctx):
 
 #G4:   subPipeline : pipelineTailElement (NEXT pipelineTailElement)* ;
 def build_subpipeline(subpipeline_ctx):
-    # MAYBE CHANGE IN FUTURE COMMITS
     subpipeline_processing_step_list = []
     if subpipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
             pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, None) # maybe a pipeline is required here too
-            subpipeline_processing_step_list.append(pte)
+            if pte:
+                subpipeline_processing_step_list.append(pte)
     return subpipeline_processing_step_list
 
 #G4:   fork : name parameters schedulingHints? OPEN namedSubPipeline (EOP namedSubPipeline)* 
-def build_fork(fork_ctx):
+def build_fork(fork_ctx,pipeline):
     parameters_dict = {}
     if fork_ctx.schedulingHints():
         scheduling_hints_ctx =  fork_ctx.schedulingHints()
@@ -341,7 +341,12 @@ def build_fork(fork_ctx):
 
     for named_subpipeline_ctx in fork_ctx.namedSubPipeline():
         subpipeline_processing_step_list,names = parse_named_subpipeline(named_subpipeline_ctx)
-        fork.add_processing_steps(processing_steps=subpipeline_processing_step_list,names=names)
+        fork.add_processing_steps(  processing_steps=subpipeline_processing_step_list,
+                                    names=names)
+        # gives outer pipeline to the fork ps. so that after trivising fork pipeline samples go back
+        # into outer pipeline. each pipeline runs in their own thread, future thread or process.
+        # To keep this pipeline has must be passed
+        fork.set_root_pipeline(pipeline)
     return fork
 
 def build_batch_processing_step(processing_step_ctx):
@@ -413,7 +418,7 @@ def parse_pipeline_element(pipeline_element_ctx,pipeline):
         pipeline_element = build_processing_step(processing_step_ctx)
     elif pipeline_element_ctx.fork():
         fork_ctx = pipeline_element_ctx.fork()
-        pipeline_element = build_fork(fork_ctx)
+        pipeline_element = build_fork(fork_ctx,pipeline)
     elif pipeline_element_ctx.batch():
         batch_ctx = pipeline_element_ctx.batch()
         pipeline_element = build_batch(batch_ctx,pipeline)
@@ -432,10 +437,8 @@ def build_pipeline(pipeline_ctx):
         pipeline.add_processing_step(pe)
     
     elif pipeline_ctx.pipelines():
-        # TODO pipeline nesting
-        #pipelines_ctx = pipeline_ctx.pipelines()
-        #parse_pipelines(pipelines_ctx)
-        raise NotSupportedScriptError("Pipeline nesting currently not supported ...")
+        pipelines_ctx = pipeline_ctx.pipelines()
+        parse_pipelines(pipelines_ctx)
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
