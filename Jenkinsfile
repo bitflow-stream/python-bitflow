@@ -14,13 +14,13 @@ pipeline {
         stage('Test') { 
             steps {
                 sh 'pip install pytest pytest-cov'
-                sh 'pip install -r requirements.txt'
-                sh 'py.test --junitxml test-report.xml --cov-report xml:coverage-report.xml --cov=bitflow tests.py'
+                sh 'make init'
+                sh 'make jenkins-test'
             }
             post {
                 always {
-                    junit 'test-report.xml'
-                    archiveArtifacts '*-report.xml'
+                    junit 'tests/test-report.xml'
+                    archiveArtifacts 'tests/*-report.xml'
                 }
             }
         }
@@ -42,10 +42,10 @@ pipeline {
                     withSonarQubeEnv('CIT SonarQube') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
-                                -Dsonar.sources=bitflow -Dsonar.tests=tests.py \
+                                -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
                                 -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
-                                -Dsonar.python.coverage.reportPaths=coverage-report.xml \
-                                -Dsonar.test.reportPath=test-report.xml
+                                -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
+                                -Dsonar.test.reportPath=tests/test-report.xml
                         """
                     }
                 }
