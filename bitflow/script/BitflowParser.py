@@ -1,9 +1,11 @@
 # Generated from Bitflow.g4 by ANTLR 4.7.1
 # encoding: utf-8
-from antlr4 import *
-from io import StringIO
-from typing.io import TextIO
 import sys
+from io import StringIO
+from typing import TextIO
+
+from antlr4 import *
+
 
 def serializedATN():
     with StringIO() as buf:
@@ -112,24 +114,23 @@ def serializedATN():
         return buf.getvalue()
 
 
-class BitflowParser ( Parser ):
-
+class BitflowParser(Parser):
     grammarFileName = "Bitflow.g4"
 
     atn = ATNDeserializer().deserialize(serializedATN())
 
-    decisionsToDFA = [ DFA(ds, i) for i, ds in enumerate(atn.decisionToState) ]
+    decisionsToDFA = [DFA(ds, i) for i, ds in enumerate(atn.decisionToState)]
 
     sharedContextCache = PredictionContextCache()
 
-    literalNames = [ "<INVALID>", "'{'", "'}'", "';'", "'->'", "'('", "')'", 
-                     "'='", "','", "'['", "']'", "<INVALID>", "<INVALID>", 
-                     "<INVALID>", "<INVALID>", "<INVALID>", "'\t'" ]
+    literalNames = ["<INVALID>", "'{'", "'}'", "';'", "'->'", "'('", "')'",
+                    "'='", "','", "'['", "']'", "<INVALID>", "<INVALID>",
+                    "<INVALID>", "<INVALID>", "<INVALID>", "'\t'"]
 
-    symbolicNames = [ "<INVALID>", "OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS", 
-                      "CLOSE_PARAMS", "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS", 
-                      "STRING", "IDENTIFIER", "COMMENT", "NEWLINE", "WHITESPACE", 
-                      "TAB" ]
+    symbolicNames = ["<INVALID>", "OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS",
+                     "CLOSE_PARAMS", "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS",
+                     "STRING", "IDENTIFIER", "COMMENT", "NEWLINE", "WHITESPACE",
+                     "TAB"]
 
     RULE_script = 0
     RULE_dataInput = 1
@@ -156,48 +157,45 @@ class BitflowParser ( Parser ):
     RULE_batch = 22
     RULE_schedulingHints = 23
 
-    ruleNames =  [ "script", "dataInput", "dataOutput", "name", "parameter", 
-                   "parameterValue", "primitiveValue", "listValue", "mapValue", 
-                   "mapValueElement", "parameterList", "parameters", "pipelines", 
-                   "pipeline", "pipelineElement", "pipelineTailElement", 
-                   "processingStep", "fork", "namedSubPipeline", "subPipeline", 
-                   "batchPipeline", "multiplexFork", "batch", "schedulingHints" ]
+    ruleNames = ["script", "dataInput", "dataOutput", "name", "parameter",
+                 "parameterValue", "primitiveValue", "listValue", "mapValue",
+                 "mapValueElement", "parameterList", "parameters", "pipelines",
+                 "pipeline", "pipelineElement", "pipelineTailElement",
+                 "processingStep", "fork", "namedSubPipeline", "subPipeline",
+                 "batchPipeline", "multiplexFork", "batch", "schedulingHints"]
 
     EOF = Token.EOF
-    OPEN=1
-    CLOSE=2
-    EOP=3
-    NEXT=4
-    OPEN_PARAMS=5
-    CLOSE_PARAMS=6
-    EQ=7
-    SEP=8
-    OPEN_HINTS=9
-    CLOSE_HINTS=10
-    STRING=11
-    IDENTIFIER=12
-    COMMENT=13
-    NEWLINE=14
-    WHITESPACE=15
-    TAB=16
+    OPEN = 1
+    CLOSE = 2
+    EOP = 3
+    NEXT = 4
+    OPEN_PARAMS = 5
+    CLOSE_PARAMS = 6
+    EQ = 7
+    SEP = 8
+    OPEN_HINTS = 9
+    CLOSE_HINTS = 10
+    STRING = 11
+    IDENTIFIER = 12
+    COMMENT = 13
+    NEWLINE = 14
+    WHITESPACE = 15
+    TAB = 16
 
-    def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
+    def __init__(self, input: TokenStream, output: TextIO = sys.stdout):
         super().__init__(input, output)
         self.checkVersion("4.7.1")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
 
-
-
     class ScriptContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def pipelines(self):
-            return self.getTypedRuleContext(BitflowParser.PipelinesContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PipelinesContext, 0)
 
         def EOF(self):
             return self.getToken(BitflowParser.EOF, 0)
@@ -205,22 +203,19 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_script
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterScript" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterScript"):
                 listener.enterScript(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitScript" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitScript"):
                 listener.exitScript(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitScript" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitScript"):
                 return visitor.visitScript(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def script(self):
 
@@ -242,64 +237,59 @@ class BitflowParser ( Parser ):
 
     class DataInputContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def name(self, i:int=None):
+        def name(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.NameContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.NameContext,i)
-
+                return self.getTypedRuleContext(BitflowParser.NameContext, i)
 
         def schedulingHints(self):
-            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_dataInput
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterDataInput" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterDataInput"):
                 listener.enterDataInput(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitDataInput" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitDataInput"):
                 listener.exitDataInput(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitDataInput" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitDataInput"):
                 return visitor.visitDataInput(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def dataInput(self):
 
         localctx = BitflowParser.DataInputContext(self, self._ctx, self.state)
         self.enterRule(localctx, 2, self.RULE_dataInput)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 52 
+            self.state = 52
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
                 self.state = 51
                 self.name()
-                self.state = 54 
+                self.state = 54
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not (_la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER):
+                if not (_la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER):
                     break
 
             self.state = 57
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.OPEN_HINTS:
+            if _la == BitflowParser.OPEN_HINTS:
                 self.state = 56
                 self.schedulingHints()
 
@@ -314,43 +304,38 @@ class BitflowParser ( Parser ):
 
     class DataOutputContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def schedulingHints(self):
-            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_dataOutput
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterDataOutput" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterDataOutput"):
                 listener.enterDataOutput(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitDataOutput" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitDataOutput"):
                 listener.exitDataOutput(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitDataOutput" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitDataOutput"):
                 return visitor.visitDataOutput(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def dataOutput(self):
 
         localctx = BitflowParser.DataOutputContext(self, self._ctx, self.state)
         self.enterRule(localctx, 4, self.RULE_dataOutput)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 59
@@ -358,7 +343,7 @@ class BitflowParser ( Parser ):
             self.state = 61
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.OPEN_HINTS:
+            if _la == BitflowParser.OPEN_HINTS:
                 self.state = 60
                 self.schedulingHints()
 
@@ -373,7 +358,7 @@ class BitflowParser ( Parser ):
 
     class NameContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -386,33 +371,30 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_name
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterName" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterName"):
                 listener.enterName(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitName" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitName"):
                 listener.exitName(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitName" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitName"):
                 return visitor.visitName(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def name(self):
 
         localctx = BitflowParser.NameContext(self, self._ctx, self.state)
         self.enterRule(localctx, 6, self.RULE_name)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 63
             _la = self._input.LA(1)
-            if not(_la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER):
+            if not (_la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -427,40 +409,35 @@ class BitflowParser ( Parser ):
 
     class ParameterContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def EQ(self):
             return self.getToken(BitflowParser.EQ, 0)
 
         def parameterValue(self):
-            return self.getTypedRuleContext(BitflowParser.ParameterValueContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParameterValueContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_parameter
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterParameter" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterParameter"):
                 listener.enterParameter(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitParameter" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitParameter"):
                 listener.exitParameter(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitParameter" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitParameter"):
                 return visitor.visitParameter(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def parameter(self):
 
@@ -484,41 +461,35 @@ class BitflowParser ( Parser ):
 
     class ParameterValueContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def primitiveValue(self):
-            return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext, 0)
 
         def listValue(self):
-            return self.getTypedRuleContext(BitflowParser.ListValueContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ListValueContext, 0)
 
         def mapValue(self):
-            return self.getTypedRuleContext(BitflowParser.MapValueContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.MapValueContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_parameterValue
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterParameterValue" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterParameterValue"):
                 listener.enterParameterValue(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitParameterValue" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitParameterValue"):
                 listener.exitParameterValue(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitParameterValue" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitParameterValue"):
                 return visitor.visitParameterValue(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def parameterValue(self):
 
@@ -556,33 +527,29 @@ class BitflowParser ( Parser ):
 
     class PrimitiveValueContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_primitiveValue
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterPrimitiveValue" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterPrimitiveValue"):
                 listener.enterPrimitiveValue(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitPrimitiveValue" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitPrimitiveValue"):
                 listener.exitPrimitiveValue(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitPrimitiveValue" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitPrimitiveValue"):
                 return visitor.visitPrimitiveValue(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def primitiveValue(self):
 
@@ -602,7 +569,7 @@ class BitflowParser ( Parser ):
 
     class ListValueContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -612,14 +579,13 @@ class BitflowParser ( Parser ):
         def CLOSE_HINTS(self):
             return self.getToken(BitflowParser.CLOSE_HINTS, 0)
 
-        def primitiveValue(self, i:int=None):
+        def primitiveValue(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.PrimitiveValueContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext,i)
+                return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext, i)
 
-
-        def SEP(self, i:int=None):
+        def SEP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.SEP)
             else:
@@ -628,28 +594,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_listValue
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterListValue" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterListValue"):
                 listener.enterListValue(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitListValue" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitListValue"):
                 listener.exitListValue(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitListValue" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitListValue"):
                 return visitor.visitListValue(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def listValue(self):
 
         localctx = BitflowParser.ListValueContext(self, self._ctx, self.state)
         self.enterRule(localctx, 14, self.RULE_listValue)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 76
@@ -657,13 +620,13 @@ class BitflowParser ( Parser ):
             self.state = 85
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER:
+            if _la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER:
                 self.state = 77
                 self.primitiveValue()
                 self.state = 82
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==BitflowParser.SEP:
+                while _la == BitflowParser.SEP:
                     self.state = 78
                     self.match(BitflowParser.SEP)
                     self.state = 79
@@ -671,8 +634,6 @@ class BitflowParser ( Parser ):
                     self.state = 84
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-
-
 
             self.state = 87
             self.match(BitflowParser.CLOSE_HINTS)
@@ -686,7 +647,7 @@ class BitflowParser ( Parser ):
 
     class MapValueContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -696,14 +657,13 @@ class BitflowParser ( Parser ):
         def CLOSE(self):
             return self.getToken(BitflowParser.CLOSE, 0)
 
-        def mapValueElement(self, i:int=None):
+        def mapValueElement(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.MapValueElementContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.MapValueElementContext,i)
+                return self.getTypedRuleContext(BitflowParser.MapValueElementContext, i)
 
-
-        def SEP(self, i:int=None):
+        def SEP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.SEP)
             else:
@@ -712,28 +672,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_mapValue
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterMapValue" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterMapValue"):
                 listener.enterMapValue(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitMapValue" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitMapValue"):
                 listener.exitMapValue(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitMapValue" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitMapValue"):
                 return visitor.visitMapValue(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def mapValue(self):
 
         localctx = BitflowParser.MapValueContext(self, self._ctx, self.state)
         self.enterRule(localctx, 16, self.RULE_mapValue)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 89
@@ -741,13 +698,13 @@ class BitflowParser ( Parser ):
             self.state = 98
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER:
+            if _la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER:
                 self.state = 90
                 self.mapValueElement()
                 self.state = 95
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==BitflowParser.SEP:
+                while _la == BitflowParser.SEP:
                     self.state = 91
                     self.match(BitflowParser.SEP)
                     self.state = 92
@@ -755,8 +712,6 @@ class BitflowParser ( Parser ):
                     self.state = 97
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-
-
 
             self.state = 100
             self.match(BitflowParser.CLOSE)
@@ -770,40 +725,35 @@ class BitflowParser ( Parser ):
 
     class MapValueElementContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def EQ(self):
             return self.getToken(BitflowParser.EQ, 0)
 
         def primitiveValue(self):
-            return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PrimitiveValueContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_mapValueElement
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterMapValueElement" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterMapValueElement"):
                 listener.enterMapValueElement(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitMapValueElement" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitMapValueElement"):
                 listener.exitMapValueElement(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitMapValueElement" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitMapValueElement"):
                 return visitor.visitMapValueElement(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def mapValueElement(self):
 
@@ -827,18 +777,17 @@ class BitflowParser ( Parser ):
 
     class ParameterListContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def parameter(self, i:int=None):
+        def parameter(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.ParameterContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.ParameterContext,i)
+                return self.getTypedRuleContext(BitflowParser.ParameterContext, i)
 
-
-        def SEP(self, i:int=None):
+        def SEP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.SEP)
             else:
@@ -847,22 +796,19 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_parameterList
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterParameterList" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterParameterList"):
                 listener.enterParameterList(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitParameterList" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitParameterList"):
                 listener.exitParameterList(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitParameterList" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitParameterList"):
                 return visitor.visitParameterList(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def parameterList(self):
 
@@ -874,16 +820,16 @@ class BitflowParser ( Parser ):
             self.parameter()
             self.state = 111
             self._errHandler.sync(self)
-            _alt = self._interp.adaptivePredict(self._input,8,self._ctx)
-            while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
-                if _alt==1:
+            _alt = self._interp.adaptivePredict(self._input, 8, self._ctx)
+            while _alt != 2 and _alt != ATN.INVALID_ALT_NUMBER:
+                if _alt == 1:
                     self.state = 107
                     self.match(BitflowParser.SEP)
                     self.state = 108
-                    self.parameter() 
+                    self.parameter()
                 self.state = 113
                 self._errHandler.sync(self)
-                _alt = self._interp.adaptivePredict(self._input,8,self._ctx)
+                _alt = self._interp.adaptivePredict(self._input, 8, self._ctx)
 
         except RecognitionException as re:
             localctx.exception = re
@@ -895,7 +841,7 @@ class BitflowParser ( Parser ):
 
     class ParametersContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -906,8 +852,7 @@ class BitflowParser ( Parser ):
             return self.getToken(BitflowParser.CLOSE_PARAMS, 0)
 
         def parameterList(self):
-            return self.getTypedRuleContext(BitflowParser.ParameterListContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParameterListContext, 0)
 
         def SEP(self):
             return self.getToken(BitflowParser.SEP, 0)
@@ -915,28 +860,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_parameters
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterParameters" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterParameters"):
                 listener.enterParameters(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitParameters" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitParameters"):
                 listener.exitParameters(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitParameters" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitParameters"):
                 return visitor.visitParameters(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def parameters(self):
 
         localctx = BitflowParser.ParametersContext(self, self._ctx, self.state)
         self.enterRule(localctx, 22, self.RULE_parameters)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 114
@@ -944,18 +886,15 @@ class BitflowParser ( Parser ):
             self.state = 119
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER:
+            if _la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER:
                 self.state = 115
                 self.parameterList()
                 self.state = 117
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==BitflowParser.SEP:
+                if _la == BitflowParser.SEP:
                     self.state = 116
                     self.match(BitflowParser.SEP)
-
-
-
 
             self.state = 121
             self.match(BitflowParser.CLOSE_PARAMS)
@@ -969,18 +908,17 @@ class BitflowParser ( Parser ):
 
     class PipelinesContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def pipeline(self, i:int=None):
+        def pipeline(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.PipelineContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.PipelineContext,i)
+                return self.getTypedRuleContext(BitflowParser.PipelineContext, i)
 
-
-        def EOP(self, i:int=None):
+        def EOP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.EOP)
             else:
@@ -989,49 +927,46 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_pipelines
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterPipelines" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterPipelines"):
                 listener.enterPipelines(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitPipelines" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitPipelines"):
                 listener.exitPipelines(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitPipelines" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitPipelines"):
                 return visitor.visitPipelines(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def pipelines(self):
 
         localctx = BitflowParser.PipelinesContext(self, self._ctx, self.state)
         self.enterRule(localctx, 24, self.RULE_pipelines)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 123
             self.pipeline()
             self.state = 128
             self._errHandler.sync(self)
-            _alt = self._interp.adaptivePredict(self._input,11,self._ctx)
-            while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
-                if _alt==1:
+            _alt = self._interp.adaptivePredict(self._input, 11, self._ctx)
+            while _alt != 2 and _alt != ATN.INVALID_ALT_NUMBER:
+                if _alt == 1:
                     self.state = 124
                     self.match(BitflowParser.EOP)
                     self.state = 125
-                    self.pipeline() 
+                    self.pipeline()
                 self.state = 130
                 self._errHandler.sync(self)
-                _alt = self._interp.adaptivePredict(self._input,11,self._ctx)
+                _alt = self._interp.adaptivePredict(self._input, 11, self._ctx)
 
             self.state = 132
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.EOP:
+            if _la == BitflowParser.EOP:
                 self.state = 131
                 self.match(BitflowParser.EOP)
 
@@ -1046,71 +981,64 @@ class BitflowParser ( Parser ):
 
     class PipelineContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def dataInput(self):
-            return self.getTypedRuleContext(BitflowParser.DataInputContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.DataInputContext, 0)
 
         def pipelineElement(self):
-            return self.getTypedRuleContext(BitflowParser.PipelineElementContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PipelineElementContext, 0)
 
         def OPEN(self):
             return self.getToken(BitflowParser.OPEN, 0)
 
         def pipelines(self):
-            return self.getTypedRuleContext(BitflowParser.PipelinesContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PipelinesContext, 0)
 
         def CLOSE(self):
             return self.getToken(BitflowParser.CLOSE, 0)
 
-        def NEXT(self, i:int=None):
+        def NEXT(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.NEXT)
             else:
                 return self.getToken(BitflowParser.NEXT, i)
 
-        def pipelineTailElement(self, i:int=None):
+        def pipelineTailElement(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.PipelineTailElementContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.PipelineTailElementContext,i)
-
+                return self.getTypedRuleContext(BitflowParser.PipelineTailElementContext, i)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_pipeline
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterPipeline" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterPipeline"):
                 listener.enterPipeline(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitPipeline" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitPipeline"):
                 listener.exitPipeline(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitPipeline" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitPipeline"):
                 return visitor.visitPipeline(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def pipeline(self):
 
         localctx = BitflowParser.PipelineContext(self, self._ctx, self.state)
         self.enterRule(localctx, 26, self.RULE_pipeline)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 140
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,13,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input, 13, self._ctx)
             if la_ == 1:
                 self.state = 134
                 self.dataInput()
@@ -1130,11 +1058,10 @@ class BitflowParser ( Parser ):
                 self.match(BitflowParser.CLOSE)
                 pass
 
-
             self.state = 146
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==BitflowParser.NEXT:
+            while _la == BitflowParser.NEXT:
                 self.state = 142
                 self.match(BitflowParser.NEXT)
                 self.state = 143
@@ -1153,41 +1080,35 @@ class BitflowParser ( Parser ):
 
     class PipelineElementContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def processingStep(self):
-            return self.getTypedRuleContext(BitflowParser.ProcessingStepContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ProcessingStepContext, 0)
 
         def fork(self):
-            return self.getTypedRuleContext(BitflowParser.ForkContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ForkContext, 0)
 
         def batch(self):
-            return self.getTypedRuleContext(BitflowParser.BatchContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.BatchContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_pipelineElement
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterPipelineElement" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterPipelineElement"):
                 listener.enterPipelineElement(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitPipelineElement" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitPipelineElement"):
                 listener.exitPipelineElement(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitPipelineElement" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitPipelineElement"):
                 return visitor.visitPipelineElement(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def pipelineElement(self):
 
@@ -1196,7 +1117,7 @@ class BitflowParser ( Parser ):
         try:
             self.state = 152
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,15,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input, 15, self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 149
@@ -1226,41 +1147,35 @@ class BitflowParser ( Parser ):
 
     class PipelineTailElementContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def pipelineElement(self):
-            return self.getTypedRuleContext(BitflowParser.PipelineElementContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.PipelineElementContext, 0)
 
         def multiplexFork(self):
-            return self.getTypedRuleContext(BitflowParser.MultiplexForkContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.MultiplexForkContext, 0)
 
         def dataOutput(self):
-            return self.getTypedRuleContext(BitflowParser.DataOutputContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.DataOutputContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_pipelineTailElement
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterPipelineTailElement" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterPipelineTailElement"):
                 listener.enterPipelineTailElement(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitPipelineTailElement" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitPipelineTailElement"):
                 listener.exitPipelineTailElement(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitPipelineTailElement" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitPipelineTailElement"):
                 return visitor.visitPipelineTailElement(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def pipelineTailElement(self):
 
@@ -1269,7 +1184,7 @@ class BitflowParser ( Parser ):
         try:
             self.state = 157
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,16,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input, 16, self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 154
@@ -1299,47 +1214,41 @@ class BitflowParser ( Parser ):
 
     class ProcessingStepContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def parameters(self):
-            return self.getTypedRuleContext(BitflowParser.ParametersContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParametersContext, 0)
 
         def schedulingHints(self):
-            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_processingStep
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterProcessingStep" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterProcessingStep"):
                 listener.enterProcessingStep(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitProcessingStep" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitProcessingStep"):
                 listener.exitProcessingStep(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitProcessingStep" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitProcessingStep"):
                 return visitor.visitProcessingStep(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def processingStep(self):
 
         localctx = BitflowParser.ProcessingStepContext(self, self._ctx, self.state)
         self.enterRule(localctx, 32, self.RULE_processingStep)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 159
@@ -1349,11 +1258,9 @@ class BitflowParser ( Parser ):
             self.state = 162
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.OPEN_HINTS:
+            if _la == BitflowParser.OPEN_HINTS:
                 self.state = 161
                 self.schedulingHints()
-
-
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1364,36 +1271,32 @@ class BitflowParser ( Parser ):
 
     class ForkContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def parameters(self):
-            return self.getTypedRuleContext(BitflowParser.ParametersContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParametersContext, 0)
 
         def OPEN(self):
             return self.getToken(BitflowParser.OPEN, 0)
 
-        def namedSubPipeline(self, i:int=None):
+        def namedSubPipeline(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.NamedSubPipelineContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.NamedSubPipelineContext,i)
-
+                return self.getTypedRuleContext(BitflowParser.NamedSubPipelineContext, i)
 
         def CLOSE(self):
             return self.getToken(BitflowParser.CLOSE, 0)
 
         def schedulingHints(self):
-            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext,0)
+            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext, 0)
 
-
-        def EOP(self, i:int=None):
+        def EOP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.EOP)
             else:
@@ -1402,28 +1305,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_fork
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterFork" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterFork"):
                 listener.enterFork(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitFork" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitFork"):
                 listener.exitFork(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitFork" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitFork"):
                 return visitor.visitFork(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def fork(self):
 
         localctx = BitflowParser.ForkContext(self, self._ctx, self.state)
         self.enterRule(localctx, 34, self.RULE_fork)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 164
@@ -1433,10 +1333,9 @@ class BitflowParser ( Parser ):
             self.state = 167
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.OPEN_HINTS:
+            if _la == BitflowParser.OPEN_HINTS:
                 self.state = 166
                 self.schedulingHints()
-
 
             self.state = 169
             self.match(BitflowParser.OPEN)
@@ -1444,24 +1343,23 @@ class BitflowParser ( Parser ):
             self.namedSubPipeline()
             self.state = 175
             self._errHandler.sync(self)
-            _alt = self._interp.adaptivePredict(self._input,19,self._ctx)
-            while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
-                if _alt==1:
+            _alt = self._interp.adaptivePredict(self._input, 19, self._ctx)
+            while _alt != 2 and _alt != ATN.INVALID_ALT_NUMBER:
+                if _alt == 1:
                     self.state = 171
                     self.match(BitflowParser.EOP)
                     self.state = 172
-                    self.namedSubPipeline() 
+                    self.namedSubPipeline()
                 self.state = 177
                 self._errHandler.sync(self)
-                _alt = self._interp.adaptivePredict(self._input,19,self._ctx)
+                _alt = self._interp.adaptivePredict(self._input, 19, self._ctx)
 
             self.state = 179
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.EOP:
+            if _la == BitflowParser.EOP:
                 self.state = 178
                 self.match(BitflowParser.EOP)
-
 
             self.state = 181
             self.match(BitflowParser.CLOSE)
@@ -1475,7 +1373,7 @@ class BitflowParser ( Parser ):
 
     class NamedSubPipelineContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -1483,53 +1381,48 @@ class BitflowParser ( Parser ):
             return self.getToken(BitflowParser.NEXT, 0)
 
         def subPipeline(self):
-            return self.getTypedRuleContext(BitflowParser.SubPipelineContext,0)
+            return self.getTypedRuleContext(BitflowParser.SubPipelineContext, 0)
 
-
-        def name(self, i:int=None):
+        def name(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.NameContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.NameContext,i)
-
+                return self.getTypedRuleContext(BitflowParser.NameContext, i)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_namedSubPipeline
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterNamedSubPipeline" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterNamedSubPipeline"):
                 listener.enterNamedSubPipeline(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitNamedSubPipeline" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitNamedSubPipeline"):
                 listener.exitNamedSubPipeline(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitNamedSubPipeline" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitNamedSubPipeline"):
                 return visitor.visitNamedSubPipeline(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def namedSubPipeline(self):
 
         localctx = BitflowParser.NamedSubPipelineContext(self, self._ctx, self.state)
         self.enterRule(localctx, 36, self.RULE_namedSubPipeline)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 184 
+            self.state = 184
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
                 self.state = 183
                 self.name()
-                self.state = 186 
+                self.state = 186
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not (_la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER):
+                if not (_la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER):
                     break
 
             self.state = 188
@@ -1546,18 +1439,17 @@ class BitflowParser ( Parser ):
 
     class SubPipelineContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def pipelineTailElement(self, i:int=None):
+        def pipelineTailElement(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.PipelineTailElementContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.PipelineTailElementContext,i)
+                return self.getTypedRuleContext(BitflowParser.PipelineTailElementContext, i)
 
-
-        def NEXT(self, i:int=None):
+        def NEXT(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.NEXT)
             else:
@@ -1566,28 +1458,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_subPipeline
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterSubPipeline" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterSubPipeline"):
                 listener.enterSubPipeline(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitSubPipeline" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitSubPipeline"):
                 listener.exitSubPipeline(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitSubPipeline" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitSubPipeline"):
                 return visitor.visitSubPipeline(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def subPipeline(self):
 
         localctx = BitflowParser.SubPipelineContext(self, self._ctx, self.state)
         self.enterRule(localctx, 38, self.RULE_subPipeline)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 191
@@ -1595,7 +1484,7 @@ class BitflowParser ( Parser ):
             self.state = 196
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==BitflowParser.NEXT:
+            while _la == BitflowParser.NEXT:
                 self.state = 192
                 self.match(BitflowParser.NEXT)
                 self.state = 193
@@ -1614,18 +1503,17 @@ class BitflowParser ( Parser ):
 
     class BatchPipelineContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def processingStep(self, i:int=None):
+        def processingStep(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.ProcessingStepContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.ProcessingStepContext,i)
+                return self.getTypedRuleContext(BitflowParser.ProcessingStepContext, i)
 
-
-        def NEXT(self, i:int=None):
+        def NEXT(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.NEXT)
             else:
@@ -1634,28 +1522,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_batchPipeline
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterBatchPipeline" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterBatchPipeline"):
                 listener.enterBatchPipeline(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitBatchPipeline" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitBatchPipeline"):
                 listener.exitBatchPipeline(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitBatchPipeline" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitBatchPipeline"):
                 return visitor.visitBatchPipeline(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def batchPipeline(self):
 
         localctx = BitflowParser.BatchPipelineContext(self, self._ctx, self.state)
         self.enterRule(localctx, 40, self.RULE_batchPipeline)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 199
@@ -1663,7 +1548,7 @@ class BitflowParser ( Parser ):
             self.state = 204
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==BitflowParser.NEXT:
+            while _la == BitflowParser.NEXT:
                 self.state = 200
                 self.match(BitflowParser.NEXT)
                 self.state = 201
@@ -1682,24 +1567,23 @@ class BitflowParser ( Parser ):
 
     class MultiplexForkContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def OPEN(self):
             return self.getToken(BitflowParser.OPEN, 0)
 
-        def subPipeline(self, i:int=None):
+        def subPipeline(self, i: int = None):
             if i is None:
                 return self.getTypedRuleContexts(BitflowParser.SubPipelineContext)
             else:
-                return self.getTypedRuleContext(BitflowParser.SubPipelineContext,i)
-
+                return self.getTypedRuleContext(BitflowParser.SubPipelineContext, i)
 
         def CLOSE(self):
             return self.getToken(BitflowParser.CLOSE, 0)
 
-        def EOP(self, i:int=None):
+        def EOP(self, i: int = None):
             if i is None:
                 return self.getTokens(BitflowParser.EOP)
             else:
@@ -1708,28 +1592,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_multiplexFork
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterMultiplexFork" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterMultiplexFork"):
                 listener.enterMultiplexFork(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitMultiplexFork" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitMultiplexFork"):
                 listener.exitMultiplexFork(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitMultiplexFork" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitMultiplexFork"):
                 return visitor.visitMultiplexFork(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def multiplexFork(self):
 
         localctx = BitflowParser.MultiplexForkContext(self, self._ctx, self.state)
         self.enterRule(localctx, 42, self.RULE_multiplexFork)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 207
@@ -1738,24 +1619,23 @@ class BitflowParser ( Parser ):
             self.subPipeline()
             self.state = 213
             self._errHandler.sync(self)
-            _alt = self._interp.adaptivePredict(self._input,24,self._ctx)
-            while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
-                if _alt==1:
+            _alt = self._interp.adaptivePredict(self._input, 24, self._ctx)
+            while _alt != 2 and _alt != ATN.INVALID_ALT_NUMBER:
+                if _alt == 1:
                     self.state = 209
                     self.match(BitflowParser.EOP)
                     self.state = 210
-                    self.subPipeline() 
+                    self.subPipeline()
                 self.state = 215
                 self._errHandler.sync(self)
-                _alt = self._interp.adaptivePredict(self._input,24,self._ctx)
+                _alt = self._interp.adaptivePredict(self._input, 24, self._ctx)
 
             self.state = 217
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.EOP:
+            if _la == BitflowParser.EOP:
                 self.state = 216
                 self.match(BitflowParser.EOP)
-
 
             self.state = 219
             self.match(BitflowParser.CLOSE)
@@ -1769,57 +1649,50 @@ class BitflowParser ( Parser ):
 
     class BatchContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
         def name(self):
-            return self.getTypedRuleContext(BitflowParser.NameContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.NameContext, 0)
 
         def parameters(self):
-            return self.getTypedRuleContext(BitflowParser.ParametersContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParametersContext, 0)
 
         def OPEN(self):
             return self.getToken(BitflowParser.OPEN, 0)
 
         def batchPipeline(self):
-            return self.getTypedRuleContext(BitflowParser.BatchPipelineContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.BatchPipelineContext, 0)
 
         def CLOSE(self):
             return self.getToken(BitflowParser.CLOSE, 0)
 
         def schedulingHints(self):
-            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.SchedulingHintsContext, 0)
 
         def getRuleIndex(self):
             return BitflowParser.RULE_batch
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterBatch" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterBatch"):
                 listener.enterBatch(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitBatch" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitBatch"):
                 listener.exitBatch(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitBatch" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitBatch"):
                 return visitor.visitBatch(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def batch(self):
 
         localctx = BitflowParser.BatchContext(self, self._ctx, self.state)
         self.enterRule(localctx, 44, self.RULE_batch)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 221
@@ -1829,10 +1702,9 @@ class BitflowParser ( Parser ):
             self.state = 224
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.OPEN_HINTS:
+            if _la == BitflowParser.OPEN_HINTS:
                 self.state = 223
                 self.schedulingHints()
-
 
             self.state = 226
             self.match(BitflowParser.OPEN)
@@ -1850,7 +1722,7 @@ class BitflowParser ( Parser ):
 
     class SchedulingHintsContext(ParserRuleContext):
 
-        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+        def __init__(self, parser, parent: ParserRuleContext = None, invokingState: int = -1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
@@ -1861,8 +1733,7 @@ class BitflowParser ( Parser ):
             return self.getToken(BitflowParser.CLOSE_HINTS, 0)
 
         def parameterList(self):
-            return self.getTypedRuleContext(BitflowParser.ParameterListContext,0)
-
+            return self.getTypedRuleContext(BitflowParser.ParameterListContext, 0)
 
         def SEP(self):
             return self.getToken(BitflowParser.SEP, 0)
@@ -1870,28 +1741,25 @@ class BitflowParser ( Parser ):
         def getRuleIndex(self):
             return BitflowParser.RULE_schedulingHints
 
-        def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterSchedulingHints" ):
+        def enterRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "enterSchedulingHints"):
                 listener.enterSchedulingHints(self)
 
-        def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitSchedulingHints" ):
+        def exitRule(self, listener: ParseTreeListener):
+            if hasattr(listener, "exitSchedulingHints"):
                 listener.exitSchedulingHints(self)
 
-        def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitSchedulingHints" ):
+        def accept(self, visitor: ParseTreeVisitor):
+            if hasattr(visitor, "visitSchedulingHints"):
                 return visitor.visitSchedulingHints(self)
             else:
                 return visitor.visitChildren(self)
-
-
-
 
     def schedulingHints(self):
 
         localctx = BitflowParser.SchedulingHintsContext(self, self._ctx, self.state)
         self.enterRule(localctx, 46, self.RULE_schedulingHints)
-        self._la = 0 # Token type
+        self._la = 0  # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 230
@@ -1899,18 +1767,15 @@ class BitflowParser ( Parser ):
             self.state = 235
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==BitflowParser.STRING or _la==BitflowParser.IDENTIFIER:
+            if _la == BitflowParser.STRING or _la == BitflowParser.IDENTIFIER:
                 self.state = 231
                 self.parameterList()
                 self.state = 233
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==BitflowParser.SEP:
+                if _la == BitflowParser.SEP:
                     self.state = 232
                     self.match(BitflowParser.SEP)
-
-
-
 
             self.state = 237
             self.match(BitflowParser.CLOSE_HINTS)
@@ -1921,8 +1786,3 @@ class BitflowParser ( Parser ):
         finally:
             self.exitRule()
         return localctx
-
-
-
-
-

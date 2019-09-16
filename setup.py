@@ -9,5 +9,5 @@ setup(name='python-bitflow',
       author_email='marcel.wallschlaeger@tu-berlin.de',
       url='https://github.com/bitflow-stream/python-bitflow',
       scripts=['python-bitflow', 'python-bitflow'],
-      packages=['bitflow','bitflow/steps']
-     )
+      packages=['bitflow', 'bitflow/io', 'bitflow/script', 'bitflow/steps']
+      )
