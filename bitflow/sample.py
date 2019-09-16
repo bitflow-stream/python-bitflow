@@ -1,126 +1,124 @@
-import logging
-import numpy as np
-import copy
 import time
+
+import numpy as np
+
 
 class Sample:
 
-	def __init__(self,header,metrics,timestamp=None,tags=None):
-		self.header = Header(header.metric_names)
-		self.metrics = metrics
-		if not timestamp:
-			self.timestamp = np.datetime64(time.time_ns(),'ns')
-		else:
-			if isinstance(timestamp,int):
-				self.timestamp =  np.datetime64(timestamp,'ns')
-			else:
-				self.timestamp =  np.datetime64(timestamp)
-		if tags:
-			self.tags = tags
-		else:
-			self.tags = {}
+    def __init__(self, header, metrics, timestamp=None, tags=None):
+        self.header = Header(header.metric_names)
+        self.metrics = metrics
+        if not timestamp:
+            self.timestamp = np.datetime64(time.time_ns(), 'ns')
+        else:
+            if isinstance(timestamp, int):
+                self.timestamp = np.datetime64(timestamp, 'ns')
+            else:
+                self.timestamp = np.datetime64(timestamp)
+        if tags:
+            self.tags = tags
+        else:
+            self.tags = {}
 
-	def __str__(self):
-		return "{}:{}, {}, {}, {}".format(
-										"bitflow.sample",
-										str(self.header),
-										self.get_printable_timestamp,
-										self.get_tags,
-										self.metrics)
-# METRICS
-	def get_metrics(self):
-		return self.metrics
+    def __str__(self):
+        return "{}:{}, {}, {}, {}".format(
+            "bitflow.sample",
+            str(self.header),
+            self.get_timestamp_string(),
+            self.get_tags,
+            self.metrics)
 
-	def extend(self,metric):
-		self.metrics.append(metric)
+    # METRICS
+    def get_metrics(self):
+        return self.metrics
 
-	def get_metricsindex_by_name(self,metric_name):
-		index = self.header.metric_names.index(metric_name)
-		return index
+    def extend(self, metric):
+        self.metrics.append(metric)
 
-	def get_metricvalue_by_name(self,metric_name):
-		index = self.header.metric_names.index(metric_name)
-		m = self.metrics[index]
-		return m
+    def get_metricsindex_by_name(self, metric_name):
+        index = self.header.metric_names.index(metric_name)
+        return index
 
-	def remove_metrics(self,index):
-		self.header.header.remove(index)
-		self.metrics = self.metrics[:index:]
+    def get_metricvalue_by_name(self, metric_name):
+        index = self.header.metric_names.index(metric_name)
+        m = self.metrics[index]
+        return m
 
-# TIMESTAMP
-	def get_timestamp(self):
-		return self.timestamp
+    def remove_metrics(self, index):
+        self.header.metric_names.remove(index)
+        self.metrics = self.metrics[:index:]
 
-	def get_timestamp_string(self):
-		pts = str(self.timestamp).replace("T"," ")
-		pts = pts.rstrip('0')
-		return pts
+    # TIMESTAMP
+    def get_timestamp(self):
+        return self.timestamp
 
-	def set_timestamp(self,timestamp : str):
-		self.timestamp = np.datetime64(timestamp)
+    def get_timestamp_string(self):
+        pts = str(self.timestamp).replace("T", " ")
+        pts = pts.rstrip('0')
+        return pts
 
-	def get_unix_timestamp(self):
-		return self.timestamp.astype('datetime64[ns]').astype('int')
+    def set_timestamp(self, timestamp: str):
+        self.timestamp = np.datetime64(timestamp)
 
-	def get_epoch_timestamp(self):
-		return self.timestamp.astype('datetime64[ns]').astype('float')
+    def get_unix_timestamp(self):
+        return self.timestamp.astype('datetime64[ns]').astype('int')
 
-# TAGS
-	def get_tag(self,tag):
-		if tag in self.tags:
-			return self.tags[tag]
-		else:
-			return None
+    def get_epoch_timestamp(self):
+        return self.timestamp.astype('datetime64[ns]').astype('float')
 
-	def get_tags(self):
-		return self.tags
+    # TAGS
+    def get_tag(self, tag):
+        if tag in self.tags:
+            return self.tags[tag]
+        else:
+            return None
 
-	def get_tags_string(self):
-		s = ""
-		tags_count = len(self.tags.items())
-		dict_position = 1
-		for key,value in self.tags.items():
-			if(dict_position == tags_count):
-				s += "{}={}".format(key,value)
-			else:
-				s += "{}={} ".format(key,value)
-				dict_position += 1
-		return s
+    def get_tags(self):
+        return self.tags
 
-	def add_tag(self,tag_key,tag_value):
-		self.tags[tag_key] = tag_value
+    def get_tags_string(self):
+        s = ""
+        tags_count = len(self.tags.items())
+        dict_position = 1
+        for key, value in self.tags.items():
+            if dict_position == tags_count:
+                s += "{}={}".format(key, value)
+            else:
+                s += "{}={} ".format(key, value)
+                dict_position += 1
+        return s
 
-# HEADER
+    def add_tag(self, tag_key, tag_value):
+        self.tags[tag_key] = tag_value
 
-	def header_changed(self,old_metric_names):
-		return header.has_changed(old_metric_names)
+    # HEADER
+    def header_changed(self, old_metric_names):
+        return self.header.has_changed(old_metric_names)
 
-	@staticmethod
-	def new_empty_sample():
-		pass
+    @staticmethod
+    def new_empty_sample():
+        pass
 
-	def __str__(self):
-		return str(self.metrics)
 
 class Header:
 
-	def __init__(self,metric_names : list):
-		self.metric_names = metric_names
+    def __init__(self, metric_names: list):
+        self.metric_names = metric_names
 
-	def __str__(self):
-		return str(self.metric_names)
+    def __str__(self):
+        return str(self.metric_names)
 
-	def extend(self,metric_name):	
-		self.metric_names.append(metric_name)
+    def extend(self, metric_name):
+        self.metric_names.append(metric_name)
 
-	def num_fields(self):
-		return len(self.metric_names)
+    def num_fields(self):
+        return len(self.metric_names)
 
-	def has_changed(self,old_metric_names):
-		if self.num_fields() != old_metric_names.num_fields() :
-			return True
-		else:
-			for i in range(0,len(self.metric_names)):
-				if self.metric_names[i] != old_metric_names.metric_names[i]:
-					return True
-		return False
+    def has_changed(self, old_metric_names):
+        if self.num_fields() != old_metric_names.num_fields():
+            return True
+        else:
+            for i in range(0, len(self.metric_names)):
+                if self.metric_names[i] != old_metric_names.metric_names[i]:
+                    return True
+        return False

@@ -1,8 +1,9 @@
 # Generated from Bitflow.g4 by ANTLR 4.7.1
-from antlr4 import *
-from io import StringIO
-from typing.io import TextIO
 import sys
+from io import StringIO
+from typing import IO
+
+from antlr4 import *
 
 
 def serializedATN():
@@ -50,10 +51,9 @@ def serializedATN():
 
 
 class BitflowLexer(Lexer):
-
     atn = ATNDeserializer().deserialize(serializedATN())
 
-    decisionsToDFA = [ DFA(ds, i) for i, ds in enumerate(atn.decisionToState) ]
+    decisionsToDFA = [DFA(ds, i) for i, ds in enumerate(atn.decisionToState)]
 
     OPEN = 1
     CLOSE = 2
@@ -72,30 +72,28 @@ class BitflowLexer(Lexer):
     WHITESPACE = 15
     TAB = 16
 
-    channelNames = [ u"DEFAULT_TOKEN_CHANNEL", u"HIDDEN" ]
+    channelNames = [u"DEFAULT_TOKEN_CHANNEL", u"HIDDEN"]
 
-    modeNames = [ "DEFAULT_MODE" ]
+    modeNames = ["DEFAULT_MODE"]
 
-    literalNames = [ "<INVALID>",
-            "'{'", "'}'", "';'", "'->'", "'('", "')'", "'='", "','", "'['", 
-            "']'", "'\t'" ]
+    literalNames = ["<INVALID>",
+                    "'{'", "'}'", "';'", "'->'", "'('", "')'", "'='", "','", "'['",
+                    "']'", "'\t'"]
 
-    symbolicNames = [ "<INVALID>",
-            "OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS", "CLOSE_PARAMS", 
-            "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS", "STRING", "IDENTIFIER", 
-            "COMMENT", "NEWLINE", "WHITESPACE", "TAB" ]
+    symbolicNames = ["<INVALID>",
+                     "OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS", "CLOSE_PARAMS",
+                     "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS", "STRING", "IDENTIFIER",
+                     "COMMENT", "NEWLINE", "WHITESPACE", "TAB"]
 
-    ruleNames = [ "OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS", "CLOSE_PARAMS", 
-                  "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS", "STRING", "IDENTIFIER", 
-                  "COMMENT", "NEWLINE", "WHITESPACE", "TAB" ]
+    ruleNames = ["OPEN", "CLOSE", "EOP", "NEXT", "OPEN_PARAMS", "CLOSE_PARAMS",
+                 "EQ", "SEP", "OPEN_HINTS", "CLOSE_HINTS", "STRING", "IDENTIFIER",
+                 "COMMENT", "NEWLINE", "WHITESPACE", "TAB"]
 
     grammarFileName = "Bitflow.g4"
 
-    def __init__(self, input=None, output:TextIO = sys.stdout):
+    def __init__(self, input=None, output: IO = sys.stdout):
         super().__init__(input, output)
         self.checkVersion("4.7.1")
         self._interp = LexerATNSimulator(self, self.atn, self.decisionsToDFA, PredictionContextCache())
         self._actions = None
         self._predicates = None
-
-

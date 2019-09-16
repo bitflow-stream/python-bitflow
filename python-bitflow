@@ -1,133 +1,137 @@
-#!/usr/bin/env 	python3
+#!/usr/bin/env 	python3.7
 
 import argparse
-import logging
-import re
-import queue
 import signal
 import sys
-from bitflow.helper import *
-from bitflow.script_parser import * 
+
+from bitflow.script.script_parser import *
 
 THREADS_AND_PROCESSES = []
 CLOSING = False
 
-def configure_logging(logging_level,filename=None):
-	if filename is None:
-		logging.basicConfig(format='%(asctime)s %(message)s', level=logging_level)
-	else:
-		logging.basicConfig(filename=filename,format='%(asctime)s %(message)s', level=logging_level)
+
+def configure_logging(logging_level, filename=None):
+    if filename is None:
+        logging.basicConfig(format='%(asctime)s %(message)s', level=logging_level)
+    else:
+        logging.basicConfig(filename=filename, format='%(asctime)s %(message)s', level=logging_level)
+
 
 def strg_c_exit():
-	global THREADS_AND_PROCESSES
-	logging.warning("Closing python-bitflow ...")
-	for t_p in THREADS_AND_PROCESSES:
-		t_p.stop()
+    global THREADS_AND_PROCESSES
+    logging.warning("Closing python-bitflow ...")
+    for t_p in THREADS_AND_PROCESSES:
+        t_p.stop()
+
 
 def sig_int_handler(signal, frame):
-	global CLOSING
-	if CLOSING:
-		sys.exit(1)
-	CLOSING = True
-	strg_c_exit()
+    global CLOSING
+    if CLOSING:
+        sys.exit(1)
+    CLOSING = True
+    strg_c_exit()
+
 
 def read_script(script_file):
-	script = ""
-	with open(script_file) as f:
-		script += f.read()
-	return script
+    script = ""
+    with open(script_file) as f:
+        script += f.read()
+    return script
+
 
 def start_threads_and_processes(tp_list):
-	for t_p in tp_list:
-		t_p.start()
+    for t_p in tp_list:
+        t_p.start()
+
 
 def main():
-	global THREADS_AND_PROCESSES
-	signal.signal(signal.SIGINT, sig_int_handler)
-	parser = argparse.ArgumentParser()
-	
-	# argparse does not support no flag optional arguments ...
-	# mutually_exclusive groups cannot have name ...
-	script_group = parser.add_mutually_exclusive_group(required=True)
-	script_group.add_argument('-s','-script',type=str,help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
-	script_group.add_argument("-f",help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
-	script_group.add_argument("-capabilities",action='store_true',help="list all available processing steps")
+    global THREADS_AND_PROCESSES
+    signal.signal(signal.SIGINT, sig_int_handler)
+    parser = argparse.ArgumentParser()
 
-	parser.add_argument("-p",type=str,metavar="my_steps.py",help="dynamic import processing steps from a .py file")
-	parser.add_argument("-d",type=int,help="duration to run in seconds")
+    # argparse does not support no flag optional arguments ...
+    # mutually_exclusive groups cannot have name ...
+    script_group = parser.add_mutually_exclusive_group(required=True)
+    script_group.add_argument('-s', '-script', type=str,
+                              help="bitflow script. (https://github.com/bitflow-stream/antlr-grammars/tree/master/bitflow-script)")
+    script_group.add_argument("-f", help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
+    script_group.add_argument("-capabilities", action='store_true', help="list all available processing steps")
 
-	ld_group = parser.add_argument_group("logging and debug")
-	ld_group.add_argument("-log",help="Redirect logs to a given file in addition to the console.",metavar='')
-	# general groups can not be combined with mutex groups....
-	ld_group.add_argument("-v",action='store_true',help=" Set log level to Debug (default is Info)")
-	ld_group.add_argument("-q",action='store_true',help=" Set log level to Warning")
-	ld_group.add_argument("-qq",action='store_true',help=" Set log level to Error")
+    parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import processing steps from a .py file")
+    parser.add_argument("-d", type=int, help="duration to run in seconds")
 
-	args = parser.parse_args()
+    ld_group = parser.add_argument_group("logging and debug")
+    ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')
+    # general groups can not be combined with mutex groups....
+    ld_group.add_argument("-v", action='store_true', help=" Set log level to Debug (default is Info)")
+    ld_group.add_argument("-q", action='store_true', help=" Set log level to Warning")
+    ld_group.add_argument("-qq", action='store_true', help=" Set log level to Error")
 
-	##########################
-	# MANAGE DEBUG & LOGGING #
-	##########################
+    args = parser.parse_args()
 
-	log_level = logging.INFO
-	if args.qq:
-		log_level = logging.ERROR
-	if args.q:
-		log_level = logging.WARNING
-	if args.v:
-		log_level = logging.DEBUG
-		logging.debug("debug mode enabled")
+    ##########################
+    # MANAGE DEBUG & LOGGING #
+    ##########################
 
-	if args.log:
-		logfile = args.log
-		configure_logging(log_level,logfile)
-	else:
-		configure_logging(log_level)
-	
-	if args.p:
-		import importlib.util
-		file_path = args.p
-		module_name = '*'
-		spec = importlib.util.spec_from_file_location(module_name, file_path)
-		module = importlib.util.module_from_spec(spec)
-		spec.loader.exec_module(module)
+    log_level = logging.INFO
+    if args.qq:
+        log_level = logging.ERROR
+    if args.q:
+        log_level = logging.WARNING
+    if args.v:
+        log_level = logging.DEBUG
+        logging.debug("debug mode enabled")
 
-	if args.capabilities:
-		print(capabilities())
-		sys.exit(0)
-	
-	if args.f:
-		script = read_script(args.f)
-	if args.s:
-		script = args.s
+    if args.log:
+        logfile = args.log
+        configure_logging(log_level, logfile)
+    else:
+        configure_logging(log_level)
 
-	try:
-		THREADS_AND_PROCESSES = parse_script(script)
-		start_threads_and_processes(THREADS_AND_PROCESSES)
-	except NotSupportedError as nse:
-		logging.error(nse)
-		strg_c_exit()
-		sys.exit(1)
-	except NotSupportedWarning as nsw:
-		logging.warning(nsw)
-	except ProcessingStepNotKnown as psnk:
-		logging.error(psnk)
-		strg_c_exit()
-		sys.exit(1)
-	except ParsingError as pe:
-		logging.error(pe)
-		strg_c_exit()
-		sys.exit(1)
-	except Exception as e:
-		logging.error(e)
-		strg_c_exit()
-		sys.exit(1)
-	if args.d:
-		import time
-		time.sleep(args.d)
-		strg_c_exit()
-	exit(0)
+    if args.p:
+        import importlib.util
+        file_path = args.p
+        module_name = '*'
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+    if args.capabilities:
+        print(capabilities())
+        sys.exit(0)
+
+    if args.f:
+        script = read_script(args.f)
+    if args.s:
+        script = args.s
+
+    try:
+        THREADS_AND_PROCESSES = parse_script(script)
+        start_threads_and_processes(THREADS_AND_PROCESSES)
+    except NotSupportedError as nse:
+        logging.error(nse)
+        strg_c_exit()
+        sys.exit(1)
+    except NotSupportedWarning as nsw:
+        logging.warning(nsw)
+    except ProcessingStepNotKnown as psnk:
+        logging.error(psnk)
+        strg_c_exit()
+        sys.exit(1)
+    except ParsingError as pe:
+        logging.error(pe)
+        strg_c_exit()
+        sys.exit(1)
+    except Exception as e:
+        logging.error(e)
+        strg_c_exit()
+        sys.exit(1)
+    if args.d:
+        import time
+        time.sleep(args.d)
+        strg_c_exit()
+    exit(0)
+
 
 if __name__ == '__main__':
-	main()
-
+    main()
