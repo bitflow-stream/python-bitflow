@@ -3,13 +3,23 @@ import struct
 
 from bitflow.sample import Sample, Header
 
+CSV_DATA_FORMAT = "csv"
+BIN_DATA_FORMAT = "bin"
 CSV_HEADER_START_STRING = "time"
 BIN_HEADER_START_STRING = "timB"
 CSV_HEADER_START_BYTES = CSV_HEADER_START_STRING.encode("UTF-8")
 BIN_HEADER_START_BYTES = BIN_HEADER_START_STRING.encode("UTF-8")
 
+# Helper for error messages. Update if implementing support for additional formats
+SUPPORTED_DATA_FORMATS = [CSV_DATA_FORMAT, BIN_DATA_FORMAT]
+IDENTIFIER_STRINGS = {CSV_DATA_FORMAT: CSV_HEADER_START_STRING, BIN_DATA_FORMAT: BIN_HEADER_START_STRING}
+
 
 class HeaderException(Exception):
+    pass
+
+
+class UnsupportedFileFormat(Exception):
     pass
 
 
@@ -32,12 +42,43 @@ def build_header_string(column_names, seperator_string, end_of_header_string):
     string_count = len(column_names)
     list_position = 1
     for column_name in column_names:
-        if (list_position == string_count):
+        if list_position == string_count:
             s += column_name + end_of_header_string
         else:
             s += column_name + seperator_string
             list_position += 1
     return s
+
+
+def get_marshaller_by_content_bytes(start_bytes):
+    marshaller = None
+    if start_bytes:
+        if start_bytes == CSV_HEADER_START_BYTES:
+            marshaller = CsvMarshaller()
+        elif start_bytes == BIN_HEADER_START_BYTES:
+            marshaller = BinMarshaller()
+        else:
+            raise UnsupportedFileFormat("{}: Unsupported file format {}. Supported formats are {}."
+                                        "Header must start with respective identifier strings: {}"
+                                        .format("get_marshaller_by_bytes", start_bytes.decode('utf-8'),
+                                                SUPPORTED_DATA_FORMATS, IDENTIFIER_STRINGS))
+    return marshaller
+
+
+def get_marshaller_by_content_string(start_string):
+    return get_marshaller_by_content_bytes(start_string.encode("UTF-8"))
+
+
+def get_marshaller_by_data_format(data_format):
+    marshaller = None
+    if data_format.lower() == CSV_DATA_FORMAT:
+        marshaller = CsvMarshaller()
+    elif data_format.lower() == BIN_DATA_FORMAT:
+        marshaller = BinMarshaller()
+    else:
+        logging.warning("Data format %s unknown ...", data_format)
+
+    return marshaller
 
 
 class Marshaller:

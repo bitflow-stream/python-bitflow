@@ -6,23 +6,24 @@ from bitflow import fork, batch, processingstep, batchprocessingstep
 from bitflow import pipeline as pipe
 from bitflow.io import sinksteps, sources
 from bitflow.script import script_parser
+from bitflow.io.marshaller import *
 from tests.support import *
 
 
 class TestFork(unittest.TestCase):
 
     def test_fork_in_bf_script_simple(self):
-        tp = script_parser.parse_script("debuggenerationstep() -> Fork_Tags(tag=blub)\
+        script_parser.parse_script("debuggenerationstep() -> Fork_Tags(tag=blub)\
                                             {* -> addtag( tags={a=b} ) }")
 
     def test_fork_in_bf_script_intermediate(self):
-        tp = script_parser.parse_script(
+        script_parser.parse_script(
             "debuggenerationstep() -> Fork_Tags(tag=blub)\
                                         { bla -> addtag( tags={a=b} ) }\
                                     -> Noop()")
 
     def test_fork_in_bf_script_advanced(self):
-        tp = script_parser.parse_script(
+        script_parser.parse_script(
             "debuggenerationstep() -> Fork_Tags(tag=blub){\
                                         bla -> addtag(tags={a=b});\
                                         blub -> addtag(tags={a=c})}\
@@ -76,8 +77,7 @@ class TestBatchPipeline(unittest.TestCase):
         batch_step.set_root_pipeline(pl)
         batch_step.set_batch_pipeline(batch_pipeline)
         pl.add_processing_step(batch_step)
-        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                  data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
         batch_pipeline.start()
         pl.start()
@@ -101,8 +101,7 @@ class TestBatchPipeline(unittest.TestCase):
         batch_step.set_root_pipeline(pl)
         batch_step.set_batch_pipeline(batch_pipeline)
         pl.add_processing_step(batch_step)
-        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                  data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
         batch_pipeline.start()
         pl.start()
@@ -126,8 +125,7 @@ class TestBatchPipeline(unittest.TestCase):
         batch_step.set_root_pipeline(pl)
         batch_step.set_batch_pipeline(batch_pipeline)
         pl.add_processing_step(batch_step)
-        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                  data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
         file_source.start()
         batch_pipeline.start()

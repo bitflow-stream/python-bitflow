@@ -7,12 +7,8 @@ import threading
 import time
 from collections import deque
 
-from bitflow.io.marshaller import CsvMarshaller, BinMarshaller
+from bitflow.io.marshaller import *
 from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
-
-CSV_FORMAT_IDENTIFIER = "csv"
-BIN_FORMAT_IDENTIFIER = "bin"
-DEFAULT_SINK_DATA_FORMAT = CSV_FORMAT_IDENTIFIER
 
 
 def header_check(old_header, new_header):
@@ -23,16 +19,6 @@ def header_check(old_header, new_header):
     return False
 
 
-def get_marshaller(data_format):
-    if data_format.lower() == CSV_FORMAT_IDENTIFIER:
-        return CsvMarshaller()
-    elif data_format.lower() == BIN_FORMAT_IDENTIFIER:
-        return BinMarshaller()
-    else:
-        logging.error("Data format unknown ...")
-        sys.exit(1)
-
-
 ###########################
 # NETWORK TransportSink #
 ###########################
@@ -41,11 +27,11 @@ class TCPSink(AsyncProcessingStep):
     def __init__(self,
                  host: str,
                  port: int,
-                 data_format: str = DEFAULT_SINK_DATA_FORMAT,
+                 data_format: str = CSV_DATA_FORMAT,
                  reconnect_timeout: int = 2):
 
         super().__init__()
-        self.marshaller = get_marshaller(data_format)
+        self.marshaller = get_marshaller_by_data_format(data_format)
         self.__name__ = "TCPSink"
         self.s = None
         self.header = None
@@ -147,13 +133,13 @@ class ListenSink(AsyncProcessingStep):
     def __init__(self,
                  host: str = "0.0.0.0",
                  port: int = 5010,
-                 data_format: str = CSV_FORMAT_IDENTIFIER,
+                 data_format: str = CSV_DATA_FORMAT,
                  sample_buffer_size: int = -1,
                  max_receivers: int = 5):
 
         super().__init__()
         self.__name__ = "ListenSink"
-        self.marshaller = get_marshaller(data_format)
+        self.marshaller = get_marshaller_by_data_format(data_format)
 
         self.host = host
         self.port = port
@@ -298,10 +284,12 @@ class FileSink(AsyncProcessingStep):
 
     def __init__(self,
                  filename: str,
-                 data_format: str = CSV_FORMAT_IDENTIFIER):
+                 data_format: str = CSV_DATA_FORMAT):
         super().__init__()
         self.__name__ = "FileSink"
-        self.marshaller = get_marshaller(data_format)
+        self.marshaller = get_marshaller_by_data_format(data_format)
+        if not self.marshaller:
+            raise
         self.que = queue.Queue()
         self.filename = filename
         self.f = None
@@ -390,10 +378,10 @@ class TerminalOut(ProcessingStep):
             sys.stdout.buffer.write(data)
             sys.stdout.buffer.flush()
 
-    def __init__(self, data_format: str = CSV_FORMAT_IDENTIFIER):
+    def __init__(self, data_format: str = CSV_DATA_FORMAT):
         super().__init__()
         self.__name__ = "TerminalOutput"
-        self.marshaller = get_marshaller(data_format)
+        self.marshaller = get_marshaller_by_data_format(data_format)
         self.header = None
         self.console_writer = self.ConsoleWriter()
 

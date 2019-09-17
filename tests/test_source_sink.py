@@ -1,10 +1,13 @@
 import socket
 import time
 import unittest
+from contextlib import closing as cl
+
 
 from bitflow import pipeline as pipe
 from bitflow.io import sinksteps, sources
 from bitflow.script import script_parser
+from bitflow.io.marshaller import *
 from tests.support import *
 
 
@@ -31,8 +34,7 @@ class TestFileIO(unittest.TestCase):
 
     def test_csv_file_in__csv_file_out(self):
         pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                        data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         pipeline.start()
         file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
                                          pipeline=pipeline)
@@ -47,7 +49,7 @@ class TestFileIO(unittest.TestCase):
     def test_csv_file_in__bin_file_out(self):
         pipeline = pipe.Pipeline()
         pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                        data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+                                                        data_format=script_parser.BIN_DATA_FORMAT))
         pipeline.start()
         file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
                                          pipeline=pipeline)
@@ -61,8 +63,7 @@ class TestFileIO(unittest.TestCase):
 
     def test_bin_file_in__csv_file_out(self):
         pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                        data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         pipeline.start()
         file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
                                          pipeline=pipeline)
@@ -76,8 +77,7 @@ class TestFileIO(unittest.TestCase):
 
     def test_bin_file_in__bin_file_out(self):
         pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                        data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         pipeline.start()
         file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
                                          pipeline=pipeline)
@@ -91,11 +91,9 @@ class TestFileIO(unittest.TestCase):
 
     def test_csv_file_in__multiple_csv_files_out(self):
         pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                        data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV_2,
-                                                        data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV_2, data_format=CSV_DATA_FORMAT))
         pipeline.start()
         file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
                                          pipeline=pipeline)
@@ -121,11 +119,8 @@ def closing(s):
         s.close()
 
 
-from contextlib import closing
-
-
 def find_free_port():
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+    with cl(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(('', 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
@@ -140,8 +135,7 @@ class TestTcpIO(unittest.TestCase):
 
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                          data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
         a_pipeline.start()
         a_listen_source.start()
@@ -170,8 +164,7 @@ class TestTcpIO(unittest.TestCase):
 
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                          data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
         a_pipeline.start()
         a_listen_source.start()
@@ -200,8 +193,7 @@ class TestTcpIO(unittest.TestCase):
 
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                          data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
         a_pipeline.start()
         a_listen_source.start()
@@ -230,8 +222,7 @@ class TestTcpIO(unittest.TestCase):
 
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                          data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
         a_pipeline.start()
         a_listen_source.start()
@@ -265,8 +256,7 @@ class TestTcpIO(unittest.TestCase):
         a_pipeline.start()
         b_pipeline = pipe.Pipeline()
         b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                          data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         b_pipeline.start()
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
@@ -290,8 +280,7 @@ class TestTcpIO(unittest.TestCase):
         a_pipeline.start()
         b_pipeline = pipe.Pipeline()
         b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                          data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         b_pipeline.start()
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
@@ -315,8 +304,7 @@ class TestTcpIO(unittest.TestCase):
         a_pipeline.start()
         b_pipeline = pipe.Pipeline()
         b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV,
-                                                          data_format=script_parser.CSV_DATA_FORMAT_IDENTIFIER))
+        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         b_pipeline.start()
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
@@ -340,8 +328,7 @@ class TestTcpIO(unittest.TestCase):
         a_pipeline.start()
         b_pipeline = pipe.Pipeline()
         b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                          data_format=script_parser.BINARY_DATA_FORMAT_IDENTIFIER))
+        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         b_pipeline.start()
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
