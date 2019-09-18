@@ -108,10 +108,13 @@ class Source(multiprocessing.Process):
 
 class FileSource:
 
-    def __init__(self, filename, pipeline):
+    def __init__(self, pipeline, path=None):
         self.running = multiprocessing.Value(ctypes.c_int, 1)
         self.pipeline = 2
-        self.filesource = _FileSource(self.running, filename, pipeline.queue)
+        self.filesource = _FileSource(self.running, path, pipeline.queue)
+
+    def add_path(self, path):
+        self.filesource.add_path(path)
 
     def start(self):
         self.filesource.start()
@@ -142,14 +145,15 @@ class _FileSource(Source):
 
     def _handle_path(self, path):
         files = []
-        if not os.path.isabs(path):
-            abs_path = os.path.abspath(path)
-        else:
-            abs_path = path
-        if os.path.isdir(abs_path):  # Expand directory. Recursive to comply with java bitflow file input
-            files += [f for r, d, f in os.walk(path)]
-        elif os.path.isfile(path):  # Only add if file exists
-            files += [path]
+        if path:
+            if not os.path.isabs(path):
+                abs_path = os.path.abspath(path)
+            else:
+                abs_path = path
+            if os.path.isdir(abs_path):  # Expand directory. Recursive to comply with java bitflow file input
+                files += [f for r, d, f in os.walk(path)]
+            elif os.path.isfile(path):  # Only add if file exists
+                files += [path]
         return files
 
     def open_file(self, path):

@@ -17,8 +17,7 @@ class TestFileIO(unittest.TestCase):
     def test_csv_file_in_no_out(self):
         pipeline = pipe.Pipeline()
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -26,8 +25,7 @@ class TestFileIO(unittest.TestCase):
     def test_bin_file_in_no_out(self):
         pipeline = pipe.Pipeline()
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -36,8 +34,7 @@ class TestFileIO(unittest.TestCase):
         pipeline = pipe.Pipeline()
         pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -65,8 +62,7 @@ class TestFileIO(unittest.TestCase):
         pipeline = pipe.Pipeline()
         pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -79,8 +75,7 @@ class TestFileIO(unittest.TestCase):
         pipeline = pipe.Pipeline()
         pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -95,8 +90,7 @@ class TestFileIO(unittest.TestCase):
 
         pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV_2, data_format=CSV_DATA_FORMAT))
         pipeline.start()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pipeline)
+        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         pipeline.stop()
@@ -230,8 +224,7 @@ class TestTcpIO(unittest.TestCase):
         # BUILD FILE TO SEND
         b_pipeline = pipe.Pipeline()
         b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN,
-                                           pipeline=b_pipeline)
+        b_file_source = sources.FileSource(filename=TESTING_IN_FILE_BIN, pipeline=b_pipeline)
         b_pipeline.start()
         b_file_source.start()
 
