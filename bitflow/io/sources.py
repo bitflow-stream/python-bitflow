@@ -47,7 +47,7 @@ class Source(multiprocessing.Process):
         return begin, rest
 
     def get_start_bytes(self, b):
-        if b and len(b) > 4:
+        if b and len(b) >= 4:
             return b[0:4]
         else:
             return None
