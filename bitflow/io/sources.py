@@ -74,7 +74,7 @@ class Source(multiprocessing.Process):
         try:
             marshaller = get_marshaller_by_content_bytes(start_bytes)
         except UnsupportedFileFormat as e:
-            logging.warning("The format inferred from '{}' of the current input is not supported.",
+            logging.warning("The format inferred from '%s' of the current input is not supported.",
                             start_bytes.decode('utf-8'), exc_info=e)
             raise e
         return marshaller
@@ -174,6 +174,7 @@ class _FileSource(Source):
         try:
             file = next(self.file_iter)
         except StopIteration:
+            logging.info("Finished reading all files.")
             file = None
         return file
 
