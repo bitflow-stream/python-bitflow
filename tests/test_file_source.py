@@ -23,58 +23,58 @@ class TestFileIO(unittest.TestCase):
             pipeline.stop()
 
     def test_read_empty_csv_file(self):
-        self.run_test(TESTING_IN_FILE_CSV_EMPTY)
+        self.run_test([TESTING_IN_FILE_CSV_EMPTY])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_empty_bin_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_EMPTY)
+        self.run_test([TESTING_IN_FILE_BIN_EMPTY])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_only_header_csv_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_ONLY_HEADER)
+        self.run_test([TESTING_IN_FILE_CSV_ONLY_HEADER])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_only_header_bin_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_ONLY_HEADER)
+        self.run_test([TESTING_IN_FILE_BIN_ONLY_HEADER])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_broken_1_csv_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_BROKEN_1)
+        self.run_test([TESTING_IN_FILE_CSV_BROKEN_1])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_broken_1_bin_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_BROKEN_1)
+        self.run_test([TESTING_IN_FILE_BIN_BROKEN_1])
         with self.assertRaises(FileNotFoundError):
             read_file(TESTING_OUT_FILE_CSV)
 
     def test_read_broken_2_csv_file(self):
-        self.run_test(TESTING_IN_FILE_CSV_BROKEN_2)
+        self.run_test([TESTING_IN_FILE_CSV_BROKEN_2])
 
         a = read_file(TESTING_OUT_FILE_CSV)
         b = read_file(TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3)
         self.assertEqual(a, b)
 
     def test_read_broken_2_bin_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_BROKEN_2)
+        self.run_test([TESTING_IN_FILE_BIN_BROKEN_2])
 
         a = read_file(TESTING_OUT_FILE_CSV)
         b = read_file(TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3)
         self.assertEqual(a, b)
 
     def test_read_broken_3_csv_file(self):
-        self.run_test(TESTING_IN_FILE_CSV_BROKEN_3)
+        self.run_test([TESTING_IN_FILE_CSV_BROKEN_3])
 
         a = read_file(TESTING_OUT_FILE_CSV)
         b = read_file(TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3)
         self.assertEqual(a, b)
 
     def test_read_broken_3_bin_file(self):
-        self.run_test(TESTING_IN_FILE_BIN_BROKEN_3)
+        self.run_test([TESTING_IN_FILE_BIN_BROKEN_3])
 
         a = read_file(TESTING_OUT_FILE_CSV)
         b = read_file(TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3)

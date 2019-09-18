@@ -54,7 +54,7 @@ def main():
     pipeline.add_processing_step(ls)
 
     # prepare file source
-    file_source = FileSource(filename=in_file,
+    file_source = FileSource(path=in_file,
                              pipeline=pipeline)
     # start pipeline
     pipeline.start()

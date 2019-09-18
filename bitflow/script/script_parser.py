@@ -97,10 +97,9 @@ def build_data_input(data_input_ctx, pipeline):
     if data_input_ctx.schedulingHints():
         scheduling_hints_ctx = data_input_ctx.schedulingHints()
         parse_scheduling_hints(scheduling_hints_ctx)
-    if len(data_input_ctx.name()) > 1:
-        raise NotSupportedError("Currently only a single Data-Input is supported ...")
-    for input in data_input_ctx.name():
-        input_str = input.getText()
+    file_input = None
+    for i in data_input_ctx.name():
+        input_str = i.getText()
         if ":" in input_str:
             if R_port.match(input_str):
                 logging.info("Listen Source: " + input_str)
@@ -108,7 +107,7 @@ def build_data_input(data_input_ctx, pipeline):
                 port = int(port_str)
                 data_input = ListenSource(port=port,
                                           pipeline=pipeline)
-
+                THREAD_PROCESS_ELEMENTS.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
                 hostname, port = input_str.split(":")
@@ -116,14 +115,17 @@ def build_data_input(data_input_ctx, pipeline):
                     host=hostname,
                     port=int(port),
                     pipeline=pipeline)
-
+                THREAD_PROCESS_ELEMENTS.append(data_input)
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")
         else:
-            logging.info("File Source: " + input_str)
-            data_input = FileSource(filename=input_str,
-                                    pipeline=pipeline)
-        THREAD_PROCESS_ELEMENTS.append(data_input)
+            logging.info("File Source: Adding path " + input_str)
+            if not file_input:
+                file_input = FileSource(path=input_str, pipeline=pipeline)
+            else:
+                file_input.add_path(input_str)
+    if file_input:
+        THREAD_PROCESS_ELEMENTS.append(file_input)
 
 
 def explicit_data_output(output_type, data_format, output_url):

@@ -293,7 +293,6 @@ class BitflowParser(Parser):
                 self.state = 56
                 self.schedulingHints()
 
-
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)

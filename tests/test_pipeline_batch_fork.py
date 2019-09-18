@@ -52,7 +52,7 @@ class TestBatchPipeline(unittest.TestCase):
     def test_batch_pipeline_add_batch_step(self):
         batch_size = 20
         pl = pipe.Pipeline()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV, pipeline=pl)
+        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
         batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
         batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
@@ -69,8 +69,7 @@ class TestBatchPipeline(unittest.TestCase):
     def test_batch_pipeline_number_of_samples_out_size_1(self):
         batch_size = 1
         pl = pipe.Pipeline()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pl)
+        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
         batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
         batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
@@ -93,8 +92,7 @@ class TestBatchPipeline(unittest.TestCase):
     def test_batch_pipeline_number_of_samples_out_size_20(self):
         batch_size = 20
         pl = pipe.Pipeline()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pl)
+        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
         batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
         batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
@@ -117,8 +115,7 @@ class TestBatchPipeline(unittest.TestCase):
     def test_batch_pipeline_number_of_samples_out_size_37(self):
         batch_size = 37
         pl = pipe.Pipeline()
-        file_source = sources.FileSource(filename=TESTING_IN_FILE_CSV,
-                                         pipeline=pl)
+        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
         batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
         batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())

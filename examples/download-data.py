@@ -31,8 +31,10 @@ def sig_int_handler(signal, frame):
 
 class SerialFilter_ProcessingStep(ProcessingStep):
 
-    def __init__(self, accepted_serials=[]):
+    def __init__(self, accepted_serials=None):
         super().__init__()  # NEW
+        if accepted_serials is None:
+            accepted_serials = []
         self.__name__ = "SerialFilter"  # NEW
         self.accepted_serials = accepted_serials
 
