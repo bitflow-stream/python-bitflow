@@ -2,6 +2,7 @@ import unittest
 
 from bitflow import helper
 from bitflow.script import script_parser
+from bitflow.io.marshaller import *
 from tests.support import *
 
 
@@ -182,50 +183,48 @@ class TestBitflowScriptParser(unittest.TestCase):
 class TestBitflowScriptFormatParser(unittest.TestCase):
 
     def test_get_file_data_format_BIN(self):
-        data_format = script_parser.get_file_data_format(None, "blacsv.bin")
-        self.assertEqual(script_parser.BINARY_DATA_FORMAT_IDENTIFIER, data_format)
+        data_format = script_parser.infer_data_format("blacsv.bin")
+        self.assertEqual(script_parser.BIN_DATA_FORMAT, data_format)
 
     def test_get_file_data_format_CSV(self):
-        data_format = script_parser.get_file_data_format(None, "blabin.csv")
-        self.assertEqual(script_parser.CSV_DATA_FORMAT_IDENTIFIER, data_format)
-
-    def test_get_file_data_format_PRE(self):
-        data_format = script_parser.get_file_data_format(script_parser.CSV_DATA_FORMAT_IDENTIFIER, "blacsv.bin")
-        self.assertEqual(script_parser.CSV_DATA_FORMAT_IDENTIFIER, data_format)
+        data_format = script_parser.infer_data_format("blabin.csv")
+        self.assertEqual(CSV_DATA_FORMAT, data_format)
 
     def test_parse_output_str__data_format__filename(self):
         output_str = "csv://test.csv"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, None)
-        self.assertEqual(data_format, script_parser.CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(data_format, CSV_DATA_FORMAT)
         self.assertEqual(output_url, "test.csv")
 
     def test_parse_output_str__data_type__filename(self):
         output_str = "file://test.txt"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, script_parser.FILE_OUTPUT_TYPE)
-        self.assertEqual(data_format, None)
+        # For robustness .txt is interpreted as csv data type. Complies with go-bitflow and bitflow4j.
+        self.assertEqual(data_format, CSV_DATA_FORMAT)
         self.assertEqual(output_url, "test.txt")
 
     def test_parse_output_str__data_type__data_format__filename(self):
         output_str = "file+csv://test.csv"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, script_parser.FILE_OUTPUT_TYPE)
-        self.assertEqual(data_format, script_parser.CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(data_format, CSV_DATA_FORMAT)
         self.assertEqual(output_url, "test.csv")
 
     def test_parse_output_str__data_type__host_port_url(self):
         output_str = "tcp://test:5555"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, script_parser.TCP_SEND_OUTPUT_TYPE)
-        self.assertEqual(data_format, None)
+        # For robustness, missing extensions are interpreted as binary data type. Complies with go-bitflow.
+        self.assertEqual(data_format, BIN_DATA_FORMAT)
         self.assertEqual(output_url, "test:5555")
 
     def test_parse_output_str__data_type__data_format__host_port_url(self):
         output_str = "tcp+csv://test:5555"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, script_parser.TCP_SEND_OUTPUT_TYPE)
-        self.assertEqual(data_format, script_parser.CSV_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(data_format, CSV_DATA_FORMAT)
         self.assertEqual(output_url, "test:5555")
 
     def test_parse_output_str__to_many_identifiers(self):
@@ -242,7 +241,7 @@ class TestBitflowScriptFormatParser(unittest.TestCase):
         output_str = "tcp+bin://web.de:5555"
         output_type, data_format, output_url = script_parser.parse_output_str(output_str)
         self.assertEqual(output_type, script_parser.TCP_SEND_OUTPUT_TYPE)
-        self.assertEqual(data_format, script_parser.BINARY_DATA_FORMAT_IDENTIFIER)
+        self.assertEqual(data_format, script_parser.BIN_DATA_FORMAT)
         self.assertEqual(output_url, "web.de:5555")
 
     def setUp(self):

@@ -3,6 +3,7 @@ import multiprocessing
 import select
 import socket
 import time
+import os
 
 from bitflow.io.marshaller import *
 
@@ -35,8 +36,8 @@ class Source(multiprocessing.Process):
     def __str__(self):
         return "Source"
 
-    def into_pipeline(self, marshaller, b_metrics, header):
-        sample = marshaller.unmarshall_sample(header, b_metrics)
+    def into_pipeline(self, b_metrics, header):
+        sample = self.marshaller.unmarshall_sample(header, b_metrics)
         if sample:
             self.queue.put(sample)
 
@@ -46,7 +47,10 @@ class Source(multiprocessing.Process):
         return begin, rest
 
     def get_start_bytes(self, b):
-        return b[0:4]
+        if b and len(b) >= 4:
+            return b[0:4]
+        else:
+            return None
 
     def is_header_start(self, b):
         if not self.marshaller:
@@ -66,13 +70,13 @@ class Source(multiprocessing.Process):
                 return cutting_pos + btlen
         return -1
 
-    def get_marshaller(self, b):
-        marshaller = None
-        header_start_bytes = self.get_start_bytes(b)
-        if header_start_bytes == CSV_HEADER_START_BYTES:
-            marshaller = CsvMarshaller()
-        elif header_start_bytes == BIN_HEADER_START_BYTES:
-            marshaller = BinMarshaller()
+    def get_marshaller(self, start_bytes):
+        try:
+            marshaller = get_marshaller_by_content_bytes(start_bytes)
+        except UnsupportedDataFormat as e:
+            logging.warning("The format inferred from '%s' of the current input is not supported.",
+                            start_bytes.decode('utf-8'), exc_info=e)
+            raise e
         return marshaller
 
     # TODO: if header change is forbidden for current data format -> exit
@@ -104,10 +108,13 @@ class Source(multiprocessing.Process):
 
 class FileSource:
 
-    def __init__(self, filename, pipeline):
+    def __init__(self, pipeline, path=None):
         self.running = multiprocessing.Value(ctypes.c_int, 1)
         self.pipeline = 2
-        self.filesource = _FileSource(self.running, filename, pipeline.queue)
+        self.filesource = _FileSource(self.running, path, pipeline.queue)
+
+    def add_path(self, path):
+        self.filesource.add_path(path)
 
     def start(self):
         self.filesource.start()
@@ -119,8 +126,9 @@ class FileSource:
 
 class _FileSource(Source):
 
-    def __init__(self, running, filename, queue, buffer_size=2048):
-        self.filename = filename
+    def __init__(self, running, path, queue, buffer_size=2048):
+        self.files = self._handle_path(path)
+        self.file_iter = iter(self.files)
         self.f = None
         self.header = None
         self.b = b''
@@ -131,35 +139,78 @@ class _FileSource(Source):
     def __str__(self):
         return "FileSource"
 
-    def open_file(self, filename):
+    def add_path(self, path):
+        self.files += self._handle_path(path)
+
+    def _handle_path(self, path):
+        files = []
+        if path:
+            if not os.path.isabs(path):
+                abs_path = os.path.abspath(path)
+            else:
+                abs_path = path
+            if os.path.isdir(abs_path):  # Expand directory. Recursive to comply with java bitflow file input
+                files += [f for r, d, f in os.walk(path)]
+            elif os.path.isfile(path):  # Only add if file exists
+                files += [path]
+        return files
+
+    def open_file(self, path):
         try:
-            return open(filename, 'rb')
-        except FileNotFoundError:
-            logging.error("{}: could not open file {} ...".format(str(self), self.filename))
-            self.stop()
-            exit(1)
+            f = open(path, 'rb')
+        except IOError:
+            logging.error("{}: could not open file {} ...".format(str(self), path))
+            f = None
+        return f
 
     def read_bytes(self, s, buffer_size):
         read_b = s.read(buffer_size)
         if not read_b:
-            self.stop()
-            return b''
+            self.close_current_file()
         return read_b
+
+    def get_next_file_path(self):
+        try:
+            file = next(self.file_iter)
+        except StopIteration:
+            logging.info("Finished reading all files.")
+            file = None
+        return file
+
+    def _initial_read(self, file_path):
+        self.f = self.open_file(file_path)
+        if self.f:
+            self.b = self.read_bytes(s=self.f, buffer_size=self.buffer_size)
+
+    def close_current_file(self):
+        self.f.close()
+        self.f = None
+        self.b = None
 
     def loop(self):
         if not self.f:
-            self.f = self.open_file(self.filename)
-            self.b = self.read_bytes(s=self.f, buffer_size=self.buffer_size)
+            file_path = self.get_next_file_path()
+            if file_path is None:
+                self.stop()
+                return
+            self._initial_read(file_path)
             return
 
         if not self.marshaller:
-            self.marshaller = self.marshaller = self.get_marshaller(self.b)
+            start_bytes = self.get_start_bytes(self.b)
+            if start_bytes:
+                try:
+                    self.marshaller = self.get_marshaller(start_bytes)
+                except UnsupportedDataFormat:  # File is not in bitflow-supported format. Skip and move to next file
+                    self.close_current_file()
+                    return
+            else:
+                return
 
-        header_update_status = WAIT_TO_UPDATE
         try:
             self.b, self.header, header_update_status = self.update_header(b=self.b, header=self.header)
         except HeaderException as e:
-            logging.warning("{}: {}".format(self.__name__, str(e)))
+            logging.warning("%s: Invalid header.", self.__name__, exc_info=e)
             return
         if header_update_status == NO_END_OF_HEADER_FOUND:
             self.b += self.read_bytes(s=self.f, buffer_size=self.buffer_size)
@@ -179,11 +230,12 @@ class _FileSource(Source):
                 cutting_pos += metric_bytes_len + 1  # add newline after tags byte
 
         b_metrics, self.b = self.cut_bytes(cutting_pos, self.b, len(self.marshaller.END_OF_SAMPLE_BYTES))
-        self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
+        self.into_pipeline(b_metrics=b_metrics, header=self.header)
         return
 
     def on_close(self):
-        self.f.close()
+        if self.f:
+            self.f.close()
         super().on_close()
 
 
@@ -275,7 +327,14 @@ class _DownloadSource(Source):
                 return
 
         if not self.marshaller:
-            self.marshaller = self.get_marshaller(b=self.b)
+            start_bytes = self.get_start_bytes(self.b)
+            if start_bytes:
+                try:
+                    self.marshaller = self.get_marshaller(start_bytes)
+                except UnsupportedDataFormat:  # Stream is not in bitflow-supported format. Skip and wait for next input
+                    return
+            else:
+                return
 
         try:
             self.b, self.header, header_update_status = self.update_header(b=self.b, header=self.header)
@@ -307,7 +366,7 @@ class _DownloadSource(Source):
                 cutting_pos += metric_bytes_len + 1  # newline after tags byte
 
         b_metrics, self.b = self.cut_bytes(cutting_pos, self.b, len(self.marshaller.END_OF_SAMPLE_BYTES))
-        self.into_pipeline(b_metrics=b_metrics, header=self.header, marshaller=self.marshaller)
+        self.into_pipeline(b_metrics=b_metrics, header=self.header)
         return
 
     def close_connection(self):
@@ -382,8 +441,7 @@ class _ListenSource(Source):
         return b
 
     def loop(self):
-        readable, __, exceptional = select.select(
-            self.inputs, [], self.inputs, 1)
+        readable, __, exceptional = select.select(self.inputs, [], self.inputs, 1)
         for s in readable:
             if s is self.server:
                 connection, client_address = s.accept()
@@ -401,7 +459,15 @@ class _ListenSource(Source):
                     self.close_connection(s, self.connections, self.inputs)
                     return
                 if not self.marshaller:
-                    self.marshaller = self.get_marshaller(b=self.connections[s]["b"])
+                    start_bytes = self.get_start_bytes(self.connections[s]["b"])
+                    if start_bytes:
+                        try:
+                            self.marshaller = self.get_marshaller(start_bytes)
+                        except UnsupportedDataFormat:
+                            # Stream is not in bitflow-supported format. Skip and wait for next input
+                            continue
+                    else:
+                        continue
 
                 while self.running:
                     try:
@@ -427,14 +493,15 @@ class _ListenSource(Source):
 
                     b_metrics, self.connections[s]["b"] = self.cut_bytes(cutting_pos, self.connections[s]["b"],
                                                                          len(self.marshaller.END_OF_SAMPLE_BYTES))
-                    self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"],
-                                       marshaller=self.marshaller)
+                    self.into_pipeline(b_metrics=b_metrics, header=self.connections[s]["header"])
             return
 
         for s in exceptional:
             self.close_connection(s, self.connections, self.inputs)
 
     def on_close(self):
+        for c in self.connections:
+            c.close()
         for i in self.inputs:
             i.close()
         self.server.close()

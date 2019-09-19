@@ -4,8 +4,26 @@ import os
 LOGGING_LEVEL = logging.ERROR
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-TESTING_IN_FILE_CSV = dir_path + "/in.csv"
-TESTING_IN_FILE_BIN = dir_path + "/in.bin"
+TESTING_IN_FILE_CSV = dir_path + "/test_data/in.csv"
+TESTING_IN_FILE_BIN = dir_path + "/test_data/in.bin"
+TESTING_IN_FILE_CSV_SMALL = dir_path + "/test_data/in_small.csv"
+TESTING_IN_FILE_BIN_SMALL = dir_path + "/test_data/in_small.bin"
+
+TESTING_IN_FILE_CSV_EMPTY = dir_path + "/test_data/empty.csv"
+TESTING_IN_FILE_BIN_EMPTY = dir_path + "/test_data/empty.bin"
+
+TESTING_IN_FILE_CSV_BROKEN_1 = dir_path + "/test_data/broken1.csv"
+TESTING_IN_FILE_BIN_BROKEN_1 = dir_path + "/test_data/broken1.bin"
+TESTING_IN_FILE_CSV_BROKEN_2 = dir_path + "/test_data/broken2.csv"
+TESTING_IN_FILE_BIN_BROKEN_2 = dir_path + "/test_data/broken2.bin"
+TESTING_IN_FILE_CSV_BROKEN_3 = dir_path + "/test_data/broken3.csv"
+TESTING_IN_FILE_BIN_BROKEN_3 = dir_path + "/test_data/broken3.bin"
+
+TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3 = dir_path + "/test_data/expected_broken23_out.csv"
+TESTING_EXPECTED_OUT_FILE_CSV_DOUBLE = dir_path + "/test_data/expected_double_out.csv"
+
+TESTING_IN_FILE_CSV_ONLY_HEADER = dir_path + "/test_data/only_header.csv"
+TESTING_IN_FILE_BIN_ONLY_HEADER = dir_path + "/test_data/only_header.bin"
 
 OUT_FILE_DIR = "/tmp"
 PREFIX = "/python-bitflow-testing-"

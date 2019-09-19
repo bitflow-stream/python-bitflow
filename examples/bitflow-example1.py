@@ -30,7 +30,7 @@ def main():
     pipeline.start()
 
     # define file source
-    filesource = FileSource(filename=input_filename, pipeline=pipeline)
+    filesource = FileSource(path=input_filename, pipeline=pipeline)
     # start file source
     filesource.start()
 

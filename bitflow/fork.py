@@ -9,7 +9,6 @@ def initialize_fork(name, script_args):
     fork_steps = Fork.subclasses
 
     for f in fork_steps:
-        print(name.lower())
         if f.__name__.lower() == name.lower() and compare_args(f, script_args):
             logging.info("{} with args: {}  ok ...".format(name, script_args))
             try:

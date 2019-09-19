@@ -1,3 +1,4 @@
+import pathlib
 import re
 
 from antlr4 import *
@@ -5,6 +6,7 @@ from antlr4 import *
 from bitflow.batchprocessingstep import *
 from bitflow.fork import *
 from bitflow.helper import *
+from bitflow.io.marshaller import *
 from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
 from bitflow.io.sources import FileSource, ListenSource, DownloadSource
 from bitflow.script.BitflowLexer import BitflowLexer
@@ -15,10 +17,6 @@ R_port = re.compile(r'(^:[0-9]+)')
 # output separation str
 OUTPUT_SEPERATION_STRING = "://"
 OUTPUT_TYPE_SEPERATION_CHAR = "+"
-BINARY_DATA_FORMAT_IDENTIFIER = "bin"
-CSV_DATA_FORMAT_IDENTIFIER = "csv"
-DATA_FORMATS = [BINARY_DATA_FORMAT_IDENTIFIER,
-                CSV_DATA_FORMAT_IDENTIFIER]
 FILE_OUTPUT_TYPE = "file"
 TCP_LISTEN_OUTPUT_TYPE = "listen"
 TCP_SEND_OUTPUT_TYPE = "tcp"
@@ -30,9 +28,9 @@ OUTPUT_TYPES = [FILE_OUTPUT_TYPE,
                 TERMINAL_OUTPUT_TYPE,
                 EMPTY_OUTPUT_TYPE]
 
-DEFAULT_FILE_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
-DEFAULT_TCP_DATA_FORMAT = BINARY_DATA_FORMAT_IDENTIFIER
-DEFAULT_STD_DATA_FORMAT = CSV_DATA_FORMAT_IDENTIFIER
+DEFAULT_FILE_DATA_FORMAT = CSV_DATA_FORMAT
+DEFAULT_TCP_DATA_FORMAT = BIN_DATA_FORMAT
+DEFAULT_STD_DATA_FORMAT = CSV_DATA_FORMAT
 
 CAPABILITY_JSON_NAME_FIELD = "Name"
 CAPABILITY_JSON_FORK_FIELD = "isFork"
@@ -99,10 +97,9 @@ def build_data_input(data_input_ctx, pipeline):
     if data_input_ctx.schedulingHints():
         scheduling_hints_ctx = data_input_ctx.schedulingHints()
         parse_scheduling_hints(scheduling_hints_ctx)
-    if len(data_input_ctx.name()) > 1:
-        raise NotSupportedError("Currently only a single Data-Input is supported ...")
-    for input in data_input_ctx.name():
-        input_str = input.getText()
+    file_input = None
+    for i in data_input_ctx.name():
+        input_str = i.getText()
         if ":" in input_str:
             if R_port.match(input_str):
                 logging.info("Listen Source: " + input_str)
@@ -110,7 +107,7 @@ def build_data_input(data_input_ctx, pipeline):
                 port = int(port_str)
                 data_input = ListenSource(port=port,
                                           pipeline=pipeline)
-
+                THREAD_PROCESS_ELEMENTS.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
                 hostname, port = input_str.split(":")
@@ -118,64 +115,62 @@ def build_data_input(data_input_ctx, pipeline):
                     host=hostname,
                     port=int(port),
                     pipeline=pipeline)
-
+                THREAD_PROCESS_ELEMENTS.append(data_input)
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")
         else:
-            logging.info("File Source: " + input_str)
-            data_input = FileSource(filename=input_str,
-                                    pipeline=pipeline)
-        THREAD_PROCESS_ELEMENTS.append(data_input)
+            logging.info("File Source: Adding path " + input_str)
+            if not file_input:
+                file_input = FileSource(path=input_str, pipeline=pipeline)
+            else:
+                file_input.add_path(input_str)
+    if file_input:
+        THREAD_PROCESS_ELEMENTS.append(file_input)
 
 
 def explicit_data_output(output_type, data_format, output_url):
     output_ps = None
-    data_format = ""
+    if not data_format:
+        data_format = infer_data_format(output_url)
     if output_type == FILE_OUTPUT_TYPE:
-        logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
-        output_ps = FileSink(filename=output_url,
-                             data_format=data_format)
+        logging.info("FileSink: %s", output_url)
+        if data_format:
+            output_ps = FileSink(filename=output_url, data_format=data_format)
+        else:
+            output_ps = FileSink(filename=output_url)
     elif output_type == TCP_LISTEN_OUTPUT_TYPE:
         if output_url[0] is not ":":
             raise ParsingError("Missing required \':\' in port ...")
         output_url = output_url[1:]
         port = int(output_url)
-        logging.info("ListenSink: :" + output_url)
-        output_ps = ListenSink(port=port,
-                               data_format=data_format)
+        logging.info("ListenSink: %s", output_url)
+        if data_format:
+            output_ps = ListenSink(port=port, data_format=data_format)
+        else:
+            output_ps = ListenSink(port=port)
     elif output_type == TCP_SEND_OUTPUT_TYPE:
         try:
             hostname, port_str = output_url.split(":")
-        except:
-            raise ParsingError("Unable to parse {} ...".format(output_url))
-        logging.info("TCPSink: " + output_url)
+        except Exception as e:
+            raise ParsingError("Unable to parse {} ...".format(output_url), e)
+        logging.info("TCPSink: %s", output_url)
         port = int(port_str)
-        output_ps = TCPSink(host=hostname,
-                            port=port,
-                            data_format=data_format)
+        if data_format:
+            output_ps = TCPSink(host=hostname, port=port, data_format=data_format)
+        else:
+            output_ps = TCPSink(host=hostname, port=port)
     elif output_type == TERMINAL_OUTPUT_TYPE:
-        logging.info("TerminalOut: " + output_url)
-        output_ps = TerminalOut(data_format=data_format)
+        logging.info("TerminalOut: %s", output_url)
+        if data_format:
+            output_ps = TerminalOut(data_format=data_format)
+        else:
+            output_ps = TerminalOut()
     elif output_type == EMPTY_OUTPUT_TYPE:
         raise NotSupportedWarning("Empty output not supported ...")
     return output_ps
 
 
-def get_file_data_format(data_format, output_url):
-    if data_format:
-        return data_format
-
-    if output_url.endswith(BINARY_DATA_FORMAT_IDENTIFIER):
-        return BINARY_DATA_FORMAT_IDENTIFIER
-    elif output_url.endswith(CSV_DATA_FORMAT_IDENTIFIER):
-        return CSV_DATA_FORMAT_IDENTIFIER
-    else:
-        return DEFAULT_FILE_DATA_FORMAT
-
-
 def implicit_data_output(output_url, data_format=None):
-    output_ps = None
-
     if ":" in output_url:
         if R_port.match(output_url):
             logging.info("ListenSink: " + output_url)
@@ -197,10 +192,11 @@ def implicit_data_output(output_url, data_format=None):
         df = data_format if data_format else DEFAULT_STD_DATA_FORMAT
         output_ps = TerminalOut(data_format=df)
     else:
-        logging.info("FileSink: " + str(FileSink.get_filepath(output_url)))
-        df = get_file_data_format(data_format, output_url)
+        df = infer_data_format(output_url)
         output_ps = FileSink(filename=output_url,
                              data_format=df)
+        logging.info("FileSink: " + str(output_ps.get_filepath(output_url)))
+
     return output_ps
 
 
@@ -215,13 +211,26 @@ def parse_output_type_format_str(output_type_format_str):
     data_format = None
     output_type = None
     for v in values:
-        if v in DATA_FORMATS:
+        if v in SUPPORTED_DATA_FORMATS:
             data_format = v
         elif v in OUTPUT_TYPES:
             output_type = v
         else:
             raise ParsingError("Unable to parse {}, value not known ...".format(v))
     return output_type, data_format
+
+
+def infer_data_format(url):
+    data_format = None
+    suffix = pathlib.Path(url).suffix
+    if suffix:
+        if suffix.lower() == ".txt" or suffix.lower() == ".csv":
+            data_format = CSV_DATA_FORMAT
+        elif suffix.lower() == ".bin":
+            data_format = BIN_DATA_FORMAT
+    else:
+        data_format = BIN_DATA_FORMAT  # No file suffix is interpreted as binary file
+    return data_format
 
 
 # parse output string like:
@@ -232,6 +241,8 @@ def parse_output_str(output_str):
     if len(output_str.split(OUTPUT_SEPERATION_STRING)) == 2:
         output_type_format_str, output_url = output_str.split(OUTPUT_SEPERATION_STRING)
         output_type, data_format = parse_output_type_format_str(output_type_format_str)
+        if not data_format:
+            data_format = infer_data_format(output_url)
     else:
         output_url = output_str
         output_type = None
@@ -249,9 +260,7 @@ def build_data_output(data_output_ctx):
     output_type, data_format, output_url = parse_output_str(output_str)
 
     if output_type:
-        output_ps = explicit_data_output(output_type=output_type,
-                                         data_format=data_format,
-                                         output_url=output_url)
+        output_ps = explicit_data_output(output_type=output_type, data_format=data_format, output_url=output_url)
     else:
         output_ps = implicit_data_output(output_url=output_url, data_format=data_format)
     return output_ps
