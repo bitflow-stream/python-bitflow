@@ -73,7 +73,7 @@ class Source(multiprocessing.Process):
     def get_marshaller(self, start_bytes):
         try:
             marshaller = get_marshaller_by_content_bytes(start_bytes)
-        except UnsupportedFileFormat as e:
+        except UnsupportedDataFormat as e:
             logging.warning("The format inferred from '%s' of the current input is not supported.",
                             start_bytes.decode('utf-8'), exc_info=e)
             raise e
@@ -121,7 +121,6 @@ class FileSource:
 
     def stop(self):
         self.running.value = 0
-        self.filesource.stop()
         self.filesource.join()
 
 
@@ -202,7 +201,7 @@ class _FileSource(Source):
             if start_bytes:
                 try:
                     self.marshaller = self.get_marshaller(start_bytes)
-                except UnsupportedFileFormat:  # File is not in bitflow-supported format. Skip and move to next file
+                except UnsupportedDataFormat:  # File is not in bitflow-supported format. Skip and move to next file
                     self.close_current_file()
                     return
             else:
@@ -253,7 +252,6 @@ class DownloadSource:
 
     def stop(self):
         self.running.value = 0
-        self.downloadsource.stop()
         self.downloadsource.join()
 
 
@@ -333,7 +331,7 @@ class _DownloadSource(Source):
             if start_bytes:
                 try:
                     self.marshaller = self.get_marshaller(start_bytes)
-                except UnsupportedFileFormat:  # Stream is not in bitflow-supported format. Skip and wait for next input
+                except UnsupportedDataFormat:  # Stream is not in bitflow-supported format. Skip and wait for next input
                     return
             else:
                 return
@@ -399,7 +397,6 @@ class ListenSource:
 
     def stop(self):
         self.running.value = 0
-        self.listensource.stop()
         self.listensource.join()
 
 
@@ -466,7 +463,7 @@ class _ListenSource(Source):
                     if start_bytes:
                         try:
                             self.marshaller = self.get_marshaller(start_bytes)
-                        except UnsupportedFileFormat:
+                        except UnsupportedDataFormat:
                             # Stream is not in bitflow-supported format. Skip and wait for next input
                             continue
                     else:

@@ -19,7 +19,7 @@ class HeaderException(Exception):
     pass
 
 
-class UnsupportedFileFormat(Exception):
+class UnsupportedDataFormat(Exception):
     pass
 
 
@@ -58,7 +58,7 @@ def get_marshaller_by_content_bytes(start_bytes):
         elif start_bytes == BIN_HEADER_START_BYTES:
             marshaller = BinMarshaller()
         else:
-            raise UnsupportedFileFormat("{}: Unsupported file format {}. Supported formats are {}."
+            raise UnsupportedDataFormat("{}: Unsupported file format {}. Supported formats are {}."
                                         "Header must start with respective identifier strings: {}"
                                         .format("get_marshaller_by_bytes", start_bytes.decode('utf-8'),
                                                 SUPPORTED_DATA_FORMATS, IDENTIFIER_STRINGS))
@@ -70,14 +70,12 @@ def get_marshaller_by_content_string(start_string):
 
 
 def get_marshaller_by_data_format(data_format):
-    marshaller = None
     if data_format.lower() == CSV_DATA_FORMAT:
         marshaller = CsvMarshaller()
     elif data_format.lower() == BIN_DATA_FORMAT:
         marshaller = BinMarshaller()
     else:
-        logging.warning("Data format %s unknown ...", data_format)
-
+        raise UnsupportedDataFormat("Data format %s is not supported ...", data_format)
     return marshaller
 
 

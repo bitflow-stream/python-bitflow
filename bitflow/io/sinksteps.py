@@ -282,14 +282,10 @@ class ListenSink(AsyncProcessingStep):
 
 class FileSink(AsyncProcessingStep):
 
-    def __init__(self,
-                 filename: str,
-                 data_format: str = CSV_DATA_FORMAT):
+    def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT):
         super().__init__()
         self.__name__ = "FileSink"
         self.marshaller = get_marshaller_by_data_format(data_format)
-        if not self.marshaller:
-            raise
         self.que = queue.Queue()
         self.filename = filename
         self.f = None
