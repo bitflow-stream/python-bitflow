@@ -37,7 +37,6 @@ def main():
     import time
     time.sleep(4)
     filesource.stop()
-    pipeline.stop()
 
 
 if __name__ == '__main__':

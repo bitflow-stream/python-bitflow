@@ -35,6 +35,10 @@ class BatchProcessingStep:
     def set_next_step(self, next_step):
         self.next_step = next_step
 
+    def start(self):
+        if self.next_step:
+            self.next_step.start()
+
     def write(self, samples: list):
         if samples and self.next_step:
             self.next_step.execute(samples)

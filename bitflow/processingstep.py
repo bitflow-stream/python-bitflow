@@ -1,11 +1,9 @@
 import datetime
 import logging
+import queue
 import threading
 import typing
-
-import matplotlib
-
-matplotlib.use('Agg')
+from multiprocessing import Value
 
 from bitflow.sample import Sample, Header
 
@@ -14,6 +12,13 @@ STRING_LIST_SEPERATOR = ","
 BOOL_TRUE_STRINGS = ["true", "yes", "1", "ja", "y", "j"]
 BOOL_FALSE_STRINGS = ["false", "no", "0", "nein", "n"]
 ACCEPTED_BOOL_STRINGS = BOOL_TRUE_STRINGS + BOOL_FALSE_STRINGS
+
+
+DEFAULT_QUEUE_MAXSIZE = 10000
+DEFAULT_QUEUE_BLOCKING_TIMEOUT = 2
+DEFAULT_MULTIPROCESSING_INPUT = True
+DEFAULT_BATCH_MULTIPROCESSING_INPUT = False
+DEFAULT_QUEUES_EMPTY_TIMEOUT = 0.1
 
 
 def get_required_and_optional_args(step, required_step_args, optional_step_args):
@@ -161,11 +166,17 @@ class ProcessingStep:
 
     def __init__(self):
         self.next_step = None
+        self.started = False
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if cls.__name__ not in SUBCLASSES_TO_IGNORE:
             cls.subclasses.append(cls)
+
+    def start(self):
+        if self.next_step and not self.started:  # Execute once
+            self.next_step.start()
+            self.started = True
 
     def set_next_step(self, next_step):
         self.next_step = next_step
@@ -175,26 +186,76 @@ class ProcessingStep:
             self.next_step.execute(sample)
 
     def execute(self, sample):
-        raise NotImplementedError
+        pass
 
     def stop(self):
+        if self.next_step:
+            self.next_step.stop()
         self.on_close()
 
     def on_close(self):
         logging.info("{}: closing ...".format(self.__name__))
 
 
-class AsyncProcessingStep(ProcessingStep, threading.Thread):
-
-    def execute(self, sample):
-        pass
+class AsyncProcessingStep(ProcessingStep):
 
     def __init__(self):
-        ProcessingStep.__init__(self)
-        threading.Thread.__init__(self)
+        super().__init__()
+        self.input_counter = Value('i', 0)
+        self.sample_queue_in = queue.Queue(maxsize=DEFAULT_QUEUE_MAXSIZE)
+        self.sample_queue_out = queue.Queue(maxsize=DEFAULT_QUEUE_MAXSIZE)
+        self.threaded_step = None
+
+    def start(self):
+        ProcessingStep.start(self)
+        self.input_counter.value += 1
+        if self.threaded_step:
+            self.threaded_step.start()
+        else:
+            raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
+                            "step seems to be broken.", self.__name__)
+
+    def execute(self, sample):
+        self.sample_queue_in.put(sample)
+        try:
+            sample_out = self.sample_queue_out.get(block=False)
+            self.write(sample_out)
+        except queue.Empty:
+            pass
 
     def stop(self):
-        self.is_running = False
+        self.input_counter.value -= 1
+        self.threaded_step.join()
+        if self.next_step:
+            self.next_step.stop()
+        self.on_close()
+
+
+class _AsyncProcessingStep(threading.Thread):
+
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter):
+        threading.Thread.__init__(self)
+        self.sample_queue_in = sample_queue_in
+        self.sample_queue_out = sample_queue_out
+        self.input_counter = input_counter
+
+    def run(self):
+        while self.input_counter.value > 0 or not self.sample_queue_in.empty():
+            try:
+                sample = self.sample_queue_in.get(timeout=DEFAULT_QUEUE_BLOCKING_TIMEOUT)
+            except queue.Empty:
+                continue
+            sample_out = self.loop(sample)
+            if sample_out:
+                self.sample_queue_out.put(sample_out)
+            self.sample_queue_in.task_done()
+        self.on_close()
+
+    def on_close(self):
+        logging.info("Closing %s ...", self.__name__)
+
+    def loop(self, sample):
+        pass
 
 
 class DebugGenerationStep(AsyncProcessingStep):
@@ -204,12 +265,18 @@ class DebugGenerationStep(AsyncProcessingStep):
 
     def __init__(self):
         super().__init__()
+        self.threaded_step = _DebugGenerationStep(self.sample_queue_in, self.sample_queue_out, self.input_counter)
+
+
+class _DebugGenerationStep(_AsyncProcessingStep):
+
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter):
+        super().__init__(sample_queue_in, sample_queue_out, input_counter)
+        self.__name__ = "DebugGenerationStep_inner"
         self.is_running = True
 
-    def execute(self, sample):
-        self.write(sample)
-
-    def run(self):
+    def loop(self, sample):
+        self.sample_queue_out.put(sample)
         import time
         while self.is_running:
             time.sleep(1)
@@ -224,11 +291,6 @@ class DebugGenerationStep(AsyncProcessingStep):
             else:
                 sample.add_tag("blub", "blub")
                 sample.add_tag("test", "rudolph")
-            self.write(sample)
-
-    def stop(self):
-        self.is_running = False
-        self.on_close()
 
 
 class Noop(ProcessingStep):

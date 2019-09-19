@@ -1,4 +1,3 @@
-import logging
 import queue
 import select
 import socket
@@ -8,7 +7,7 @@ import time
 from collections import deque
 
 from bitflow.io.marshaller import *
-from bitflow.processingstep import ProcessingStep, AsyncProcessingStep
+from bitflow.processingstep import ProcessingStep, AsyncProcessingStep, _AsyncProcessingStep
 
 
 def header_check(old_header, new_header):
@@ -24,23 +23,26 @@ def header_check(old_header, new_header):
 ###########################
 class TCPSink(AsyncProcessingStep):
 
-    def __init__(self,
-                 host: str,
-                 port: int,
-                 data_format: str = CSV_DATA_FORMAT,
-                 reconnect_timeout: int = 2):
-
+    def __init__(self, host: str, port: int, data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
         super().__init__()
-        self.marshaller = get_marshaller_by_data_format(data_format)
         self.__name__ = "TCPSink"
+        self.threaded_step = _TCPSink(self.sample_queue_in, self.sample_queue_out, self.input_counter,
+                                      host, port, data_format, reconnect_timeout)
+
+
+class _TCPSink(_AsyncProcessingStep):
+
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int,
+                 data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
+        super().__init__(sample_queue_in, sample_queue_out, input_counter)
+        self.marshaller = get_marshaller_by_data_format(data_format)
+        self.__name__ = "TCPSink_inner"
         self.s = None
         self.header = None
         self.wrapper = None
-        self.is_running = True
         self.host = host
         self.port = port
         self.reconnect_timeout = reconnect_timeout
-        self.que = queue.Queue()
         logging.info("{}: initialized ...".format(self.__name__))
 
     def connect(self):
@@ -54,12 +56,7 @@ class TCPSink(AsyncProcessingStep):
             connected = True
         return connected
 
-    def run(self):
-        while self.is_running:
-            self.loop()
-        self.on_close()
-
-    def loop(self):
+    def loop(self, sample):
         if not self.is_connected():
             try:
                 self.connect()
@@ -67,15 +64,7 @@ class TCPSink(AsyncProcessingStep):
                 logging.warning("{}: could not connect to {}:{} ... ".format(self.__name__, self.host, self.port))
                 time.sleep(self.reconnect_timeout)
                 self.s = None
-                return
-
-        if self.que.qsize() is 0:
-            try:
-                sample = self.que.get(timeout=1)
-            except queue.Empty:
-                return
-        else:
-            sample = self.que.get()
+                return None
 
         try:
             if header_check(self.header, sample.header):
@@ -86,11 +75,7 @@ class TCPSink(AsyncProcessingStep):
             logging.error(
                 "{}: failed to send to peer {}:{}, closing connection ...".format(self.__name__, self.host, self.port))
             self.close_connection()
-        self.que.task_done()
-
-    def execute(self, sample):
-        self.que.put(sample)
-        self.write(sample)
+        return None
 
     def close_connection(self):
         self.header = None
@@ -100,10 +85,6 @@ class TCPSink(AsyncProcessingStep):
         if self.wrapper:
             self.wrapper.socket.close()
             self.wrapper = None
-
-    def stop(self):
-        # self.que.join()
-        self.is_running = False
 
     def on_close(self):
         self.close_connection()
@@ -130,15 +111,21 @@ SOCKET_ERROR_TIMEOUT = 0.5
 
 class ListenSink(AsyncProcessingStep):
 
-    def __init__(self,
-                 host: str = "0.0.0.0",
-                 port: int = 5010,
-                 data_format: str = CSV_DATA_FORMAT,
-                 sample_buffer_size: int = -1,
-                 max_receivers: int = 5):
-
+    def __init__(self, host: str = "0.0.0.0", port: int = 5010, data_format: str = CSV_DATA_FORMAT,
+                 sample_buffer_size: int = -1, max_receivers: int = 5):
         super().__init__()
         self.__name__ = "ListenSink"
+        self.threaded_step = _ListenSink(self.sample_queue_in, self.sample_queue_out, self.input_counter,
+                                         host, port, data_format, sample_buffer_size, max_receivers)
+
+
+class _ListenSink(_AsyncProcessingStep):
+
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str = "0.0.0.0", port: int = 5010,
+                 data_format: str = CSV_DATA_FORMAT, sample_buffer_size: int = -1, max_receivers: int = 5):
+
+        super().__init__(sample_queue_in, sample_queue_out, input_counter)
+        self.__name__ = "ListenSink_inner"
         self.marshaller = get_marshaller_by_data_format(data_format)
 
         self.host = host
@@ -150,7 +137,6 @@ class ListenSink(AsyncProcessingStep):
         else:
             self.sample_buffer = deque(maxlen=sample_buffer_size)
 
-        self.is_running = True
         try:
             self.server = self.bind_socket(self.host, self.port, self.max_receivers)
         except socket.error as se:
@@ -213,7 +199,13 @@ class ListenSink(AsyncProcessingStep):
             return False
         return True
 
-    def loop(self):
+    def loop(self, sample):
+        self.lock.acquire()
+        for k, v in self.sample_queues.items():
+            v["queue"].put(sample)
+        self.sample_buffer.append(sample)
+        self.lock.release()
+
         readable, writable, exceptional = select.select(
             self.inputs, self.outputs, self.inputs, 1)
         for s in readable:
@@ -221,17 +213,19 @@ class ListenSink(AsyncProcessingStep):
                 self.initialize_connection(s)
         if not self.has_to_send():
             time.sleep(NO_INPUT_TIMEOUT)
-            return
+            return None
 
         for s in writable:
             sw = SocketWrapper(s)
-            if self.sample_queues[s]["queue"].empty():
+            try:
+                sample = self.sample_queues[s]["queue"].get_nowait()
+            except queue.Empty:
                 continue
-            sample = self.sample_queues[s]["queue"].get_nowait()
 
             try:
                 # if no header send yet or header  has changed -> marshall header
-                if self.sample_queues[s]["header"] is None or self.sample_queues[s]["header"].has_changed(sample.header):
+                if self.sample_queues[s]["header"] is None or self.sample_queues[s]["header"].has_changed(
+                        sample.header):
                     self.marshaller.marshall_header(sw, sample.header)
                     self.sample_queues[s]["header"] = sample.header
                 self.marshaller.marshall_sample(sw, sample)
@@ -251,26 +245,11 @@ class ListenSink(AsyncProcessingStep):
             elif s in self.outputs:
                 logging.warning("{}: Unexpected socket error occured ...")
                 self.close_connection(s, self.outputs, self.sample_queues)
-
-    def execute(self, sample):
-        self.lock.acquire()
-        for k, v in self.sample_queues.items():
-            v["queue"].put(sample)
-        self.sample_buffer.append(sample)
-        self.lock.release()
-        self.write(sample)
-
-    def run(self):
-        while self.is_running:
-            self.loop()
-        self.on_close()
-
-    def stop(self):
-        for k, v in self.sample_queues.items():
-            v["queue"].join()
-        self.is_running = False
+        return None
 
     def on_close(self):
+        for k, v in self.sample_queues.items():
+            v["queue"].join()
         logging.info("{}: closing ...".format(self.__name__))
         self.close_connections(self.outputs, self.sample_queues)
         self.server.close()
@@ -279,17 +258,24 @@ class ListenSink(AsyncProcessingStep):
 ##########################
 #  FILE TransportSink  #
 ##########################
-
 class FileSink(AsyncProcessingStep):
 
     def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT):
         super().__init__()
         self.__name__ = "FileSink"
+        self.threaded_step = _FileSink(self.sample_queue_in, self.sample_queue_out,
+                                       self.input_counter, filename, data_format)
+
+
+class _FileSink(_AsyncProcessingStep):
+
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str,
+                 data_format: str = CSV_DATA_FORMAT):
+        super().__init__(sample_queue_in, sample_queue_out, input_counter)
+        self.__name__ = "FileSink_inner"
         self.marshaller = get_marshaller_by_data_format(data_format)
-        self.que = queue.Queue()
         self.filename = filename
         self.f = None
-        self.is_running = True
         self.header = None
 
     def check_file_exists(self, path):
@@ -321,41 +307,21 @@ class FileSink(AsyncProcessingStep):
         self.f = open(final_filename, 'bw')
         return final_filename
 
-    def execute(self, sample):
-        self.que.put(sample)
-        self.write(sample)
-
-    def run(self):
-        while self.is_running:
-            self.loop()
-        self.on_close()
-
-    def loop(self):
-        if self.que.qsize() is 0:
-            try:
-                sample = self.que.get(timeout=1)
-            except queue.Empty:
-                return
-        else:
-            sample = self.que.get()
-
-        if header_check(old_header=self.header, new_header=sample.header):
-            self.header = sample.header
-            if self.f and isinstance(self.marshaller, CsvMarshaller):
-                self.f.close()
-                new_filename = self.open_file(self.filename)
-                logging.info("header changed, opening new file {} ...".format(new_filename))
-            elif not self.f:
-                new_filename = self.open_file(self.filename)
-                logging.info("Opening new file {} ...".format(new_filename))
-            self.marshaller.marshall_header(sink=self.f, header=self.header)
-        self.marshaller.marshall_sample(sink=self.f, sample=sample)
-        self.f.flush()
-        self.que.task_done()
-
-    def stop(self):
-        self.que.join()
-        self.is_running = False
+    def loop(self, sample):
+        if sample:
+            if header_check(old_header=self.header, new_header=sample.header):
+                self.header = sample.header
+                if self.f and isinstance(self.marshaller, CsvMarshaller):
+                    self.f.close()
+                    new_filename = self.open_file(self.filename)
+                    logging.info("header changed, opening new file {} ...".format(new_filename))
+                elif not self.f:
+                    new_filename = self.open_file(self.filename)
+                    logging.info("Opening new file {} ...".format(new_filename))
+                self.marshaller.marshall_header(sink=self.f, header=self.header)
+            self.marshaller.marshall_sample(sink=self.f, sample=sample)
+            self.f.flush()
+        return None
 
     def on_close(self):
         if self.f is not None:
@@ -367,7 +333,6 @@ class FileSink(AsyncProcessingStep):
 ############################
 #  STDOUT TransportSink  #
 ############################
-
 class TerminalOut(ProcessingStep):
     class ConsoleWriter:
         def write(self, data):

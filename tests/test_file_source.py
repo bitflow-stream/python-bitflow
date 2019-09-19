@@ -20,7 +20,6 @@ class TestFileIO(unittest.TestCase):
                 file_source.add_path(path)
             file_source.start()
             time.sleep(self.DEFAULT_SLEEPING_DURATION)
-            pipeline.stop()
 
     def test_read_empty_csv_file(self):
         self.run_test([TESTING_IN_FILE_CSV_EMPTY])

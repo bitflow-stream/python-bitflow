@@ -1,6 +1,5 @@
 import pathlib
 import re
-
 from antlr4 import *
 
 from bitflow.batchprocessingstep import *
@@ -105,16 +104,12 @@ def build_data_input(data_input_ctx, pipeline):
                 logging.info("Listen Source: " + input_str)
                 port_str = input_str[1:]
                 port = int(port_str)
-                data_input = ListenSource(port=port,
-                                          pipeline=pipeline)
+                data_input = ListenSource(port=port, pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
                 hostname, port = input_str.split(":")
-                data_input = DownloadSource(
-                    host=hostname,
-                    port=int(port),
-                    pipeline=pipeline)
+                data_input = DownloadSource(host=hostname, port=int(port), pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")

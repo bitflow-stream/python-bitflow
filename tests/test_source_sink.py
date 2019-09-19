@@ -20,7 +20,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
     def test_bin_file_in_no_out(self):
         pipeline = pipe.Pipeline()
@@ -28,7 +27,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
     def test_csv_file_in__csv_file_out(self):
         pipeline = pipe.Pipeline()
@@ -37,7 +35,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -51,7 +48,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -64,7 +60,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -77,7 +72,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -92,7 +86,6 @@ class TestFileIO(unittest.TestCase):
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV_2)
@@ -142,10 +135,7 @@ class TestTcpIO(unittest.TestCase):
 
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         b_file_source.stop()
-        b_pipeline.stop()
         a_listen_source.stop()
-        a_pipeline.stop()
-        # time.sleep(1)
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -171,9 +161,7 @@ class TestTcpIO(unittest.TestCase):
 
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         b_file_source.stop()
-        b_pipeline.stop()
         a_listen_source.stop()
-        a_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -200,9 +188,7 @@ class TestTcpIO(unittest.TestCase):
 
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         b_file_source.stop()
-        b_pipeline.stop()
         a_listen_source.stop()
-        a_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -229,9 +215,7 @@ class TestTcpIO(unittest.TestCase):
 
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         b_file_source.stop()
-        b_pipeline.stop()
         a_listen_source.stop()
-        a_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -253,9 +237,7 @@ class TestTcpIO(unittest.TestCase):
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         a_file_source.stop()
-        a_pipeline.stop()
         b_download_source.stop()
-        b_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -277,9 +259,7 @@ class TestTcpIO(unittest.TestCase):
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         a_file_source.stop()
-        a_pipeline.stop()
         b_download_source.stop()
-        b_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -301,9 +281,7 @@ class TestTcpIO(unittest.TestCase):
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         a_file_source.stop()
-        a_pipeline.stop()
         b_download_source.stop()
-        b_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -325,9 +303,7 @@ class TestTcpIO(unittest.TestCase):
         b_download_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
         a_file_source.stop()
-        a_pipeline.stop()
         b_download_source.stop()
-        b_pipeline.stop()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)

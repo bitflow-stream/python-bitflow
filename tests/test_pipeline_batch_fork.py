@@ -37,7 +37,6 @@ class TestFork(unittest.TestCase):
         pl.add_processing_step(tag_fork)
         pl.start()
         time.sleep(2)
-        pl.stop()
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
@@ -63,8 +62,6 @@ class TestBatchPipeline(unittest.TestCase):
         batch_pipeline.start()
         pl.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
 
     def test_batch_pipeline_number_of_samples_out_size_1(self):
         batch_size = 1
@@ -82,8 +79,6 @@ class TestBatchPipeline(unittest.TestCase):
         pl.start()
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
 
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
@@ -105,8 +100,6 @@ class TestBatchPipeline(unittest.TestCase):
         pl.start()
         file_source.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
 
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
@@ -128,8 +121,6 @@ class TestBatchPipeline(unittest.TestCase):
         batch_pipeline.start()
         pl.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
 
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
@@ -149,14 +140,12 @@ class TestPipeline(unittest.TestCase):
         pl = pipe.Pipeline()
         pl.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pl.stop()
 
     def test_generative_processing_step(self):
         pl = pipe.Pipeline()
         pl.add_processing_step(processingstep.DebugGenerationStep())
         pl.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pl.stop()
 
     def test_subpipeline(self):
         inner_pipeline = pipe.Pipeline()
@@ -166,7 +155,6 @@ class TestPipeline(unittest.TestCase):
         outer_pipeline.add_processing_step(inner_pipeline)
         outer_pipeline.start()
         time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        outer_pipeline.stop()
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
