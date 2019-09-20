@@ -6,7 +6,7 @@ from bitflow.processingstep import *
 
 
 def initialize_fork(name, script_args):
-    fork_steps = Fork.subclasses
+    fork_steps = Fork.get_all_subclasses(Fork)
 
     for f in fork_steps:
         if f.__name__.lower() == name.lower() and compare_args(f, script_args):
@@ -45,9 +45,14 @@ class Fork(ProcessingStep):
         self.pipeline_steps = []
         self.running_pipelines = {}
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.subclasses.append(cls)
+    @staticmethod
+    def get_all_subclasses(cls):
+        all_subclasses = []
+        for subclass in cls.__subclasses__():
+            if subclass.__name__ not in SUBCLASSES_TO_IGNORE:
+                all_subclasses.append(subclass)
+            all_subclasses.extend(ProcessingStep.get_all_subclasses(subclass))
+        return all_subclasses
 
     # current workaround for bitflow script, parse names and processing steps for new
     # subpipeline. generate new pipeline if required by incoming sample
@@ -63,14 +68,19 @@ class Fork(ProcessingStep):
         for ps in ps_list:
             p.add_processing_step(ps)
         p.add_processing_step(self)
+        # TODO Ugly. Needs something better
+        self.running_pipelines[name] = (p.sample_queue_in, p.sample_queue_out, p.input_counter, p)
+        self.running_pipelines[name][2].value += 1
         p.start()
-        self.running_pipelines[name] = (p.sample_queue_in, p.sample_queue_out)
 
-    def forward_sample(self):
+    def forward_samples(self):
         if self.running_pipelines:
             for key in self.running_pipelines:
                 try:
-                    self.write(self.running_pipelines[key][1].get(block=False))
+                    while True:
+                        sample = self.running_pipelines[key][1].get(block=False)
+                        self.write(sample)
+                        self.running_pipelines[key][1].task_done()
                 except queue.Empty:
                     pass
 
@@ -78,9 +88,15 @@ class Fork(ProcessingStep):
         pass
 
     def on_close(self):
-        super().on_close()
-        for p in list(self.running_pipelines.keys()):
-            self.running_pipelines[p].stop()
+        logging.info("%s: closing  ...", self.__name__)
+        for p in self.running_pipelines.keys():
+            self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipelines
+        for p in self.running_pipelines.keys():
+            self.running_pipelines[p][3].join()  # Wait for pipelines to terminate
+            self.running_pipelines[p][0].join()  # Wait until all written samples are precessed by the pipeline
+        self.forward_samples()  # Forward samples to next step
+        for key in self.running_pipelines:
+            self.running_pipelines[key][1].join()  # Make sure everything was correctly forwarded
 
 
 class Fork_Tags(Fork):

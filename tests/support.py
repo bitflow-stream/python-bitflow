@@ -21,6 +21,7 @@ TESTING_IN_FILE_BIN_BROKEN_3 = dir_path + "/test_data/broken3.bin"
 
 TESTING_EXPECTED_OUT_FILE_CSV_BROKEN_2_3 = dir_path + "/test_data/expected_broken23_out.csv"
 TESTING_EXPECTED_OUT_FILE_CSV_DOUBLE = dir_path + "/test_data/expected_double_out.csv"
+TESTING_EXPECTED_BATCH_IN_SMALL = dir_path + "/test_data/expected_batch_in_small.csv"
 
 TESTING_IN_FILE_CSV_ONLY_HEADER = dir_path + "/test_data/only_header.csv"
 TESTING_IN_FILE_BIN_ONLY_HEADER = dir_path + "/test_data/only_header.bin"

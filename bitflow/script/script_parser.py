@@ -2,11 +2,12 @@ import pathlib
 import re
 from antlr4 import *
 
+from bitflow.batch import *
 from bitflow.batchprocessingstep import *
 from bitflow.fork import *
 from bitflow.helper import *
 from bitflow.io.marshaller import *
-from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
+from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink, get_filepath
 from bitflow.io.sources import FileSource, ListenSource, DownloadSource
 from bitflow.script.BitflowLexer import BitflowLexer
 from bitflow.script.BitflowParser import BitflowParser
@@ -44,9 +45,7 @@ THREAD_PROCESS_ELEMENTS = []
 # returns all steps as json
 def capabilities():
     steps_lst = []
-    processing_steps = ProcessingStep.subclasses
-    batch_processing_steps = BatchProcessingStep.subclasses
-    processing_steps.extend(batch_processing_steps)
+    processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
     for step in processing_steps:
         step_dict = {CAPABILITY_JSON_NAME_FIELD: step.__name__}
         if issubclass(step, Fork):
@@ -188,9 +187,8 @@ def implicit_data_output(output_url, data_format=None):
         output_ps = TerminalOut(data_format=df)
     else:
         df = infer_data_format(output_url)
-        output_ps = FileSink(filename=output_url,
-                             data_format=df)
-        logging.info("FileSink: " + str(output_ps.get_filepath(output_url)))
+        output_ps = FileSink(filename=output_url, data_format=df)
+        logging.info("FileSink: " + str(get_filepath(output_url)))
 
     return output_ps
 
@@ -283,10 +281,10 @@ def parse_name(name_ctx):
 
 # G4:   listValue : OPEN_HINTS (primitiveValue (SEP primitiveValue)*)? CLOSE_HINTS ;
 def parse_list_value(list_value_ctx):
-    l = []
+    lst = []
     for primitive_value_ctx in list_value_ctx.primitiveValue():
-        l.append(parse_name(primitive_value_ctx.name()))
-    return l
+        lst.append(parse_name(primitive_value_ctx.name()))
+    return lst
 
 
 # G4:   mapValueElement : name EQ primitiveValue ;
@@ -363,7 +361,7 @@ def build_fork(fork_ctx, pipeline):
         # gives outer pipeline to the fork ps. so that after trivising fork pipeline samples go back
         # into outer pipeline. each pipeline runs in their own thread, future thread or process.
         # To keep this pipeline has must be passed
-        fork.set_root_pipeline(pipeline)
+        # fork.set_root_pipeline(pipeline)
     return fork
 
 
@@ -377,18 +375,17 @@ def build_batch_processing_step(processing_step_ctx):
     parse_parameters(processing_step_ctx.parameters(), parameters_dict)
     ps = initialize_batch_step(name_str, parameters_dict)
     if not ps:
-        raise ProcessingStepNotKnown("{}: unsopported processing step ...".format(name_str))
+        raise ProcessingStepNotKnown("{}: unsupported processing step ...".format(name_str))
     return ps
 
 
 # G4:   batchPipeline : processingStep (NEXT processingStep)* ;
-def build_batch_pipeline(batch_pipeline_ctx):
-    batch_pipeline = BatchPipeline()
-    if batch_pipeline_ctx.processingStep():
-        for processing_step_ctx in batch_pipeline_ctx.processingStep():
+def build_batch_pipeline(batch_step, batch_step_ctx):
+    if batch_step_ctx.processingStep():
+        for processing_step_ctx in batch_step_ctx.processingStep():
             ps = build_batch_processing_step(processing_step_ctx)
-            batch_pipeline.add_processing_step(ps)
-    return batch_pipeline
+            batch_step.add_processing_step(ps)
+    return batch_step
 
 
 # G4:   batch : name parameters schedulingHints? OPEN batchPipeline CLOSE ;
@@ -400,16 +397,12 @@ def build_batch(batch_ctx, pipeline):
 
     parse_parameters(batch_ctx.parameters(), parameters_dict)
     name_str = parse_name(batch_ctx.name())
-    batch = initialize_step(name_str, parameters_dict)
+    batch_step = initialize_step(name_str, parameters_dict)
+    batch_step_ctx = batch_ctx.batchPipeline()
+    batch_step = build_batch_pipeline(batch_step, batch_step_ctx)
 
-    batch_pipeline_ctx = batch_ctx.batchPipeline()
-    batch_pipeline = build_batch_pipeline(batch_pipeline_ctx)
-    batch.set_batch_pipeline(batch_pipeline)
-    # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
-    # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
-    batch.set_root_pipeline(pipeline)
-    THREAD_PROCESS_ELEMENTS.append(batch_pipeline)
-    return batch
+    THREAD_PROCESS_ELEMENTS.append(pipeline)
+    return batch_step
 
 
 # G4:   multiplexFork : OPEN subPipeline (EOP subPipeline)* EOP? CLOSE ;
@@ -493,4 +486,5 @@ def parse_script(script: str):
     parser = BitflowParser(stream)
     ctx = parser.script()
     parse_pipelines(ctx.pipelines())
+
     return priviatize_tp_elements()

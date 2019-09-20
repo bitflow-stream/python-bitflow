@@ -87,8 +87,9 @@ class _TCPSink(_AsyncProcessingStep):
             self.wrapper = None
 
     def on_close(self):
-        self.close_connection()
         logging.info("closing {} ...".format(self.__name__))
+        self.close_connection()
+        super().on_close()
 
 
 class SocketWrapper:
@@ -248,16 +249,43 @@ class _ListenSink(_AsyncProcessingStep):
         return None
 
     def on_close(self):
+        logging.info("{}: closing ...".format(self.__name__))
         for k, v in self.sample_queues.items():
             v["queue"].join()
-        logging.info("{}: closing ...".format(self.__name__))
         self.close_connections(self.outputs, self.sample_queues)
         self.server.close()
+        super().on_close()
 
 
 ##########################
 #  FILE TransportSink  #
 ##########################
+def check_file_exists(path):
+    from pathlib import Path
+    my_file = Path(path)
+    if my_file.is_file():
+        return True
+    return False
+
+
+def get_filepath(filename):
+    i = 0
+    numbering = ""
+    file_ending = ""
+    last_dot_pos = filename.rfind(".")
+
+    if last_dot_pos == -1:
+        base_filename = filename
+    else:
+        base_filename = filename[0:last_dot_pos]
+        file_ending = filename[last_dot_pos:len(filename)]
+
+    while check_file_exists(path=base_filename + numbering + file_ending):
+        i += 1
+        numbering = "-{}".format(i)
+    return base_filename + numbering + file_ending
+
+
 class FileSink(AsyncProcessingStep):
 
     def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT):
@@ -278,32 +306,8 @@ class _FileSink(_AsyncProcessingStep):
         self.f = None
         self.header = None
 
-    def check_file_exists(self, path):
-        from pathlib import Path
-        my_file = Path(path)
-        if my_file.is_file():
-            return True
-        return False
-
-    def get_filepath(self, filename):
-        i = 0
-        numbering = ""
-        file_ending = ""
-        last_dot_pos = filename.rfind(".")
-
-        if last_dot_pos == -1:
-            base_filename = filename
-        else:
-            base_filename = filename[0:last_dot_pos]
-            file_ending = filename[last_dot_pos:len(filename)]
-
-        while self.check_file_exists(path=base_filename + numbering + file_ending):
-            i += 1
-            numbering = "-{}".format(i)
-        return base_filename + numbering + file_ending
-
     def open_file(self, filename):
-        final_filename = self.get_filepath(filename)
+        final_filename = get_filepath(filename)
         self.f = open(final_filename, 'bw')
         return final_filename
 
@@ -324,10 +328,10 @@ class _FileSink(_AsyncProcessingStep):
         return None
 
     def on_close(self):
+        logging.info("{}: closing ...".format(self.__name__))
         if self.f is not None:
             self.f.close()
             self.f = None
-        logging.info("{}: closing ...".format(self.__name__))
 
 
 ############################

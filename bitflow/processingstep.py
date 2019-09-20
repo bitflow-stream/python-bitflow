@@ -7,12 +7,11 @@ from multiprocessing import Value
 
 from bitflow.sample import Sample, Header
 
-STRING_LIST_SEPERATOR = ","
+STRING_LIST_SEPARATOR = ","
 
 BOOL_TRUE_STRINGS = ["true", "yes", "1", "ja", "y", "j"]
 BOOL_FALSE_STRINGS = ["false", "no", "0", "nein", "n"]
 ACCEPTED_BOOL_STRINGS = BOOL_TRUE_STRINGS + BOOL_FALSE_STRINGS
-
 
 DEFAULT_QUEUE_MAXSIZE = 10000
 DEFAULT_QUEUE_BLOCKING_TIMEOUT = 2
@@ -136,7 +135,7 @@ def compare_args(step, script_args):
 
 
 def initialize_step(name, script_args):
-    processing_steps = ProcessingStep.subclasses
+    processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
     for ps in processing_steps:
         if ps.__name__.lower() == name.lower() and compare_args(ps, script_args):
             logging.info("{} with args: {}  ok ...".format(name, script_args))
@@ -151,27 +150,31 @@ def initialize_step(name, script_args):
 
 
 def string_lst_to_lst(str_lst):
-    values = str_lst.split(STRING_LIST_SEPERATOR)
+    values = str_lst.split(STRING_LIST_SEPARATOR)
     return [x.strip() for x in values]
 
 
-SUBCLASSES_TO_IGNORE = ["AsyncProcessingStep",
-                        "Fork"]
+SUBCLASSES_TO_IGNORE = ["AsyncProcessingStep", "Fork", "BatchProcessingStep", "PipelineTermination",
+                        "BatchPipelineTermination"]
 
 
 class ProcessingStep:
     """ Abstract ProcessingStep Class"""
-    subclasses = []
     __description__ = "No description written yet."
 
     def __init__(self):
+        self.__name__ = "ProcessingStep"
         self.next_step = None
         self.started = False
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls.__name__ not in SUBCLASSES_TO_IGNORE:
-            cls.subclasses.append(cls)
+    @staticmethod
+    def get_all_subclasses(cls):
+        all_subclasses = []
+        for subclass in cls.__subclasses__():
+            if subclass.__name__ not in SUBCLASSES_TO_IGNORE:
+                all_subclasses.append(subclass)
+            all_subclasses.extend(ProcessingStep.get_all_subclasses(subclass))
+        return all_subclasses
 
     def start(self):
         if self.next_step and not self.started:  # Execute once
@@ -189,12 +192,13 @@ class ProcessingStep:
         pass
 
     def stop(self):
+        self.on_close()
         if self.next_step:
             self.next_step.stop()
-        self.on_close()
 
     def on_close(self):
-        logging.info("{}: closing ...".format(self.__name__))
+        logging.info("%s: closing  ...", self.__name__)
+        pass
 
 
 class AsyncProcessingStep(ProcessingStep):
@@ -207,13 +211,13 @@ class AsyncProcessingStep(ProcessingStep):
         self.threaded_step = None
 
     def start(self):
-        ProcessingStep.start(self)
         self.input_counter.value += 1
         if self.threaded_step:
             self.threaded_step.start()
         else:
             raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
                             "step seems to be broken.", self.__name__)
+        super().start()
 
     def execute(self, sample):
         self.sample_queue_in.put(sample)
@@ -223,12 +227,21 @@ class AsyncProcessingStep(ProcessingStep):
         except queue.Empty:
             pass
 
-    def stop(self):
+    def clear_sample_queue_out(self):
+        try:
+            while True:  # Read until queue is empty
+                sample_out = self.sample_queue_out.get(block=False)
+                self.write(sample_out)
+        except queue.Empty:
+            pass
+
+    def on_close(self):
         self.input_counter.value -= 1
-        self.threaded_step.join()
-        if self.next_step:
-            self.next_step.stop()
-        self.on_close()
+        self.threaded_step.join()  # TODO This and next line could lead to deadlock
+        self.sample_queue_in.join()
+        self.clear_sample_queue_out()
+        self.sample_queue_out.join()
+        super().on_close()
 
 
 class _AsyncProcessingStep(threading.Thread):
@@ -242,7 +255,7 @@ class _AsyncProcessingStep(threading.Thread):
     def run(self):
         while self.input_counter.value > 0 or not self.sample_queue_in.empty():
             try:
-                sample = self.sample_queue_in.get(timeout=DEFAULT_QUEUE_BLOCKING_TIMEOUT)
+                sample = self.sample_queue_in.get(block=False)
             except queue.Empty:
                 continue
             sample_out = self.loop(sample)
@@ -251,15 +264,26 @@ class _AsyncProcessingStep(threading.Thread):
             self.sample_queue_in.task_done()
         self.on_close()
 
+    def process_remaining_samples(self):
+        while True:
+            try:
+                sample = self.sample_queue_in.get(block=False)
+                sample_out = self.loop(sample)
+                if sample_out:
+                    self.sample_queue_out.put(sample_out)
+                self.sample_queue_in.task_done()
+            except queue.Empty:
+                break
+
     def on_close(self):
-        logging.info("Closing %s ...", self.__name__)
+        self.process_remaining_samples()
 
     def loop(self, sample):
         pass
 
 
 class DebugGenerationStep(AsyncProcessingStep):
-    """example generativ processing step"""
+    """example generative processing step"""
     __name__ = "debug-generation-step"
     __description__ = "DEBUG. Generates random samples with different tages."
 

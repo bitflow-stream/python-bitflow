@@ -1,4 +1,3 @@
-import ctypes
 import multiprocessing
 import select
 import socket
@@ -13,6 +12,14 @@ WAIT_TO_UPDATE = 2
 NO_END_OF_HEADER_FOUND = -1
 
 
+class SourceNotDefined(Exception):
+    pass
+
+
+class RunningAlready(Exception):
+    pass
+
+
 def read_header(marshaller, s, buffer_size=2048):
     b = ""
     while '\n' not in b:
@@ -24,7 +31,38 @@ def read_header(marshaller, s, buffer_size=2048):
     return header, over_recv_b
 
 
-class Source(multiprocessing.Process):
+class Source:
+
+    def __init__(self, pipeline):
+        self.running = multiprocessing.Value('i', 0)
+        self.pipeline = pipeline
+        self._source = None
+
+    def start_and_wait(self):
+        self.start()
+        self.wait()
+
+    def start(self):
+        self.running.value += 1
+        if self._source:
+            self._source.start()
+        else:
+            raise SourceNotDefined("Cannot start. No sample source defined.")
+        if self.pipeline:
+            self.pipeline.start()
+
+    def wait(self):
+        if self._source:
+            self._source.join()
+        if self.pipeline:
+            self.pipeline.join()
+
+    def stop(self):
+        self.running.value = 0
+        self.wait()
+
+
+class _Source(multiprocessing.Process):
 
     def __init__(self, sample_queue, pipeline_input_counter, marshaller, running):
         self.running = running
@@ -98,49 +136,56 @@ class Source(multiprocessing.Process):
         self.on_close()
 
     def stop(self):
-        self.running.value = 0
+        self.running.value = 0  # Signal stop to self (break out from run method)
 
     def on_close(self):
-        logging.info("{}: closing ...".format(self.__name__))
-        self.pipeline_input_counter.value -= 1
+        logging.info("%s: closing  ...", self.__name__)
+        self.pipeline_input_counter.value -= 1  # De-register as source from pipeline
+        self.sample_queue.join()  # All samples that were put into the queue must be read and processed by pipeline
 
     # Abstract
     def loop(self):
         pass
 
 
-class FileSource:
+class EmptySource(Source):
+
+    def __init__(self, pipeline):
+        super().__init__(pipeline)
+        self.__name__ = "EmptySource"
+
+
+class FileSource(Source):
 
     def __init__(self, pipeline, path=None):
-        self.running = multiprocessing.Value(ctypes.c_int, 1)
-        self.pipeline = 2
-        self.filesource = _FileSource(self.running, path, pipeline.sample_queue_in, pipeline.input_counter)
+        super().__init__(pipeline)
+        self.__name__ = "FileSource"
+        self._source = _FileSource(self.running, path, pipeline.sample_queue_in, pipeline.input_counter)
+
+    def __str__(self):
+        return "FileSource"
 
     def add_path(self, path):
-        self.filesource.add_path(path)
-
-    def start(self):
-        self.filesource.start()
-
-    def stop(self):
-        self.running.value = 0
-        self.filesource.join()
+        if not self._source.is_alive():  # Can only append paths before started. Not possible during runtime of process
+            self._source.add_path(path)
+        else:
+            raise RunningAlready("%s: Already started. Cannot add paths at runtime.")
 
 
-class _FileSource(Source):
+class _FileSource(_Source):
 
     def __init__(self, running, path, sample_queue, input_counter, buffer_size=2048):
+        super().__init__(sample_queue, input_counter, None, running)
+        self.__name__ = "FileSource_inner"
         self.files = self._handle_path(path)
         self.file_iter = iter(self.files)
         self.f = None
         self.header = None
         self.b = b''
         self.buffer_size = buffer_size
-        self.__name__ = "FileSource"
-        super().__init__(sample_queue, input_counter, None, running)
 
     def __str__(self):
-        return "FileSource"
+        return "FileSource_inner"
 
     def add_path(self, path):
         self.files += self._handle_path(path)
@@ -243,26 +288,24 @@ class _FileSource(Source):
 
 
 # Pulls / Downloads incoming data on the specified host:port
-class DownloadSource:
+class DownloadSource(Source):
 
     def __init__(self, pipeline, host, port, buffer_size=2048):
-        self.running = multiprocessing.Value(ctypes.c_int, 1)
-        self.pipeline = pipeline
-        self.downloadsource = _DownloadSource(self.running, host, port, pipeline.sample_queue_in,
-                                              pipeline.input_counter, buffer_size)
+        super().__init__(pipeline)
+        self.__name__ = "DownloadSource"
+        self._source = _DownloadSource(self.running, host, port, pipeline.sample_queue_in,
+                                       pipeline.input_counter, buffer_size)
 
-    def start(self):
-        self.downloadsource.start()
-
-    def stop(self):
-        self.running.value = 0
-        self.downloadsource.join()
+    def __str__(self):
+        return "DownloadSource"
 
 
-class _DownloadSource(Source):
+class _DownloadSource(_Source):
 
     def __init__(self, running, host, port, sample_queue, pipeline_input_counter,
                  buffer_size=2048, timeout_after_failed_to_connect=1):
+        super().__init__(sample_queue, pipeline_input_counter, None, running)
+        self.__name__ = "DownloadSource_inner"
         self.host = host
         self.port = port
         self.timeout_after_failed_to_connect = timeout_after_failed_to_connect
@@ -270,11 +313,6 @@ class _DownloadSource(Source):
         self.header = None
         self.b = b''
         self.buffer_size = buffer_size
-        self.__name__ = "DownloadSource"
-        super().__init__(sample_queue, pipeline_input_counter, None, running)
-
-    def __str__(self):
-        return "DownloadSource"
 
     def connect(self):
         logging.info("{}: trying to connect to {}:{} ...".format(self.__name__, self.host, self.port))
@@ -375,44 +413,37 @@ class _DownloadSource(Source):
         return
 
     def close_connection(self):
-        self.s.close()
-        self.s = None
+        if self.s:
+            self.s.close()
+            self.s = None
         time.sleep(0.1)
 
     def on_close(self):
-        if self.s:
-            self.s.close()
+        self.close_connection()
         super().on_close()
 
 
 # Listens for incoming data on the specified host:port
-class ListenSource:
+class ListenSource(Source):
 
     def __init__(self, port, pipeline, max_number_of_peers=5, buffer_size=2048):
-        self.running = multiprocessing.Value(ctypes.c_int, 1)
-        self.pipeline = pipeline
-        self.listensource = _ListenSource(self.running, pipeline.sample_queue_in, pipeline.input_counter,
-                                          port, max_number_of_peers, buffer_size)
-
-    def start(self):
-        self.listensource.start()
-
-    def stop(self):
-        self.running.value = 0
-        self.listensource.join()
+        super().__init__(pipeline)
+        self.__name__ = "ListenSource"
+        self._source = _ListenSource(self.running, pipeline.sample_queue_in, pipeline.input_counter,
+                                     port, max_number_of_peers, buffer_size)
 
 
-class _ListenSource(Source):
+class _ListenSource(_Source):
 
     def __init__(self, running, sample_queue, pipeline_input_counter, port, max_number_of_peers, buffer_size):
         super().__init__(sample_queue, pipeline_input_counter, None, running)
+        self.__name__ = "ListenSource_inner"
         self.max_number_of_peers = max_number_of_peers
         self.buffer_size = buffer_size
         self.host = "0.0.0.0"
         self.port = port
         self.server = None
         self.b = b''
-        self.__name__ = "ListenSource"
 
         try:
             self.server = self.bind_port(self.host, self.port, self.max_number_of_peers)

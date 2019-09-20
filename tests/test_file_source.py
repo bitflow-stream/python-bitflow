@@ -8,18 +8,15 @@ from tests.support import *
 
 
 class TestFileIO(unittest.TestCase):
-    DEFAULT_SLEEPING_DURATION = 2
 
     def run_test(self, file_paths):
         if file_paths:
             pipeline = pipe.Pipeline()
             pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-            pipeline.start()
             file_source = sources.FileSource(pipeline=pipeline)
             for path in file_paths:
                 file_source.add_path(path)
-            file_source.start()
-            time.sleep(self.DEFAULT_SLEEPING_DURATION)
+            file_source.start_and_wait()
 
     def test_read_empty_csv_file(self):
         self.run_test([TESTING_IN_FILE_CSV_EMPTY])

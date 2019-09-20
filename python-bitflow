@@ -4,6 +4,7 @@ import argparse
 import signal
 import sys
 
+from bitflow.io.sources import Source
 from bitflow.script.script_parser import *
 
 THREADS_AND_PROCESSES = []
@@ -20,8 +21,9 @@ def configure_logging(logging_level, filename=None):
 def strg_c_exit():
     global THREADS_AND_PROCESSES
     logging.warning("Closing python-bitflow ...")
-    for t_p in THREADS_AND_PROCESSES:
-        t_p.stop()
+    for t_p in THREAD_PROCESS_ELEMENTS:
+        if isinstance(t_p, Source):
+            t_p.stop()
 
 
 def sig_int_handler(signal, frame):
@@ -41,7 +43,8 @@ def read_script(script_file):
 
 def start_threads_and_processes(tp_list):
     for t_p in tp_list:
-        t_p.start()
+        if isinstance(t_p, Source):
+            t_p.start()
 
 
 def main():
