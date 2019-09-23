@@ -36,7 +36,7 @@ class CtrlMethodDecorator(type):
     def deco(mcs, func, logging_func, text_before, text_after):
         def wrapper(*args, **kwargs):
             try:
-                is_method = inspect.getargspec(func)[0][0] == 'self'
+                is_method = inspect.getfullargspec(func)[0][0] == 'self'
             except:
                 is_method = False
 

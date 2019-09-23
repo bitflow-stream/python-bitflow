@@ -105,7 +105,6 @@ class BatchPipeline(Pipeline):
         self.pipeline_termination = BatchPipelineTermination(self.sample_queue_out)
 
     def run(self):
-        self.start_processing_steps()
         while self.input_counter.value > 0 or not self.sample_queue_in.empty():
             try:
                 samples = self.sample_queue_in.get(block=False)

@@ -39,6 +39,7 @@ CAPABILITY_JSON_DESCRIPTION_FIELD = "Description"
 CAPABILITY_JSON_OPTIONAL_PARM_FIELD = "OptionalParms"
 CAPABILITY_JSON_REQUIRED_PARM_FIELD = "RequiredParms"
 
+HEADS_AND_SOURCES = []
 THREAD_PROCESS_ELEMENTS = []
 
 
@@ -105,11 +106,13 @@ def build_data_input(data_input_ctx, pipeline):
                 port = int(port_str)
                 data_input = ListenSource(port=port, pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
+                HEADS_AND_SOURCES.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
                 hostname, port = input_str.split(":")
                 data_input = DownloadSource(host=hostname, port=int(port), pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
+                HEADS_AND_SOURCES.append(data_input)
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")
         else:
@@ -120,6 +123,7 @@ def build_data_input(data_input_ctx, pipeline):
                 file_input.add_path(input_str)
     if file_input:
         THREAD_PROCESS_ELEMENTS.append(file_input)
+        HEADS_AND_SOURCES.append(file_input)
 
 
 def explicit_data_output(output_type, data_format, output_url):
@@ -442,24 +446,32 @@ def parse_pipeline_element(pipeline_element_ctx, pipeline):
 
 # G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
 def build_pipeline(pipeline_ctx):
+    head_parsed = False
     pipeline = Pipeline()
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
         build_data_input(data_input_ctx, pipeline)
+        head_parsed = True
 
     elif pipeline_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_ctx.pipelineElement()
         pe = parse_pipeline_element(pipeline_element_ctx, pipeline)
         pipeline.add_processing_step(pe)
+        HEADS_AND_SOURCES.append(pe)
+        head_parsed = True
 
     elif pipeline_ctx.pipelines():
         pipelines_ctx = pipeline_ctx.pipelines()
         parse_pipelines(pipelines_ctx)
+        head_parsed = True
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
             pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline)
             pipeline.add_processing_step(pte)
+            if not head_parsed:
+                HEADS_AND_SOURCES.append(pte)
+                head_parsed = True
     THREAD_PROCESS_ELEMENTS.append(pipeline)
 
 
@@ -473,9 +485,12 @@ def parse_pipelines(pipelines_ctx):
 # reset global variable to so parse_script can be called more than once in a single process without confusion
 def priviatize_tp_elements():
     global THREAD_PROCESS_ELEMENTS
+    global HEADS_AND_SOURCES
     tp = THREAD_PROCESS_ELEMENTS
+    has = HEADS_AND_SOURCES
     THREAD_PROCESS_ELEMENTS = []
-    return tp
+    HEADS_AND_SOURCES = []
+    return tp, has
 
 
 def parse_script(script: str):
