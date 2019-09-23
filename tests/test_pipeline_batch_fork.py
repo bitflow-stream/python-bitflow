@@ -1,14 +1,12 @@
 import math
 import time
 import unittest
-import logging
-import sys
 
 from bitflow import fork, batch, processingstep, batchprocessingstep
 from bitflow import pipeline as pipe
 from bitflow.io import sinksteps, sources
-from bitflow.script import script_parser
 from bitflow.io.marshaller import *
+from bitflow.script import script_parser
 from tests.support import *
 
 
@@ -106,7 +104,8 @@ class TestBatchPipeline(unittest.TestCase):
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
         self.assertEqual(math.ceil((a - 1) / batch_size), b - 1)  # - minus header line
-#
+
+    #
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 

@@ -40,7 +40,7 @@ class Fork(ProcessingStep):
     as a normal  processing step
     """
 
-    def __init__(self,):
+    def __init__(self, ):
         super().__init__()
         self.pipeline_steps = []
         self.running_pipelines = {}
