@@ -32,7 +32,7 @@ def read_header(marshaller, s, buffer_size=2048):
     return header, over_recv_b
 
 
-class Source:
+class Source(metaclass=helper.CtrlMethodDecorator):
 
     def __init__(self, pipeline):
         self.running = multiprocessing.Value('i', 0)
@@ -59,11 +59,14 @@ class Source:
             self.pipeline.join()
 
     def stop(self):
-        self.running.value = 0
+        self.on_close()
         self.wait()
 
+    def on_close(self):
+        self.running.value = 0
 
-class _Source(multiprocessing.Process, metaclass=helper.OnCloseDeco):
+
+class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
 
     def __init__(self, sample_queue, pipeline_input_counter, marshaller, running):
         self.running = running
@@ -130,6 +133,9 @@ class _Source(multiprocessing.Process, metaclass=helper.OnCloseDeco):
             header = self.marshaller.unmarshall_header(b_header)
             return b, header, HEADER_UPDATED
         return b, header, NO_HEADER_LINE
+
+    def start(self):
+        super().start()  # Decorator logging
 
     def run(self):
         while self.running.value:

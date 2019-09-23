@@ -18,7 +18,7 @@ class PipelineTermination(ProcessingStep):
             self.sample_queue.put(s)
 
 
-class Pipeline(Thread, metaclass=helper.OnCloseDeco):
+class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
 
     def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE, multiprocessing_input=DEFAULT_MULTIPROCESSING_INPUT):
         super().__init__()
@@ -30,15 +30,13 @@ class Pipeline(Thread, metaclass=helper.OnCloseDeco):
         self.pipeline_termination = PipelineTermination(self.sample_queue_out)
         self.processing_steps = []
 
-    def create_queue(self, multiprocessing_input):
-        if multiprocessing_input:
-            sample_queue = multiprocessing.JoinableQueue(maxsize=self.maxsize)
-        else:
-            sample_queue = thread_queue.Queue(maxsize=self.maxsize)
-        return sample_queue
+    def start(self):
+        if self.processing_steps:
+            # Start call propagates through step hierarchy
+            self.processing_steps[0].start()
+        super().start()
 
     def run(self):
-        self.start_processing_steps()
         while self.input_counter.value > 0 or not self.sample_queue_in.empty():
             try:
                 sample = self.sample_queue_in.get(block=False)
@@ -52,9 +50,13 @@ class Pipeline(Thread, metaclass=helper.OnCloseDeco):
         if self.processing_steps:
             self.processing_steps[0].execute(s)
 
-    def start_processing_steps(self):
+    def stop(self):
+        self.input_counter.value = 0
+
+    def on_close(self):
+        self.read_queue()
         if self.processing_steps:
-            self.processing_steps[0].start()
+            self.processing_steps[0].stop()
 
     def add_processing_step(self, processing_step):
         if processing_step:
@@ -62,6 +64,13 @@ class Pipeline(Thread, metaclass=helper.OnCloseDeco):
                 self.processing_steps[-1].set_next_step(processing_step)
             processing_step.set_next_step(self.pipeline_termination)
             self.processing_steps.append(processing_step)
+
+    def create_queue(self, multiprocessing_input):
+        if multiprocessing_input:
+            sample_queue = multiprocessing.JoinableQueue(maxsize=self.maxsize)
+        else:
+            sample_queue = thread_queue.Queue(maxsize=self.maxsize)
+        return sample_queue
 
     def read_queue(self):
         try:
@@ -72,14 +81,6 @@ class Pipeline(Thread, metaclass=helper.OnCloseDeco):
                 self.sample_queue_in.task_done()
         except thread_queue.Empty:
             pass
-
-    def stop(self):
-        self.input_counter.value = 0
-
-    def on_close(self):
-        self.read_queue()
-        if self.processing_steps:
-            self.processing_steps[0].stop()
 
 
 class BatchPipelineTermination(ProcessingStep):

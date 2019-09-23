@@ -160,7 +160,7 @@ SUBCLASSES_TO_IGNORE = ["AsyncProcessingStep", "Fork", "BatchProcessingStep", "P
                         "BatchPipelineTermination"]
 
 
-class ProcessingStep(Source, metaclass=helper.OnCloseDeco):
+class ProcessingStep(Source, metaclass=helper.CtrlMethodDecorator):
     """ Abstract ProcessingStep Class"""
     __description__ = "No description written yet."
 
