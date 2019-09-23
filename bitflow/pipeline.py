@@ -18,7 +18,7 @@ class PipelineTermination(ProcessingStep):
             self.sample_queue.put(s)
 
 
-class Pipeline(Thread):
+class Pipeline(Thread, metaclass=helper.OnCloseDeco):
 
     def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE, multiprocessing_input=DEFAULT_MULTIPROCESSING_INPUT):
         super().__init__()
@@ -77,7 +77,6 @@ class Pipeline(Thread):
         self.input_counter.value = 0
 
     def on_close(self):
-        logging.info("{}: closing  ...".format(self.__name__))
         self.read_queue()
         if self.processing_steps:
             self.processing_steps[0].stop()

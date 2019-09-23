@@ -87,7 +87,6 @@ class _TCPSink(_AsyncProcessingStep):
             self.wrapper = None
 
     def on_close(self):
-        logging.info("closing {} ...".format(self.__name__))
         self.close_connection()
         super().on_close()
 
@@ -249,7 +248,6 @@ class _ListenSink(_AsyncProcessingStep):
         return None
 
     def on_close(self):
-        logging.info("{}: closing ...".format(self.__name__))
         for k, v in self.sample_queues.items():
             v["queue"].join()
         self.close_connections(self.outputs, self.sample_queues)
@@ -328,10 +326,10 @@ class _FileSink(_AsyncProcessingStep):
         return None
 
     def on_close(self):
-        logging.info("{}: closing ...".format(self.__name__))
         if self.f is not None:
             self.f.close()
             self.f = None
+        super().on_close()
 
 
 ############################
@@ -356,6 +354,3 @@ class TerminalOut(ProcessingStep):
             self.marshaller.marshall_header(sink=self.console_writer, header=self.header)
         self.marshaller.marshall_sample(sink=self.console_writer, sample=sample)
         self.write(sample)
-
-    def on_close(self):
-        logging.info("{}: closing ...".format(self.__name__))

@@ -5,6 +5,8 @@ import threading
 import typing
 from multiprocessing import Value
 
+from bitflow import helper
+from bitflow.io.sources import Source
 from bitflow.sample import Sample, Header
 
 STRING_LIST_SEPARATOR = ","
@@ -158,11 +160,12 @@ SUBCLASSES_TO_IGNORE = ["AsyncProcessingStep", "Fork", "BatchProcessingStep", "P
                         "BatchPipelineTermination"]
 
 
-class ProcessingStep:
+class ProcessingStep(Source, metaclass=helper.OnCloseDeco):
     """ Abstract ProcessingStep Class"""
     __description__ = "No description written yet."
 
-    def __init__(self):
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline)
         self.__name__ = "ProcessingStep"
         self.next_step = None
         self.started = False
@@ -197,7 +200,6 @@ class ProcessingStep:
             self.next_step.stop()
 
     def on_close(self):
-        logging.info("%s: closing  ...", self.__name__)
         pass
 
 
@@ -348,6 +350,7 @@ class ModifyTimestamp(ProcessingStep):
     __name__ = "modify-timestamp"
 
     def __init__(self, interval: int, start_time: str = "now"):
+        super().__init__()
         try:
             self.start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
         except Exception as e:
@@ -360,7 +363,6 @@ class ModifyTimestamp(ProcessingStep):
         except Exception as mtf:
             logging.error("Could not parse interval value to float in " + str(self) + "!\n" + str(mtf))
             self.on_close()
-        super().__init__()
 
     def execute(self, sample):
         self.start_time = self.start_time + self.interval

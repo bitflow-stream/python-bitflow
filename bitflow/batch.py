@@ -64,7 +64,6 @@ class Batch(ProcessingStep):
                                   self.__name__)
 
     def on_close(self):
-        logging.info("%s: closing  ...", self.__name__)
         self.flush()
         # Terminate pipeline
         self.input_counter.value -= 1

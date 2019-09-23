@@ -4,6 +4,7 @@ import socket
 import time
 import os
 
+from bitflow import helper
 from bitflow.io.marshaller import *
 
 NO_HEADER_LINE = 0
@@ -62,7 +63,7 @@ class Source:
         self.wait()
 
 
-class _Source(multiprocessing.Process):
+class _Source(multiprocessing.Process, metaclass=helper.OnCloseDeco):
 
     def __init__(self, sample_queue, pipeline_input_counter, marshaller, running):
         self.running = running
@@ -139,7 +140,6 @@ class _Source(multiprocessing.Process):
         self.running.value = 0  # Signal stop to self (break out from run method)
 
     def on_close(self):
-        logging.info("%s: closing  ...", self.__name__)
         self.pipeline_input_counter.value -= 1  # De-register as source from pipeline
         self.sample_queue.join()  # All samples that were put into the queue must be read and processed by pipeline
 

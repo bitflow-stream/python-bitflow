@@ -88,7 +88,6 @@ class Fork(ProcessingStep):
         pass
 
     def on_close(self):
-        logging.info("%s: closing  ...", self.__name__)
         for p in self.running_pipelines.keys():
             self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipelines
         for p in self.running_pipelines.keys():

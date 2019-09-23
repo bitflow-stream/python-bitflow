@@ -53,8 +53,7 @@ class BatchProcessingStep(ProcessingStep):
             self.next_step.stop()
 
     def on_close(self):
-        logging.info("%s: closing ...", self.__name__)
-
+        pass
 
 class AvgBatchProcessingStep(BatchProcessingStep):
     __description__ = "AVG all metrics"
