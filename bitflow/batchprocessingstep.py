@@ -77,6 +77,3 @@ class AvgBatchProcessingStep(BatchProcessingStep):
             for sample in samples:
                 metrics.append(sample.get_metrics())
             self.write_batch([self.build_sample(metrics, self.header, samples[0].timestamp, samples[0].tags)])
-
-    def on_close(self):
-        super().on_close()

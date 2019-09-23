@@ -23,6 +23,7 @@ class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
     def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE, multiprocessing_input=DEFAULT_MULTIPROCESSING_INPUT):
         super().__init__()
         self.__name__ = "Pipeline"
+        self.lock = multiprocessing.Lock()
         self.input_counter = multiprocessing.Value('i', 0)
         self.maxsize = maxsize
         self.sample_queue_in = self.create_queue(multiprocessing_input)
@@ -37,12 +38,13 @@ class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
         super().start()
 
     def run(self):
-        while self.input_counter.value > 0 or not self.sample_queue_in.empty():
+        while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
                 sample = self.sample_queue_in.get(block=False)
             except thread_queue.Empty:
                 continue
-            self.execute(sample)
+            if sample:
+                self.execute(sample)
             self.sample_queue_in.task_done()
         self.on_close()
 
@@ -104,8 +106,11 @@ class BatchPipeline(Pipeline):
         self.__name__ = "BatchPipeline"
         self.pipeline_termination = BatchPipelineTermination(self.sample_queue_out)
 
+    def start(self):
+        super().start()  # For Decorator
+
     def run(self):
-        while self.input_counter.value > 0 or not self.sample_queue_in.empty():
+        while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
                 samples = self.sample_queue_in.get(block=False)
             except thread_queue.Empty:

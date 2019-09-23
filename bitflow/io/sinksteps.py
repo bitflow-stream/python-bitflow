@@ -193,7 +193,7 @@ class _ListenSink(_AsyncProcessingStep):
     def has_to_send(self):
         empty = True
         for k, v in self.sample_queues.items():
-            if not v["queue"].empty():
+            if v["queue"].qsize() < 0:
                 empty = False
         if empty:
             return False

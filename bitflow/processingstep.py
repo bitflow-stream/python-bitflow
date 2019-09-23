@@ -1,5 +1,6 @@
 import datetime
 import logging
+import multiprocessing
 import queue
 import threading
 import typing
@@ -160,13 +161,13 @@ SUBCLASSES_TO_IGNORE = ["AsyncProcessingStep", "Fork", "BatchProcessingStep", "P
                         "BatchPipelineTermination"]
 
 
-class ProcessingStep(Source, metaclass=helper.CtrlMethodDecorator):
+class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
     """ Abstract ProcessingStep Class"""
     __description__ = "No description written yet."
 
-    def __init__(self, pipeline=None):
-        super().__init__(pipeline)
+    def __init__(self):
         self.__name__ = "ProcessingStep"
+        self.lock = multiprocessing.Lock()
         self.next_step = None
         self.started = False
 
@@ -181,8 +182,12 @@ class ProcessingStep(Source, metaclass=helper.CtrlMethodDecorator):
 
     def start(self):
         if self.next_step and not self.started:  # Execute once
+            self.on_start()
             self.next_step.start()
             self.started = True
+
+    def on_start(self):
+        pass
 
     def set_next_step(self, next_step):
         self.next_step = next_step
@@ -212,14 +217,13 @@ class AsyncProcessingStep(ProcessingStep):
         self.sample_queue_out = queue.Queue(maxsize=DEFAULT_QUEUE_MAXSIZE)
         self.threaded_step = None
 
-    def start(self):
+    def on_start(self):
         self.input_counter.value += 1
         if self.threaded_step:
             self.threaded_step.start()
         else:
             raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
                             "step seems to be broken.", self.__name__)
-        super().start()
 
     def execute(self, sample):
         self.sample_queue_in.put(sample)
@@ -237,10 +241,14 @@ class AsyncProcessingStep(ProcessingStep):
         except queue.Empty:
             pass
 
+    def stop(self):
+        self.on_close()
+        super().stop()
+
     def on_close(self):
         self.input_counter.value -= 1
-        self.threaded_step.join()  # TODO This and next line could lead to deadlock
         self.sample_queue_in.join()
+        self.threaded_step.join()
         self.clear_sample_queue_out()
         self.sample_queue_out.join()
         super().on_close()
@@ -254,8 +262,11 @@ class _AsyncProcessingStep(threading.Thread):
         self.sample_queue_out = sample_queue_out
         self.input_counter = input_counter
 
+    def start(self):
+        super().start()  # Trigger decorator
+
     def run(self):
-        while self.input_counter.value > 0 or not self.sample_queue_in.empty():
+        while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
                 sample = self.sample_queue_in.get(block=False)
             except queue.Empty:

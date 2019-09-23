@@ -44,7 +44,7 @@ def read_script(script_file):
 def start_threads_and_processes(tp_list):
     for t_p in tp_list:
         if isinstance(t_p, Source):
-            t_p.start()
+            t_p.start_and_wait()
 
 
 def main():

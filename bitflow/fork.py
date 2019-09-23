@@ -89,13 +89,13 @@ class Fork(ProcessingStep):
 
     def on_close(self):
         for p in self.running_pipelines.keys():
-            self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipelines
+            self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipeline
         for p in self.running_pipelines.keys():
-            self.running_pipelines[p][3].join()  # Wait for pipelines to terminate
             self.running_pipelines[p][0].join()  # Wait until all written samples are precessed by the pipeline
+            self.running_pipelines[p][3].join()  # Wait for pipelines to terminate
         self.forward_samples()  # Forward samples to next step
-        for key in self.running_pipelines:
-            self.running_pipelines[key][1].join()  # Make sure everything was correctly forwarded
+        for p in self.running_pipelines:
+            self.running_pipelines[p][1].join()  # Make sure everything was correctly forwarded
 
 
 class Fork_Tags(Fork):

@@ -23,22 +23,21 @@ class Batch(ProcessingStep):
         self.batch = []
         self.header = None
 
-    def start(self):
+    def on_start(self):
         self.input_counter.value += 1
         self.batch_pipeline.start()
-        super().start()
 
     def add_processing_step(self, processing_step):
         self.batch_pipeline.add_processing_step(processing_step)
 
     def forward_samples(self):
-        try:
-            while True:
+        while True:
+            try:
                 sample = self.sample_queue_out.get(block=False)
                 super().write(sample)
                 self.sample_queue_out.task_done()
-        except queue.Empty:
-            pass
+            except queue.Empty:
+                return
 
     def execute(self, sample):
         if not self.header:
@@ -67,10 +66,11 @@ class Batch(ProcessingStep):
         self.flush()
         # Terminate pipeline
         self.input_counter.value -= 1
+        # Wait until everything that was written to the queue is processed
+        self.sample_queue_in.join()
+        # Wait until pipeline terminates
         self.batch_pipeline.join()
         # Forward all result samples to next step
         self.forward_samples()
-        # Wait until everything that was written to the queue is processed
-        self.sample_queue_in.join()
         # Make sure everything was forwarded correctly
         self.sample_queue_out.join()
