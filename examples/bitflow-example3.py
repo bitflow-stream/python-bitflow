@@ -25,7 +25,7 @@ def main():
     pl.add_processing_step(batch_step)
     pl.add_processing_step(FileSink(filename=out_filename, data_format=CSV_DATA_FORMAT))
 
-    file_source.start()
+    file_source.start_and_wait()
 
 
 if __name__ == '__main__':

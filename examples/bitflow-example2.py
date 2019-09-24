@@ -27,7 +27,6 @@ class Delay(ProcessingStep):
 
 
 def main():
-    global pipeline
     # enable logging
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
@@ -42,18 +41,11 @@ def main():
     # add terminal output to pipeline
     pipeline.add_processing_step(TerminalOut())
 
-    # start pipeline
-    pipeline.start()
-
     # define file source
     filesource = FileSource(path=input_filename,
                             pipeline=pipeline)
     # start file source
-    filesource.start()
-
-    import time
-    time.sleep(4)
-    filesource.stop()
+    filesource.start_and_wait()
 
 
 if __name__ == '__main__':
