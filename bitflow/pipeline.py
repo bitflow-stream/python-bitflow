@@ -14,6 +14,7 @@ class PipelineTermination(ProcessingStep):
         self.sample_queue = sample_queue
 
     def execute(self, s):
+        super().write(s)
         if s:
             self.sample_queue.put(s)
 
@@ -30,22 +31,27 @@ class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
         self.sample_queue_out = self.create_queue(multiprocessing_input)
         self.pipeline_termination = PipelineTermination(self.sample_queue_out)
         self.processing_steps = []
+        self.sample_counter = 0
 
     def start(self):
+        super().start()
+
+    def forward_sample(self):
+        sample = self.sample_queue_in.get(block=False)
+        if sample:
+            self.execute(sample)
+            self.sample_counter += 1
+        self.sample_queue_in.task_done()
+
+    def run(self):
         if self.processing_steps:
             # Start call propagates through step hierarchy
             self.processing_steps[0].start()
-        super().start()
-
-    def run(self):
         while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
-                sample = self.sample_queue_in.get(block=False)
+                self.forward_sample()
             except thread_queue.Empty:
-                continue
-            if sample:
-                self.execute(sample)
-            self.sample_queue_in.task_done()
+                pass
         self.on_close()
 
     def execute(self, s):
@@ -57,6 +63,7 @@ class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
 
     def on_close(self):
         self.read_queue()
+        logging.info("%s: %d samples were piped", self.__name__, self.sample_counter)
         if self.processing_steps:
             self.processing_steps[0].stop()
 
@@ -77,10 +84,7 @@ class Pipeline(Thread, metaclass=helper.CtrlMethodDecorator):
     def read_queue(self):
         try:
             while True:
-                sample = self.sample_queue_in.get(block=False)
-                if sample:
-                    self.execute(sample)
-                self.sample_queue_in.task_done()
+                self.forward_sample()
         except thread_queue.Empty:
             pass
 
@@ -113,13 +117,15 @@ class BatchPipeline(Pipeline):
         while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
                 samples = self.sample_queue_in.get(block=False)
+                self.execute(samples)
+                self.sample_queue_in.task_done()
             except thread_queue.Empty:
                 continue
-            self.execute(samples)
-            self.sample_queue_in.task_done()
         self.on_close()
 
     def execute(self, samples: list):
+        if samples:
+            self.sample_counter += 1
         if self.processing_steps:
             self.processing_steps[0].execute(samples)
 

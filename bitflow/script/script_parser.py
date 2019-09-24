@@ -341,14 +341,14 @@ def build_subpipeline(subpipeline_ctx):
     subpipeline_processing_step_list = []
     if subpipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, None)  # maybe a pipeline is required here too
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
             if pte:
                 subpipeline_processing_step_list.append(pte)
     return subpipeline_processing_step_list
 
 
 # G4:   fork : name parameters schedulingHints? OPEN namedSubPipeline (EOP namedSubPipeline)*
-def build_fork(fork_ctx, pipeline):
+def build_fork(fork_ctx):
     parameters_dict = {}
     if fork_ctx.schedulingHints():
         scheduling_hints_ctx = fork_ctx.schedulingHints()
@@ -393,7 +393,7 @@ def build_batch_pipeline(batch_step, batch_step_ctx):
 
 
 # G4:   batch : name parameters schedulingHints? OPEN batchPipeline CLOSE ;
-def build_batch(batch_ctx, pipeline):
+def build_batch(batch_ctx):
     parameters_dict = {}
     if batch_ctx.schedulingHints():
         scheduling_hints_ctx = batch_ctx.schedulingHints()
@@ -405,7 +405,6 @@ def build_batch(batch_ctx, pipeline):
     batch_step_ctx = batch_ctx.batchPipeline()
     batch_step = build_batch_pipeline(batch_step, batch_step_ctx)
 
-    THREAD_PROCESS_ELEMENTS.append(pipeline)
     return batch_step
 
 
@@ -415,11 +414,11 @@ def build_multiplex_fork(multiplex_fork_ctx):
 
 
 # G4:   pipelineTailElement : pipelineElement | multiplexFork | dataOutput ;
-def parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline):
+def parse_pipeline_tail_element(pipeline_tail_element_ctx):
     pe = None
     if pipeline_tail_element_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_tail_element_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx, pipeline)
+        pe = parse_pipeline_element(pipeline_element_ctx)
     elif pipeline_tail_element_ctx.multiplexFork():
         multiplex_fork_ctx = pipeline_tail_element_ctx.multiplexFork()
         pe = build_multiplex_fork(multiplex_fork_ctx)
@@ -430,48 +429,44 @@ def parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline):
 
 
 # G4:   pipelineElement : processingStep | fork | batch ;
-def parse_pipeline_element(pipeline_element_ctx, pipeline):
+def parse_pipeline_element(pipeline_element_ctx):
     pipeline_element = None
     if pipeline_element_ctx.processingStep():
         processing_step_ctx = pipeline_element_ctx.processingStep()
         pipeline_element = build_processing_step(processing_step_ctx)
     elif pipeline_element_ctx.fork():
         fork_ctx = pipeline_element_ctx.fork()
-        pipeline_element = build_fork(fork_ctx, pipeline)
+        pipeline_element = build_fork(fork_ctx)
     elif pipeline_element_ctx.batch():
         batch_ctx = pipeline_element_ctx.batch()
-        pipeline_element = build_batch(batch_ctx, pipeline)
+        pipeline_element = build_batch(batch_ctx)
     return pipeline_element
 
 
 # G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
 def build_pipeline(pipeline_ctx):
-    head_parsed = False
+    has_input = False
     pipeline = Pipeline()
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
         build_data_input(data_input_ctx, pipeline)
-        head_parsed = True
+        has_input = True
 
     elif pipeline_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx, pipeline)
+        pe = parse_pipeline_element(pipeline_element_ctx)
         pipeline.add_processing_step(pe)
-        HEADS_AND_SOURCES.append(pe)
-        head_parsed = True
 
     elif pipeline_ctx.pipelines():
         pipelines_ctx = pipeline_ctx.pipelines()
         parse_pipelines(pipelines_ctx)
-        head_parsed = True
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline)
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
             pipeline.add_processing_step(pte)
-            if not head_parsed:
-                HEADS_AND_SOURCES.append(pte)
-                head_parsed = True
+    if not has_input:
+        HEADS_AND_SOURCES.append(pipeline)
     THREAD_PROCESS_ELEMENTS.append(pipeline)
 
 

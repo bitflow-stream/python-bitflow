@@ -77,7 +77,8 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
         self.running = running
         self.marshaller = marshaller
         self.header = None
-        self.counter = 0
+        self.sample_counter_in = 0
+        self.sample_counter_out = 0
         super().__init__()
 
     def __str__(self):
@@ -87,7 +88,7 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
         sample = self.marshaller.unmarshall_sample(header, b_metrics)
         if sample:
             self.pipeline_sample_queue_in.put(sample)
-            self.counter += 1
+            self.sample_counter_in += 1
 
     def cut_bytes(self, cutting_pos, b, cut_len=0):
         begin = b[0:cutting_pos]
@@ -146,15 +147,18 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
             self.pipeline.start()
         while self.running.value:
             self.loop()
+            self.clear_out_samples()  # Prevent queue congestion
         self.on_close()
 
     def clear_out_samples(self):
-        try:
-            while True:
-                self.pipeline_sample_queue_out.get(block=False)
+        while self.pipeline_sample_queue_out.qsize() > 0:
+            try:
+                sample = self.pipeline_sample_queue_out.get(block=False)
+                if sample:
+                    self.sample_counter_out += 1
                 self.pipeline_sample_queue_out.task_done()
-        except queue.Empty:
-            pass
+            except queue.Empty:
+                pass
 
     def wait(self):
         if self.pipeline:
@@ -167,8 +171,10 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
         self.running.value = 0  # Signal stop to self (break out from run method)
 
     def on_close(self):
+        logging.info("%s: %d samples were read", self.__name__, self.sample_counter_in)
         self.pipeline_input_counter.value -= 1  # De-register as source from pipeline
         self.wait()
+        logging.info("%s: %d samples were processed", self.__name__, self.sample_counter_out)
 
     # Abstract
     def loop(self):
@@ -180,6 +186,20 @@ class EmptySource(Source):
     def __init__(self, pipeline):
         super().__init__(pipeline)
         self.__name__ = "EmptySource"
+        self._source = _EmptySource(self.running, pipeline)
+
+
+class _EmptySource(_Source):
+
+    def __init__(self, running, pipeline):
+        super().__init__(pipeline, None, running)
+        self.__name__ = "EmptySource_inner"
+
+    def loop(self):
+        pass
+
+    def on_close(self):
+        super().on_close()
 
 
 class FileSource(Source):
@@ -320,8 +340,7 @@ class DownloadSource(Source):
     def __init__(self, pipeline, host, port, buffer_size=2048):
         super().__init__(pipeline)
         self.__name__ = "DownloadSource"
-        self._source = _DownloadSource(self.running, host, port, pipeline.sample_queue_in,
-                                       pipeline.input_counter, buffer_size)
+        self._source = _DownloadSource(self.running, host, port, pipeline, buffer_size)
 
     def __str__(self):
         return "DownloadSource"

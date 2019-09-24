@@ -170,6 +170,7 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
         self.lock = multiprocessing.Lock()
         self.next_step = None
         self.started = False
+        self.sample_counter = 0
 
     @staticmethod
     def get_all_subclasses(cls):
@@ -195,6 +196,8 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
     def write(self, sample):
         if sample and self.next_step:
             self.next_step.execute(sample)
+        if sample:
+            self.sample_counter += 1
 
     def execute(self, sample):
         pass
@@ -205,7 +208,7 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
             self.next_step.stop()
 
     def on_close(self):
-        pass
+        logging.info("%s: %d samples were processed", self.__name__, self.sample_counter)
 
 
 class AsyncProcessingStep(ProcessingStep):
@@ -225,19 +228,22 @@ class AsyncProcessingStep(ProcessingStep):
             raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
                             "step seems to be broken.", self.__name__)
 
+    def forward_sample(self):
+        sample_out = self.sample_queue_out.get(block=False)
+        self.write(sample_out)
+        self.sample_queue_out.task_done()
+
     def execute(self, sample):
         self.sample_queue_in.put(sample)
         try:
-            sample_out = self.sample_queue_out.get(block=False)
-            self.write(sample_out)
+            self.forward_sample()
         except queue.Empty:
             pass
 
     def clear_sample_queue_out(self):
         try:
             while True:  # Read until queue is empty
-                sample_out = self.sample_queue_out.get(block=False)
-                self.write(sample_out)
+                self.forward_sample()
         except queue.Empty:
             pass
 
@@ -246,6 +252,7 @@ class AsyncProcessingStep(ProcessingStep):
         super().stop()
 
     def on_close(self):
+        # make running value for consistency with other implementations
         self.input_counter.value -= 1
         self.sample_queue_in.join()
         self.threaded_step.join()
@@ -261,6 +268,8 @@ class _AsyncProcessingStep(threading.Thread):
         self.sample_queue_in = sample_queue_in
         self.sample_queue_out = sample_queue_out
         self.input_counter = input_counter
+        self.sample_counter_in = 0
+        self.sample_counter_out = 0
 
     def start(self):
         super().start()  # Trigger decorator
@@ -268,13 +277,17 @@ class _AsyncProcessingStep(threading.Thread):
     def run(self):
         while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
             try:
-                sample = self.sample_queue_in.get(block=False)
+                sample = self.sample_queue_in.get(block=True, timeout=1)
+                if sample:
+                    sample_out = self.loop(sample)
+                    self.sample_counter_in += 1
+                    if sample_out:
+                        self.sample_queue_out.put(sample_out)
+                        self.sample_counter_out += 1
+                self.sample_queue_in.task_done()
             except queue.Empty:
                 continue
-            sample_out = self.loop(sample)
-            if sample_out:
-                self.sample_queue_out.put(sample_out)
-            self.sample_queue_in.task_done()
+
         self.on_close()
 
     def process_remaining_samples(self):
@@ -289,6 +302,8 @@ class _AsyncProcessingStep(threading.Thread):
                 break
 
     def on_close(self):
+        logging.info("%s: %d samples were written", self.__name__, self.sample_counter_in)
+        logging.info("%s: %d samples were forwarded", self.__name__, self.sample_counter_out)
         self.process_remaining_samples()
 
     def loop(self, sample):
