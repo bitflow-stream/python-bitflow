@@ -1,4 +1,7 @@
 pipeline {
+    options {
+        timeout(time: 1, unit: 'HOURS')
+    }
     agent {
         docker {
             image 'teambitflow/python-docker:3.7-stretch'
