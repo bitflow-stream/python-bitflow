@@ -166,6 +166,7 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
             self.pipeline_sample_queue_in.join()
             self.pipeline.join()  # Join pipeline thread.
             self.clear_out_samples()
+            self.pipeline_sample_queue_out.join()
 
     def stop(self):
         self.running.value = 0  # Signal stop to self (break out from run method)

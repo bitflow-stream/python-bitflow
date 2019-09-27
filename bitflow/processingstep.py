@@ -167,7 +167,6 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
 
     def __init__(self):
         self.__name__ = "ProcessingStep"
-        self.lock = multiprocessing.Lock()
         self.next_step = None
         self.started = False
         self.sample_counter = 0

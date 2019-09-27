@@ -32,8 +32,8 @@ class TCPSink(AsyncProcessingStep):
 
 class _TCPSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int,
-                 data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
+                 reconnect_timeout: int):
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.marshaller = get_marshaller_by_data_format(data_format)
         self.__name__ = "TCPSink_inner"
@@ -121,9 +121,8 @@ class ListenSink(AsyncProcessingStep):
 
 class _ListenSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str = "0.0.0.0", port: int = 5010,
-                 data_format: str = CSV_DATA_FORMAT, sample_buffer_size: int = -1, max_receivers: int = 5,
-                 retry_on_close: bool = False):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
+                 sample_buffer_size: int, max_receivers: int, retry_on_close: bool):
 
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.__name__ = "ListenSink_inner"
@@ -322,8 +321,7 @@ class FileSink(AsyncProcessingStep):
 
 class _FileSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str,
-                 data_format: str = CSV_DATA_FORMAT):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str, data_format: str):
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.__name__ = "FileSink_inner"
         self.marshaller = get_marshaller_by_data_format(data_format)
