@@ -56,10 +56,8 @@ def main():
     # prepare file source
     file_source = FileSource(path=in_file,
                              pipeline=pipeline)
-    # start pipeline
-    pipeline.start()
     # start file_source
-    file_source.start()
+    file_source.start_and_wait()
 
 
 if __name__ == '__main__':

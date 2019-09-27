@@ -70,12 +70,11 @@ def main():
     pipeline.add_processing_step(fs)
     pipeline.add_processing_step(to)
 
-    pipeline.start()
     download_source = DownloadSource(host=download_host,
                                      port=download_port,
                                      pipeline=pipeline,
                                      buffer_size=2048)
-    download_source.start()
+    download_source.start_and_wait()
 
 
 if __name__ == '__main__':

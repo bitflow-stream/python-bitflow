@@ -7,6 +7,7 @@ import sys
 from bitflow.script.script_parser import *
 
 THREADS_AND_PROCESSES = []
+HEADS_AND_SOURCES = []
 CLOSING = False
 
 
@@ -20,8 +21,9 @@ def configure_logging(logging_level, filename=None):
 def strg_c_exit():
     global THREADS_AND_PROCESSES
     logging.warning("Closing python-bitflow ...")
-    for t_p in THREADS_AND_PROCESSES:
-        t_p.stop()
+    for t_p in THREAD_PROCESS_ELEMENTS:
+        if isinstance(t_p, Source):
+            t_p.stop()
 
 
 def sig_int_handler(signal, frame):
@@ -41,11 +43,13 @@ def read_script(script_file):
 
 def start_threads_and_processes(tp_list):
     for t_p in tp_list:
-        t_p.start()
+        if isinstance(t_p, Source):
+            t_p.start_and_wait()
 
 
 def main():
     global THREADS_AND_PROCESSES
+    global HEADS_AND_SOURCES
     signal.signal(signal.SIGINT, sig_int_handler)
     parser = argparse.ArgumentParser()
 
@@ -106,8 +110,8 @@ def main():
         script = args.s
 
     try:
-        THREADS_AND_PROCESSES = parse_script(script)
-        start_threads_and_processes(THREADS_AND_PROCESSES)
+        THREADS_AND_PROCESSES, HEADS_AND_SOURCES = parse_script(script)
+        start_threads_and_processes(HEADS_AND_SOURCES)
     except NotSupportedError as nse:
         logging.error(nse)
         strg_c_exit()

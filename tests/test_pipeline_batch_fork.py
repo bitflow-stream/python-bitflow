@@ -5,8 +5,8 @@ import unittest
 from bitflow import fork, batch, processingstep, batchprocessingstep
 from bitflow import pipeline as pipe
 from bitflow.io import sinksteps, sources
-from bitflow.script import script_parser
 from bitflow.io.marshaller import *
+from bitflow.script import script_parser
 from tests.support import *
 
 
@@ -36,8 +36,7 @@ class TestFork(unittest.TestCase):
         pl.add_processing_step(processingstep.DebugGenerationStep())
         pl.add_processing_step(tag_fork)
         pl.start()
-        time.sleep(2)
-        pl.stop()
+        pl.join()
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
@@ -47,126 +46,86 @@ class TestFork(unittest.TestCase):
 
 
 class TestBatchPipeline(unittest.TestCase):
-    DEFAULT_SLEEPING_DURATION = 2
 
     def test_batch_pipeline_add_batch_step(self):
         batch_size = 20
         pl = pipe.Pipeline()
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
-        batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
-        batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
-        batch_step.set_root_pipeline(pl)
-        batch_step.set_batch_pipeline(batch_pipeline)
+        batch_step.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
         pl.add_processing_step(batch_step)
-        file_source.start()
-        batch_pipeline.start()
-        pl.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
+
+        file_source.start_and_wait()
 
     def test_batch_pipeline_number_of_samples_out_size_1(self):
+        remove_files(TEST_OUT_FILES)
         batch_size = 1
         pl = pipe.Pipeline()
-        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
+        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV_SMALL, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
-        batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
-        batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
-        batch_step.set_root_pipeline(pl)
-        batch_step.set_batch_pipeline(batch_pipeline)
+        batch_step.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
         pl.add_processing_step(batch_step)
         pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
-        batch_pipeline.start()
-        pl.start()
-        file_source.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
+        file_source.start_and_wait()
 
-        a = file_len(TESTING_IN_FILE_CSV)
-        b = file_len(TESTING_OUT_FILE_CSV)
+        a = read_file(TESTING_EXPECTED_BATCH_OUT_SMALL)
+        b = read_file(TESTING_OUT_FILE_CSV)
         self.assertEqual(a, b)
 
     def test_batch_pipeline_number_of_samples_out_size_20(self):
+        remove_files(TEST_OUT_FILES)
         batch_size = 20
         pl = pipe.Pipeline()
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
-        batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
-        batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
-        batch_step.set_root_pipeline(pl)
-        batch_step.set_batch_pipeline(batch_pipeline)
+        batch_step.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
         pl.add_processing_step(batch_step)
         pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
-        batch_pipeline.start()
-        pl.start()
-        file_source.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
+        file_source.start_and_wait()
 
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
-        self.assertEqual(math.floor((a - 1) / batch_size), b - 1)  # - header line
+        self.assertEqual(math.ceil((a - 1) / batch_size), b - 1)  # - header line
 
     def test_batch_pipeline_number_of_samples_out_size_37(self):
+        remove_files(TEST_OUT_FILES)
         batch_size = 37
         pl = pipe.Pipeline()
         file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pl)
         batch_step = batch.Batch(size=batch_size)
-        batch_pipeline = pipe.BatchPipeline(multiprocessing_input=False)
-        batch_pipeline.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
-        batch_step.set_root_pipeline(pl)
-        batch_step.set_batch_pipeline(batch_pipeline)
+        batch_step.add_processing_step(batchprocessingstep.AvgBatchProcessingStep())
         pl.add_processing_step(batch_step)
         pl.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
 
-        file_source.start()
-        batch_pipeline.start()
-        pl.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        batch_pipeline.stop()
-        pl.stop()
+        file_source.start_and_wait()
 
         a = file_len(TESTING_IN_FILE_CSV)
         b = file_len(TESTING_OUT_FILE_CSV)
-        self.assertEqual(math.floor((a - 1) / batch_size), b - 1)  # - minus header line
+        self.assertEqual(math.ceil((a - 1) / batch_size), b - 1)  # - minus header line
 
+    #
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
     def tearDown(self):
+        time.sleep(2)
         remove_files(TEST_OUT_FILES)
 
 
 class TestPipeline(unittest.TestCase):
-    DEFAULT_SLEEPING_DURATION = 2
 
     def test_simple_empty_one_step_pipeline(self):
         pl = pipe.Pipeline()
         pl.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pl.stop()
+        pl.join()
 
     def test_generative_processing_step(self):
         pl = pipe.Pipeline()
         pl.add_processing_step(processingstep.DebugGenerationStep())
         pl.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        pl.stop()
-
-    def test_subpipeline(self):
-        inner_pipeline = pipe.Pipeline()
-
-        outer_pipeline = pipe.Pipeline()
-        outer_pipeline.add_processing_step(processingstep.DebugGenerationStep())
-        outer_pipeline.add_processing_step(inner_pipeline)
-        outer_pipeline.start()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        outer_pipeline.stop()
+        pl.join()
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)

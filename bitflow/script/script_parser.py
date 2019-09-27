@@ -1,13 +1,13 @@
 import pathlib
 import re
-
 from antlr4 import *
 
+from bitflow.batch import *
 from bitflow.batchprocessingstep import *
 from bitflow.fork import *
 from bitflow.helper import *
 from bitflow.io.marshaller import *
-from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink
+from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink, get_filepath
 from bitflow.io.sources import FileSource, ListenSource, DownloadSource
 from bitflow.script.BitflowLexer import BitflowLexer
 from bitflow.script.BitflowParser import BitflowParser
@@ -39,15 +39,14 @@ CAPABILITY_JSON_DESCRIPTION_FIELD = "Description"
 CAPABILITY_JSON_OPTIONAL_PARM_FIELD = "OptionalParms"
 CAPABILITY_JSON_REQUIRED_PARM_FIELD = "RequiredParms"
 
+HEADS_AND_SOURCES = []
 THREAD_PROCESS_ELEMENTS = []
 
 
 # returns all steps as json
 def capabilities():
     steps_lst = []
-    processing_steps = ProcessingStep.subclasses
-    batch_processing_steps = BatchProcessingStep.subclasses
-    processing_steps.extend(batch_processing_steps)
+    processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
     for step in processing_steps:
         step_dict = {CAPABILITY_JSON_NAME_FIELD: step.__name__}
         if issubclass(step, Fork):
@@ -105,17 +104,15 @@ def build_data_input(data_input_ctx, pipeline):
                 logging.info("Listen Source: " + input_str)
                 port_str = input_str[1:]
                 port = int(port_str)
-                data_input = ListenSource(port=port,
-                                          pipeline=pipeline)
+                data_input = ListenSource(port=port, pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
+                HEADS_AND_SOURCES.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
                 hostname, port = input_str.split(":")
-                data_input = DownloadSource(
-                    host=hostname,
-                    port=int(port),
-                    pipeline=pipeline)
+                data_input = DownloadSource(host=hostname, port=int(port), pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
+                HEADS_AND_SOURCES.append(data_input)
         elif input_str == "-":
             raise NotSupportedError("StdIn Input not supported yet ...")
         else:
@@ -126,6 +123,7 @@ def build_data_input(data_input_ctx, pipeline):
                 file_input.add_path(input_str)
     if file_input:
         THREAD_PROCESS_ELEMENTS.append(file_input)
+        HEADS_AND_SOURCES.append(file_input)
 
 
 def explicit_data_output(output_type, data_format, output_url):
@@ -193,9 +191,8 @@ def implicit_data_output(output_url, data_format=None):
         output_ps = TerminalOut(data_format=df)
     else:
         df = infer_data_format(output_url)
-        output_ps = FileSink(filename=output_url,
-                             data_format=df)
-        logging.info("FileSink: " + str(output_ps.get_filepath(output_url)))
+        output_ps = FileSink(filename=output_url, data_format=df)
+        logging.info("FileSink: " + str(get_filepath(output_url)))
 
     return output_ps
 
@@ -288,10 +285,10 @@ def parse_name(name_ctx):
 
 # G4:   listValue : OPEN_HINTS (primitiveValue (SEP primitiveValue)*)? CLOSE_HINTS ;
 def parse_list_value(list_value_ctx):
-    l = []
+    lst = []
     for primitive_value_ctx in list_value_ctx.primitiveValue():
-        l.append(parse_name(primitive_value_ctx.name()))
-    return l
+        lst.append(parse_name(primitive_value_ctx.name()))
+    return lst
 
 
 # G4:   mapValueElement : name EQ primitiveValue ;
@@ -344,14 +341,14 @@ def build_subpipeline(subpipeline_ctx):
     subpipeline_processing_step_list = []
     if subpipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in subpipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, None)  # maybe a pipeline is required here too
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
             if pte:
                 subpipeline_processing_step_list.append(pte)
     return subpipeline_processing_step_list
 
 
 # G4:   fork : name parameters schedulingHints? OPEN namedSubPipeline (EOP namedSubPipeline)*
-def build_fork(fork_ctx, pipeline):
+def build_fork(fork_ctx):
     parameters_dict = {}
     if fork_ctx.schedulingHints():
         scheduling_hints_ctx = fork_ctx.schedulingHints()
@@ -368,7 +365,7 @@ def build_fork(fork_ctx, pipeline):
         # gives outer pipeline to the fork ps. so that after trivising fork pipeline samples go back
         # into outer pipeline. each pipeline runs in their own thread, future thread or process.
         # To keep this pipeline has must be passed
-        fork.set_root_pipeline(pipeline)
+        # fork.set_root_pipeline(pipeline)
     return fork
 
 
@@ -382,22 +379,21 @@ def build_batch_processing_step(processing_step_ctx):
     parse_parameters(processing_step_ctx.parameters(), parameters_dict)
     ps = initialize_batch_step(name_str, parameters_dict)
     if not ps:
-        raise ProcessingStepNotKnown("{}: unsopported processing step ...".format(name_str))
+        raise ProcessingStepNotKnown("{}: unsupported processing step ...".format(name_str))
     return ps
 
 
 # G4:   batchPipeline : processingStep (NEXT processingStep)* ;
-def build_batch_pipeline(batch_pipeline_ctx):
-    batch_pipeline = BatchPipeline()
-    if batch_pipeline_ctx.processingStep():
-        for processing_step_ctx in batch_pipeline_ctx.processingStep():
+def build_batch_pipeline(batch_step, batch_step_ctx):
+    if batch_step_ctx.processingStep():
+        for processing_step_ctx in batch_step_ctx.processingStep():
             ps = build_batch_processing_step(processing_step_ctx)
-            batch_pipeline.add_processing_step(ps)
-    return batch_pipeline
+            batch_step.add_processing_step(ps)
+    return batch_step
 
 
 # G4:   batch : name parameters schedulingHints? OPEN batchPipeline CLOSE ;
-def build_batch(batch_ctx, pipeline):
+def build_batch(batch_ctx):
     parameters_dict = {}
     if batch_ctx.schedulingHints():
         scheduling_hints_ctx = batch_ctx.schedulingHints()
@@ -405,16 +401,11 @@ def build_batch(batch_ctx, pipeline):
 
     parse_parameters(batch_ctx.parameters(), parameters_dict)
     name_str = parse_name(batch_ctx.name())
-    batch = initialize_step(name_str, parameters_dict)
+    batch_step = initialize_step(name_str, parameters_dict)
+    batch_step_ctx = batch_ctx.batchPipeline()
+    batch_step = build_batch_pipeline(batch_step, batch_step_ctx)
 
-    batch_pipeline_ctx = batch_ctx.batchPipeline()
-    batch_pipeline = build_batch_pipeline(batch_pipeline_ctx)
-    batch.set_batch_pipeline(batch_pipeline)
-    # gives outer pipeline to the batch ps. so that after trivising batch pipeline samples go back into outer pipeline.
-    # each pipeline runs in their own thread, future thread or process. To keep this pipeline has must be passed
-    batch.set_root_pipeline(pipeline)
-    THREAD_PROCESS_ELEMENTS.append(batch_pipeline)
-    return batch
+    return batch_step
 
 
 # G4:   multiplexFork : OPEN subPipeline (EOP subPipeline)* EOP? CLOSE ;
@@ -423,11 +414,11 @@ def build_multiplex_fork(multiplex_fork_ctx):
 
 
 # G4:   pipelineTailElement : pipelineElement | multiplexFork | dataOutput ;
-def parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline):
+def parse_pipeline_tail_element(pipeline_tail_element_ctx):
     pe = None
     if pipeline_tail_element_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_tail_element_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx, pipeline)
+        pe = parse_pipeline_element(pipeline_element_ctx)
     elif pipeline_tail_element_ctx.multiplexFork():
         multiplex_fork_ctx = pipeline_tail_element_ctx.multiplexFork()
         pe = build_multiplex_fork(multiplex_fork_ctx)
@@ -438,30 +429,32 @@ def parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline):
 
 
 # G4:   pipelineElement : processingStep | fork | batch ;
-def parse_pipeline_element(pipeline_element_ctx, pipeline):
+def parse_pipeline_element(pipeline_element_ctx):
     pipeline_element = None
     if pipeline_element_ctx.processingStep():
         processing_step_ctx = pipeline_element_ctx.processingStep()
         pipeline_element = build_processing_step(processing_step_ctx)
     elif pipeline_element_ctx.fork():
         fork_ctx = pipeline_element_ctx.fork()
-        pipeline_element = build_fork(fork_ctx, pipeline)
+        pipeline_element = build_fork(fork_ctx)
     elif pipeline_element_ctx.batch():
         batch_ctx = pipeline_element_ctx.batch()
-        pipeline_element = build_batch(batch_ctx, pipeline)
+        pipeline_element = build_batch(batch_ctx)
     return pipeline_element
 
 
 # G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
 def build_pipeline(pipeline_ctx):
+    has_input = False
     pipeline = Pipeline()
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
         build_data_input(data_input_ctx, pipeline)
+        has_input = True
 
     elif pipeline_ctx.pipelineElement():
         pipeline_element_ctx = pipeline_ctx.pipelineElement()
-        pe = parse_pipeline_element(pipeline_element_ctx, pipeline)
+        pe = parse_pipeline_element(pipeline_element_ctx)
         pipeline.add_processing_step(pe)
 
     elif pipeline_ctx.pipelines():
@@ -470,8 +463,10 @@ def build_pipeline(pipeline_ctx):
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
-            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx, pipeline)
+            pte = parse_pipeline_tail_element(pipeline_tail_element_ctx)
             pipeline.add_processing_step(pte)
+    if not has_input:
+        HEADS_AND_SOURCES.append(pipeline)
     THREAD_PROCESS_ELEMENTS.append(pipeline)
 
 
@@ -485,9 +480,12 @@ def parse_pipelines(pipelines_ctx):
 # reset global variable to so parse_script can be called more than once in a single process without confusion
 def priviatize_tp_elements():
     global THREAD_PROCESS_ELEMENTS
+    global HEADS_AND_SOURCES
     tp = THREAD_PROCESS_ELEMENTS
+    has = HEADS_AND_SOURCES
     THREAD_PROCESS_ELEMENTS = []
-    return tp
+    HEADS_AND_SOURCES = []
+    return tp, has
 
 
 def parse_script(script: str):
@@ -498,4 +496,5 @@ def parse_script(script: str):
     parser = BitflowParser(stream)
     ctx = parser.script()
     parse_pipelines(ctx.pipelines())
+
     return priviatize_tp_elements()

@@ -6,7 +6,7 @@ from bitflow.processingstep import *
 
 
 def initialize_fork(name, script_args):
-    fork_steps = Fork.subclasses
+    fork_steps = Fork.get_all_subclasses(Fork)
 
     for f in fork_steps:
         if f.__name__.lower() == name.lower() and compare_args(f, script_args):
@@ -40,33 +40,19 @@ class Fork(ProcessingStep):
     as a normal  processing step
     """
 
-    class _ForkPipelineTerminator(ProcessingStep):
-        __name__ = "SubPipelineTerminator"
-        __description__ = "Terminates a subpipeline by forwarding samples to next ps in the outer pipeline. " \
-                          "Goal Seperate Threads, Processes for each Pipeline"
-
-        def __init__(self, fork_ps, outer_pipeline):
-            super().__init__()
-            self.op = outer_pipeline
-            self.fork_ps = fork_ps
-
-        def execute(self, sample):
-            self.write(sample)
-
-        def write(self, sample):
-            self.op.execute_after(sample, self.fork_ps)
-
-    subclasses = []
-
-    def __init__(self, outer_pipeline=None):
+    def __init__(self):
         super().__init__()
-        self.fork_pipelines = []
+        self.pipeline_steps = []
         self.running_pipelines = {}
-        self.outer_pipeline = outer_pipeline
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.subclasses.append(cls)
+    @staticmethod
+    def get_all_subclasses(cls):
+        all_subclasses = []
+        for subclass in cls.__subclasses__():
+            if subclass.__name__ not in SUBCLASSES_TO_IGNORE:
+                all_subclasses.append(subclass)
+            all_subclasses.extend(ProcessingStep.get_all_subclasses(subclass))
+        return all_subclasses
 
     # current workaround for bitflow script, parse names and processing steps for new
     # subpipeline. generate new pipeline if required by incoming sample
@@ -75,47 +61,54 @@ class Fork(ProcessingStep):
             names = []
         if processing_steps is None:
             processing_steps = []
-        self.fork_pipelines.append((processing_steps, names))
-
-    def remove_pipeline(self, i: int):
-        self.fork_pipelines.remove(i)
-
-    def get_pipelines(self):
-        return self.fork_pipelines
+        self.pipeline_steps.append((processing_steps, names))
 
     def spawn_new_subpipeline(self, ps_list, name):
         p = Pipeline(multiprocessing_input=False)
         for ps in ps_list:
             p.add_processing_step(ps)
+        p.add_processing_step(self)
+        # TODO Ugly. Needs something better
+        self.running_pipelines[name] = (p.sample_queue_in, p.sample_queue_out, p.input_counter, p)
+        self.running_pipelines[name][2].value += 1
         p.start()
-        if self.outer_pipeline:
-            p.add_processing_step(self._ForkPipelineTerminator(
-                fork_ps=self,
-                outer_pipeline=self.outer_pipeline))
-        self.running_pipelines[name] = p
-        return p
+
+    def forward_samples(self):
+        if self.running_pipelines:
+            for key in self.running_pipelines:
+                try:
+                    while True:
+                        sample = self.running_pipelines[key][1].get(block=False)
+                        self.write(sample)
+                        self.running_pipelines[key][1].task_done()
+                except queue.Empty:
+                    pass
 
     def execute(self, sample):
-        raise NotImplementedError
+        pass
 
     def on_close(self):
-        super().on_close()
-        for p in list(self.running_pipelines.keys()):
-            self.running_pipelines[p].stop()
+        for p in self.running_pipelines.keys():
+            self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipeline
+        for p in self.running_pipelines.keys():
+            self.running_pipelines[p][0].join()  # Wait until all written samples are precessed by the pipeline
+            self.running_pipelines[p][3].join()  # Wait for pipelines to terminate
+        self.forward_samples()  # Forward samples to next step
+        for p in self.running_pipelines:
+            self.running_pipelines[p][1].join()  # Make sure everything was correctly forwarded
 
 
 class Fork_Tags(Fork):
     supported_compare_methods = ["wildcard", "exact"]
 
     def __init__(self, tag: str, mode: str = "wildcard"):
-        super().__init__(outer_pipeline=None)
+        super().__init__()
         self.__name__ = "Fork_Tags"
         if mode in self.supported_compare_methods:
             self.mode = mode
         else:
-            raise NotSupportedWarning("{}: {} method not supported. Only support {}".format(
-                self.__name__, self.mode,
-                self.supported_compare_methods))
+            raise NotSupportedWarning("%s: %s method not supported. Supported methods: %s.", self.__name__, self.mode,
+                                      str(self.supported_compare_methods))
         self.tag = tag
 
     def compare(self, tag_value, names, mode):
@@ -128,19 +121,13 @@ class Fork_Tags(Fork):
             return True
         return False
 
-    def set_root_pipeline(self, outer_pipeline):
-        self.outer_pipeline = outer_pipeline
-
     def execute(self, sample):
         if sample.get_tag(self.tag):
             tag_value = sample.get_tag(self.tag)
-            for processing_steps_list, names in self.fork_pipelines:
+            for steps, names in self.pipeline_steps:
                 if not self.compare(tag_value, names, self.mode):
                     # if tag value not known, ignore
                     continue
-                if tag_value in self.running_pipelines:
-                    p = self.running_pipelines[tag_value]
-                else:
-                    p = self.spawn_new_subpipeline(processing_steps_list, tag_value)
-                s = copy.deepcopy(sample)
-                p.execute(s)
+                if tag_value not in self.running_pipelines:
+                    self.spawn_new_subpipeline(steps, tag_value)
+                self.running_pipelines[tag_value][0].put(sample)
