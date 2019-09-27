@@ -22,6 +22,10 @@ DEFAULT_MULTIPROCESSING_INPUT = True
 DEFAULT_BATCH_MULTIPROCESSING_INPUT = False
 DEFAULT_QUEUES_EMPTY_TIMEOUT = 0.1
 
+PARALLEL_MODE_THREAD = "thread"
+PARALLEL_MODE_PROCESS = "process"
+PARALLEL_MODES = [PARALLEL_MODE_THREAD, PARALLEL_MODE_PROCESS]
+
 
 def get_required_and_optional_args(step, required_step_args, optional_step_args):
     step_args = typing.get_type_hints(step.__init__)
@@ -113,7 +117,7 @@ def compare_args(step, script_args):
     # if less than required arguments passed
     if len(script_args) < len(required_step_args):
         return False
-    # compare required aruguments
+    # compare required arguments
     found_required_args = 0
     found_optional_args = 0
     for i in range(len(script_args)):
@@ -129,7 +133,7 @@ def compare_args(step, script_args):
                 script_key_name=script_key_name):
             found_optional_args += 1
             logging.debug("Found optional " + script_key_name + "...")
-    # no optinal arguments passed
+    # no optional arguments passed
     if found_required_args == len(script_args):
         return True
     if (found_required_args + found_optional_args) == len(script_args):
@@ -167,7 +171,6 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
 
     def __init__(self):
         self.__name__ = "ProcessingStep"
-        self.lock = multiprocessing.Lock()
         self.next_step = None
         self.started = False
         self.sample_counter = 0
@@ -211,106 +214,115 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
         logging.info("%s: %d samples were processed", self.__name__, self.sample_counter)
 
 
-class AsyncProcessingStep(ProcessingStep):
+class ParallelUtils:
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, sample_queue_in, sample_queue_out):
         self.input_counter = Value('i', 0)
-        self.sample_queue_in = queue.Queue(maxsize=DEFAULT_QUEUE_MAXSIZE)
-        self.sample_queue_out = queue.Queue(maxsize=DEFAULT_QUEUE_MAXSIZE)
-        self.threaded_step = None
+        self.sample_queue_in = sample_queue_in
+        self.sample_queue_out = sample_queue_out
 
-    def on_start(self):
-        self.input_counter.value += 1
-        if self.threaded_step:
-            self.threaded_step.start()
-        else:
-            raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
-                            "step seems to be broken.", self.__name__)
-
-    def forward_sample(self):
-        sample_out = self.sample_queue_out.get(block=False)
-        self.write(sample_out)
-        self.sample_queue_out.task_done()
-
-    def execute(self, sample):
-        self.sample_queue_in.put(sample)
+    def write(self, sample):
         try:
-            self.forward_sample()
+            self.sample_queue_in.put(sample, block=True)
+        except Exception as e:
+            logging.warning("Unexpected exception while trying to put sample into queue."
+                            " Dropping sample %s", sample.__str__(), exc_info=e)
+
+    def read(self):
+        sample = None
+        try:
+            sample = self.sample_queue_out.get(block=False)
+            self.sample_queue_out.task_done()
         except queue.Empty:
             pass
+        except Exception as e:
+            logging.warning("Unexpected exception while trying to read sample from queue.", exc_info=e)
+        return sample
+
+    def forward(self):
+        sample = self.read()
+        self.write(sample)
+
+
+class SyncAsyncProcessingStep(ProcessingStep):
+
+    def __init__(self, parallel_step):
+        super().__init__()
+        self.parallel_utils = parallel_step.parallel_utils
+        self.parallel_step = parallel_step
+
+    def on_start(self):
+        if self.parallel_step:
+            self.parallel_utils.input_counter.value += 1
+            if self.parallel_step:
+                self.parallel_step.start()
+            else:
+                raise Exception("%s: Internal asynchronous step undefined. This implementation of an asynchronous "
+                                "step seems to be broken.", self.__name__)
+
+    def execute(self, sample):
+        if self.parallel_step:
+            self.execute_parallel(sample)
+        else:
+            self.execute_sequential(sample)
+
+    def execute_sequential(self, sample):
+        super().write(super)
+
+    def execute_parallel(self, sample):
+        self.parallel_utils.write(sample)
+        self.parallel_utils.forward()
 
     def clear_sample_queue_out(self):
         try:
             while True:  # Read until queue is empty
-                self.forward_sample()
+                self.parallel_utils.forward()
         except queue.Empty:
             pass
 
-    def stop(self):
-        self.on_close()
-        super().stop()
-
     def on_close(self):
-        # make running value for consistency with other implementations
-        self.input_counter.value -= 1
-        self.sample_queue_in.join()
-        self.threaded_step.join()
-        self.clear_sample_queue_out()
-        self.sample_queue_out.join()
+        if self.parallel_step:
+            self.parallel_utils.sample_queue_in.join()
+            self.parallel_step.join()
+            self.clear_sample_queue_out()
+            self.parallel_utils.sample_queue_out.join()
         super().on_close()
 
 
-class _AsyncProcessingStep(threading.Thread):
+class _AsyncProcessingStep:
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter):
-        threading.Thread.__init__(self)
-        self.sample_queue_in = sample_queue_in
-        self.sample_queue_out = sample_queue_out
-        self.input_counter = input_counter
-        self.sample_counter_in = 0
-        self.sample_counter_out = 0
+    def __new__(cls, *args, **kwargs):
+        if cls is _AsyncProcessingStep:  # Prevent class from being instantiated
+            raise TypeError("%s class may not be instantiated", cls.__name__)
+        return object.__new__(cls)
 
-    def start(self):
-        super().start()  # Trigger decorator
+    def __init__(self, parallel_utils):
+        self.parallel_utils = parallel_utils
+
+    def on_start(self):
+        pass
 
     def run(self):
-        while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
-            try:
-                sample = self.sample_queue_in.get(block=True, timeout=1)
-                if sample:
-                    sample_out = self.loop(sample)
-                    self.sample_counter_in += 1
-                    if sample_out:
-                        self.sample_queue_out.put(sample_out)
-                        self.sample_counter_out += 1
-                self.sample_queue_in.task_done()
-            except queue.Empty:
-                continue
-
-        self.on_close()
-
-    def process_remaining_samples(self):
-        while True:
-            try:
-                sample = self.sample_queue_in.get(block=False)
+        self.on_start()
+        while self.parallel_utils.input_counter.value > 0 or self.parallel_utils.sample_queue_in.qsize() > 0:
+            sample = self.parallel_utils.read()
+            if sample:
                 sample_out = self.loop(sample)
                 if sample_out:
-                    self.sample_queue_out.put(sample_out)
-                self.sample_queue_in.task_done()
-            except queue.Empty:
-                break
+                    self.parallel_utils.write(sample_out)
+        self.on_close()
+
+    def stop(self):
+        self.on_close()
 
     def on_close(self):
-        logging.info("%s: %d samples were written", self.__name__, self.sample_counter_in)
-        logging.info("%s: %d samples were forwarded", self.__name__, self.sample_counter_out)
-        self.process_remaining_samples()
+        pass
 
     def loop(self, sample):
         pass
 
 
-class DebugGenerationStep(AsyncProcessingStep):
+class DebugGenerationStep(SyncAsyncProcessingStep):
     """example generative processing step"""
     __name__ = "debug-generation-step"
     __description__ = "DEBUG. Generates random samples with different tages."

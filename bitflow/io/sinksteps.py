@@ -7,7 +7,7 @@ import time
 from collections import deque
 
 from bitflow.io.marshaller import *
-from bitflow.processingstep import ProcessingStep, AsyncProcessingStep, _AsyncProcessingStep
+from bitflow.processingstep import ProcessingStep, SyncAsyncProcessingStep, _AsyncProcessingStep
 
 
 def header_check(old_header, new_header):
@@ -21,7 +21,7 @@ def header_check(old_header, new_header):
 ###########################
 # NETWORK TransportSink #
 ###########################
-class TCPSink(AsyncProcessingStep):
+class TCPSink(SyncAsyncProcessingStep):
 
     def __init__(self, host: str, port: int, data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
         super().__init__()
@@ -109,7 +109,7 @@ NO_INPUT_TIMEOUT = 0.1
 SOCKET_ERROR_TIMEOUT = 0.5
 
 
-class ListenSink(AsyncProcessingStep):
+class ListenSink(SyncAsyncProcessingStep):
 
     def __init__(self, host: str = "0.0.0.0", port: int = 5010, data_format: str = CSV_DATA_FORMAT,
                  sample_buffer_size: int = -1, max_receivers: int = 5, retry_on_close: bool = False):
@@ -311,7 +311,7 @@ def get_filepath(filename):
     return base_filename + numbering + file_ending
 
 
-class FileSink(AsyncProcessingStep):
+class FileSink(SyncAsyncProcessingStep):
 
     def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT):
         super().__init__()
