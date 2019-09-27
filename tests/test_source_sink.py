@@ -108,21 +108,22 @@ class TestTcpIO(unittest.TestCase):
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
         a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
+        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
         a_listen_source.start()
 
         # BUILD FILE TO SEND
         b_pipeline = pipe.Pipeline()
         b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline)
+        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline, sample_limit=1222)
         b_file_source.start()
 
         b_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        a_listen_source.stop()
+        a_listen_source.wait()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
+        print(len(a))
+        print(len(b))
         self.assertEqual(a, b)
 
     def test_bin_listen_in__csv_send_out(self):
@@ -132,18 +133,17 @@ class TestTcpIO(unittest.TestCase):
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
         a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
+        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
         a_listen_source.start()
 
         # BUILD FILE TO SEND
         b_pipeline = pipe.Pipeline()
         b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline)
+        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline, sample_limit=1222)
         b_file_source.start()
 
         b_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        a_listen_source.stop()
+        a_listen_source.wait()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -157,18 +157,17 @@ class TestTcpIO(unittest.TestCase):
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
         a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
+        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
         a_listen_source.start()
 
         # BUILD FILE TO SEND
         b_pipeline = pipe.Pipeline()
         b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline)
+        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline, sample_limit=1222)
         b_file_source.start()
 
         b_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        a_listen_source.stop()
+        a_listen_source.wait()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -182,18 +181,17 @@ class TestTcpIO(unittest.TestCase):
         # BUILD LISTEN TO FILE
         a_pipeline = pipe.Pipeline()
         a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port)
+        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
         a_listen_source.start()
 
         # BUILD FILE TO SEND
         b_pipeline = pipe.Pipeline()
         b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline)
+        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline, sample_limit=1222)
         b_file_source.start()
 
         b_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        a_listen_source.stop()
+        a_listen_source.wait()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -204,18 +202,17 @@ class TestTcpIO(unittest.TestCase):
         port = find_free_port()
 
         a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline)
+        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline, sample_limit=1222)
         a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
         a_file_source.start()
 
         b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
+        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
         b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         b_download_source.start()
 
         a_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        b_download_source.stop()
+        b_download_source.wait()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
@@ -226,17 +223,16 @@ class TestTcpIO(unittest.TestCase):
         port = find_free_port()
 
         a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline)
+        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline, sample_limit=1222)
         a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
         a_file_source.start()
         b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
+        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
         b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         b_download_source.start()
 
         a_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        b_download_source.stop()
+        b_download_source.wait()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)
@@ -247,16 +243,15 @@ class TestTcpIO(unittest.TestCase):
         port = find_free_port()
 
         a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline)
+        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline, sample_limit=1222)
         a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
         a_file_source.start()
         b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
+        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
         b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
         b_download_source.start()
 
         a_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
         b_download_source.stop()
 
         a = read_file(TESTING_IN_FILE_CSV)
@@ -268,17 +263,16 @@ class TestTcpIO(unittest.TestCase):
         port = find_free_port()
 
         a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline)
+        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline, sample_limit=1222)
         a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
         a_file_source.start()
         b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline)
+        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
         b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
         b_download_source.start()
 
         a_file_source.wait()
-        time.sleep(self.DEFAULT_SLEEPING_DURATION)
-        b_download_source.stop()
+        b_download_source.wait()
 
         a = read_file(TESTING_IN_FILE_BIN)
         b = read_file(TESTING_OUT_FILE_BIN)

@@ -95,8 +95,11 @@ class SocketWrapper:
     def __init__(self, sock):
         self.socket = sock
 
-    def write(self, data):
-        return self.socket.send(data)
+    def write(self, sample):
+        try:
+            self.socket.sendall(sample)
+        except socket.error as e:
+            logging.warning("Could not transmit sample %s due to timeout.", str(sample), exc_info=e)
 
     def read(self, packet_size):
         return self.socket.recv(packet_size)
@@ -150,7 +153,7 @@ class _ListenSink(_AsyncProcessingStep):
     def bind_socket(self, host, port, max_receivers):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.setblocking(True)
+        server.settimeout(10)
         server.bind((host, port))
         server.listen(max_receivers)
         logging.info("{}: binding socket on {}:{} ...".format(self.__name__, host, port))
