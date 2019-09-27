@@ -99,7 +99,7 @@ def find_free_port():
 
 
 class TestTcpIO(unittest.TestCase):
-    DEFAULT_SLEEPING_DURATION = 10
+    DEFAULT_SLEEPING_DURATION = 15
 
     def test_csv_listen_in__csv_send_out(self):
         host = "localhost"
