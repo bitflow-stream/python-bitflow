@@ -68,7 +68,7 @@ class Source(metaclass=helper.CtrlMethodDecorator):
 
 class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
 
-    def __init__(self, pipeline, marshaller, running):
+    def __init__(self, pipeline, marshaller, running, sample_limit):
         self.pipeline = pipeline
         self.pipeline_sample_queue_in = pipeline.sample_queue_in
         self.pipeline_sample_queue_out = pipeline.sample_queue_out
@@ -79,6 +79,7 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
         self.header = None
         self.sample_counter_in = 0
         self.sample_counter_out = 0
+        self.sample_limit = sample_limit
         super().__init__()
 
     def __str__(self):
@@ -89,6 +90,8 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
         if sample:
             self.pipeline_sample_queue_in.put(sample)
             self.sample_counter_in += 1
+        if 0 < self.sample_limit <= self.sample_counter_in:
+            self.stop()
 
     def cut_bytes(self, cutting_pos, b, cut_len=0):
         begin = b[0:cutting_pos]
@@ -166,6 +169,7 @@ class _Source(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
             self.pipeline_sample_queue_in.join()
             self.pipeline.join()  # Join pipeline thread.
             self.clear_out_samples()
+            self.pipeline_sample_queue_out.join()
 
     def stop(self):
         self.running.value = 0  # Signal stop to self (break out from run method)
@@ -192,7 +196,7 @@ class EmptySource(Source):
 class _EmptySource(_Source):
 
     def __init__(self, running, pipeline):
-        super().__init__(pipeline, None, running)
+        super().__init__(pipeline, None, running, -1)
         self.__name__ = "EmptySource_inner"
 
     def loop(self):
@@ -204,10 +208,10 @@ class _EmptySource(_Source):
 
 class FileSource(Source):
 
-    def __init__(self, pipeline, path=None):
+    def __init__(self, pipeline, sample_limit=-1, path=None, buffer_size=2048):
         super().__init__(pipeline)
         self.__name__ = "FileSource"
-        self._source = _FileSource(self.running, path, pipeline)
+        self._source = _FileSource(self.running, path, pipeline, sample_limit, buffer_size)
 
     def __str__(self):
         return "FileSource"
@@ -221,8 +225,8 @@ class FileSource(Source):
 
 class _FileSource(_Source):
 
-    def __init__(self, running, path, pipeline, buffer_size=2048):
-        super().__init__(pipeline, None, running)
+    def __init__(self, running, path, pipeline, sample_limit, buffer_size):
+        super().__init__(pipeline, None, running, sample_limit)
         self.__name__ = "FileSource_inner"
         self.files = self._handle_path(path)
         self.file_iter = iter(self.files)
@@ -337,10 +341,11 @@ class _FileSource(_Source):
 # Pulls / Downloads incoming data on the specified host:port
 class DownloadSource(Source):
 
-    def __init__(self, pipeline, host, port, buffer_size=2048):
+    def __init__(self, pipeline, host, port, sample_limit=-1, buffer_size=2048, timeout_after_failed_to_connect=1):
         super().__init__(pipeline)
         self.__name__ = "DownloadSource"
-        self._source = _DownloadSource(self.running, host, port, pipeline, buffer_size)
+        self._source = _DownloadSource(self.running, host, port, pipeline, sample_limit, buffer_size,
+                                       timeout_after_failed_to_connect)
 
     def __str__(self):
         return "DownloadSource"
@@ -348,8 +353,8 @@ class DownloadSource(Source):
 
 class _DownloadSource(_Source):
 
-    def __init__(self, running, host, port, pipeline, buffer_size=2048, timeout_after_failed_to_connect=1):
-        super().__init__(pipeline, None, running)
+    def __init__(self, running, host, port, pipeline, sample_limit, buffer_size, timeout_after_failed_to_connect):
+        super().__init__(pipeline, None, running, sample_limit)
         self.__name__ = "DownloadSource_inner"
         self.host = host
         self.port = port
@@ -471,16 +476,16 @@ class _DownloadSource(_Source):
 # Listens for incoming data on the specified host:port
 class ListenSource(Source):
 
-    def __init__(self, port, pipeline, max_number_of_peers=5, buffer_size=2048):
+    def __init__(self, port, pipeline, sample_limit=-1, max_number_of_peers=5, buffer_size=2048):
         super().__init__(pipeline)
         self.__name__ = "ListenSource"
-        self._source = _ListenSource(self.running, pipeline, port, max_number_of_peers, buffer_size)
+        self._source = _ListenSource(self.running, pipeline, sample_limit, port, max_number_of_peers, buffer_size)
 
 
 class _ListenSource(_Source):
 
-    def __init__(self, running, pipeline, port, max_number_of_peers, buffer_size):
-        super().__init__(pipeline, None, running)
+    def __init__(self, running, pipeline, sample_limit, port, max_number_of_peers, buffer_size):
+        super().__init__(pipeline, None, running, sample_limit)
         self.__name__ = "ListenSource_inner"
         self.max_number_of_peers = max_number_of_peers
         self.buffer_size = buffer_size

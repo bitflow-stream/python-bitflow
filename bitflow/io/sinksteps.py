@@ -32,8 +32,8 @@ class TCPSink(SyncAsyncProcessingStep):
 
 class _TCPSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int,
-                 data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
+                 reconnect_timeout: int):
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.marshaller = get_marshaller_by_data_format(data_format)
         self.__name__ = "TCPSink_inner"
@@ -95,8 +95,11 @@ class SocketWrapper:
     def __init__(self, sock):
         self.socket = sock
 
-    def write(self, data):
-        return self.socket.send(data)
+    def write(self, sample):
+        try:
+            self.socket.sendall(sample)
+        except socket.error as e:
+            logging.warning("Could not transmit sample %s due to timeout.", str(sample), exc_info=e)
 
     def read(self, packet_size):
         return self.socket.recv(packet_size)
@@ -121,9 +124,8 @@ class ListenSink(SyncAsyncProcessingStep):
 
 class _ListenSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str = "0.0.0.0", port: int = 5010,
-                 data_format: str = CSV_DATA_FORMAT, sample_buffer_size: int = -1, max_receivers: int = 5,
-                 retry_on_close: bool = False):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
+                 sample_buffer_size: int, max_receivers: int, retry_on_close: bool):
 
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.__name__ = "ListenSink_inner"
@@ -151,7 +153,7 @@ class _ListenSink(_AsyncProcessingStep):
     def bind_socket(self, host, port, max_receivers):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.setblocking(True)
+        server.settimeout(10)
         server.bind((host, port))
         server.listen(max_receivers)
         logging.info("{}: binding socket on {}:{} ...".format(self.__name__, host, port))
@@ -322,8 +324,7 @@ class FileSink(SyncAsyncProcessingStep):
 
 class _FileSink(_AsyncProcessingStep):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str,
-                 data_format: str = CSV_DATA_FORMAT):
+    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str, data_format: str):
         super().__init__(sample_queue_in, sample_queue_out, input_counter)
         self.__name__ = "FileSink_inner"
         self.marshaller = get_marshaller_by_data_format(data_format)
