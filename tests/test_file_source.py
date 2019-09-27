@@ -92,6 +92,7 @@ class TestFileIO(unittest.TestCase):
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
+        remove_files(TEST_OUT_FILES)
 
     def tearDown(self):
         remove_files(TEST_OUT_FILES)

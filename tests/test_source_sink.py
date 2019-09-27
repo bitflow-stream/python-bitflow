@@ -252,7 +252,7 @@ class TestTcpIO(unittest.TestCase):
         b_download_source.start()
 
         a_file_source.wait()
-        b_download_source.stop()
+        b_download_source.wait()
 
         a = read_file(TESTING_IN_FILE_CSV)
         b = read_file(TESTING_OUT_FILE_CSV)
