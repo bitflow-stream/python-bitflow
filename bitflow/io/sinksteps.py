@@ -1,13 +1,18 @@
-import queue
+import queue as thread_queue
 import select
 import socket
 import sys
 import threading
+import multiprocessing
 import time
 from collections import deque
 
 from bitflow.io.marshaller import *
-from bitflow.processingstep import ProcessingStep, SyncAsyncProcessingStep, _AsyncProcessingStep
+from bitflow.processingstep import *
+from bitflow.processingstep import _ProcessingStepAsync
+
+NO_INPUT_TIMEOUT = 0.1
+SOCKET_ERROR_TIMEOUT = 0.5
 
 
 def header_check(old_header, new_header):
@@ -21,29 +26,60 @@ def header_check(old_header, new_header):
 ###########################
 # NETWORK TransportSink #
 ###########################
+
+class SocketWrapper:
+    def __init__(self, sock):
+        self.socket = sock
+
+    def write(self, sample):
+        try:
+            self.socket.sendall(sample)
+        except socket.error as e:
+            logging.warning("Could not transmit sample %s due to timeout.", str(sample), exc_info=e)
+
+    def read(self, packet_size):
+        return self.socket.recv(packet_size)
+
+
 class TCPSink(SyncAsyncProcessingStep):
 
-    def __init__(self, host: str, port: int, data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2):
+    def __init__(self, host: str, port: int, data_format: str = CSV_DATA_FORMAT, reconnect_timeout: int = 2,
+                 maxsize: int = DEFAULT_QUEUE_MAXSIZE, parallel_mode: str = PARALLEL_MODE_THREAD):
         super().__init__()
         self.__name__ = "TCPSink"
-        self.threaded_step = _TCPSink(self.sample_queue_in, self.sample_queue_out, self.input_counter,
-                                      host, port, data_format, reconnect_timeout)
+        if parallel_mode:
+            if parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_step = _TCPSinkThread(host, port, data_format, reconnect_timeout, maxsize)
+            elif parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_step = _TCPSinkProcess(host, port, data_format, reconnect_timeout, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+        else:
+            raise ValueError("%s: Sequential mode is not supported. Define one of the following parallel modes: $s",
+                             self.__name__, ",".join(PARALLEL_MODES))
+
+        self.parallel_utils = self.parallel_step.parallel_utils
+
+    def execute_sequential(self, sample):
+        pass
 
 
-class _TCPSink(_AsyncProcessingStep):
-
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
-                 reconnect_timeout: int):
-        super().__init__(sample_queue_in, sample_queue_out, input_counter)
+class _TCPSinkAsync(_ProcessingStepAsync):
+    def __init__(self, host: str, port: int, data_format: str, reconnect_timeout: int, maxsize: int):
+        self.__name__ = "TCPSink_Async"
         self.marshaller = get_marshaller_by_data_format(data_format)
-        self.__name__ = "TCPSink_inner"
         self.s = None
         self.header = None
         self.wrapper = None
         self.host = host
         self.port = port
         self.reconnect_timeout = reconnect_timeout
-        logging.info("{}: initialized ...".format(self.__name__))
+        super().__init__(ParallelUtils(self.create_queue(maxsize), self.create_queue(maxsize)))
+
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type "
+                                  "(either thread or process).")
 
     def connect(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -91,44 +127,64 @@ class _TCPSink(_AsyncProcessingStep):
         super().on_close()
 
 
-class SocketWrapper:
-    def __init__(self, sock):
-        self.socket = sock
+class _TCPSinkThread(threading.Thread, _TCPSinkAsync):
 
-    def write(self, sample):
-        try:
-            self.socket.sendall(sample)
-        except socket.error as e:
-            logging.warning("Could not transmit sample %s due to timeout.", str(sample), exc_info=e)
+    def __init__(self, host: str, port: int, data_format: str, reconnect_timeout: int, maxsize: int):
+        self.__name__ = "TCPSink_Thread"
+        threading.Thread.__init__(self)
+        _TCPSinkAsync.__init__(self, host, port, data_format, reconnect_timeout, maxsize)
 
-    def read(self, packet_size):
-        return self.socket.recv(packet_size)
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _TCPSinkProcess(multiprocessing.Process, _TCPSinkAsync):
+
+    def __init__(self, host: str, port: int, data_format: str, reconnect_timeout: int, maxsize: int):
+        self.__name__ = "TCPSink_Process"
+        multiprocessing.Process.__init__(self)
+        _TCPSinkAsync.__init__(self, host, port, data_format, reconnect_timeout, maxsize)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize)
 
 
 ####################
 # ListenSocketSink #
 ####################
-NO_INPUT_TIMEOUT = 0.1
-SOCKET_ERROR_TIMEOUT = 0.5
-
 
 class ListenSink(SyncAsyncProcessingStep):
 
     def __init__(self, host: str = "0.0.0.0", port: int = 5010, data_format: str = CSV_DATA_FORMAT,
-                 sample_buffer_size: int = -1, max_receivers: int = 5, retry_on_close: bool = False):
+                 sample_buffer_size: int = -1, max_receivers: int = 5, retry_on_close: bool = False,
+                 maxsize: int = DEFAULT_QUEUE_MAXSIZE, parallel_mode: str = PARALLEL_MODE_THREAD):
         super().__init__()
         self.__name__ = "ListenSink"
-        self.threaded_step = _ListenSink(self.sample_queue_in, self.sample_queue_out, self.input_counter,
-                                         host, port, data_format, sample_buffer_size, max_receivers, retry_on_close)
+        if parallel_mode:
+            if parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_step = _ListenSinkThread(host, port, data_format, sample_buffer_size, max_receivers,
+                                                       retry_on_close, maxsize)
+            elif parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_step = _ListenSinkProcess(host, port, data_format, sample_buffer_size, max_receivers,
+                                                        retry_on_close, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+        else:
+            raise ValueError("%s: Sequential mode is not supported. Define one of the following parallel modes: $s",
+                             self.__name__, ",".join(PARALLEL_MODES))
+        self.parallel_utils = self.parallel_step.parallel_utils
+
+    def execute_sequential(self, sample):
+        pass
 
 
-class _ListenSink(_AsyncProcessingStep):
+class _ListenSinkAsync(_ProcessingStepAsync):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, host: str, port: int, data_format: str,
-                 sample_buffer_size: int, max_receivers: int, retry_on_close: bool):
+    def __init__(self, host: str, port: int, data_format: str, sample_buffer_size: int, max_receivers: int,
+                 retry_on_close: bool, maxsize: int):
 
-        super().__init__(sample_queue_in, sample_queue_out, input_counter)
-        self.__name__ = "ListenSink_inner"
+        self.__name__ = "ListenSink_Async"
         self.marshaller = get_marshaller_by_data_format(data_format)
         self.host = host
         self.port = port
@@ -149,6 +205,11 @@ class _ListenSink(_AsyncProcessingStep):
         self.outputs = []
         self.lock = threading.Lock()
         self.retry_on_close = retry_on_close
+        super().__init__(ParallelUtils(self.create_queue(maxsize), self.create_queue(maxsize)))
+
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type "
+                                  "(either thread or process).")
 
     def bind_socket(self, host, port, max_receivers):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -174,7 +235,7 @@ class _ListenSink(_AsyncProcessingStep):
             del self.sample_queues[s]
 
     def get_new_queue(self, sample_buffer):
-        q = queue.Queue()
+        q = thread_queue.Queue()
         for sample in sample_buffer:
             q.put(sample)
         return q
@@ -199,9 +260,6 @@ class _ListenSink(_AsyncProcessingStep):
             if v["queue"].qsize() > 0:
                 return True
         return False
-
-    def start(self):
-        super().start()  # For Decorator
 
     def offer_sample(self, sample, sock):
         if sample:
@@ -245,7 +303,7 @@ class _ListenSink(_AsyncProcessingStep):
         for s in writable:
             try:
                 socket_sample = self.sample_queues[s]["queue"].get_nowait()
-            except queue.Empty:
+            except thread_queue.Empty:
                 continue
             e = self.offer_sample(socket_sample, SocketWrapper(s))
             if e:
@@ -266,7 +324,7 @@ class _ListenSink(_AsyncProcessingStep):
             while True:
                 try:
                     socket_sample = self.sample_queues[s]["queue"].get_nowait()
-                except queue.Empty:
+                except thread_queue.Empty:
                     self.close_connection(s)
                     break
                 e = self.offer_sample(socket_sample, SocketWrapper(s))
@@ -282,6 +340,32 @@ class _ListenSink(_AsyncProcessingStep):
         self.close_connections(self.outputs)
         self.server.close()
         super().on_close()
+
+
+class _ListenSinkThread(threading.Thread, _ListenSinkAsync):
+
+    def __init__(self, host: str, port: int, data_format: str, sample_buffer_size: int, max_receivers: int,
+                 retry_on_close: bool, maxsize: int):
+        self.__name__ = "ListenSink_Thread"
+        threading.Thread.__init__(self)
+        _ListenSinkAsync.__init__(self, host, port, data_format, sample_buffer_size, max_receivers,
+                                  retry_on_close, maxsize)
+
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _ListenSinkProcess(multiprocessing.Process, _ListenSinkAsync):
+
+    def __init__(self, host: str, port: int, data_format: str, sample_buffer_size: int, max_receivers: int,
+                 retry_on_close: bool, maxsize: int):
+        self.__name__ = "ListenSink_Process"
+        multiprocessing.Process.__init__(self)
+        _ListenSinkAsync.__init__(self, host, port, data_format, sample_buffer_size, max_receivers,
+                                  retry_on_close, maxsize)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize)
 
 
 ##########################
@@ -315,22 +399,40 @@ def get_filepath(filename):
 
 class FileSink(SyncAsyncProcessingStep):
 
-    def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT):
+    def __init__(self, filename: str, data_format: str = CSV_DATA_FORMAT, maxsize: int = DEFAULT_QUEUE_MAXSIZE,
+                 parallel_mode: str = PARALLEL_MODE_THREAD):
         super().__init__()
         self.__name__ = "FileSink"
-        self.threaded_step = _FileSink(self.sample_queue_in, self.sample_queue_out,
-                                       self.input_counter, filename, data_format)
+        if parallel_mode:
+            if parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_step = _FileSinkThread(filename, data_format, maxsize)
+            elif parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_step = _FileSinkProcess(filename, data_format, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+        else:
+            raise ValueError("%s: Sequential mode is not supported. Define one of the following parallel modes: $s",
+                             self.__name__, ",".join(PARALLEL_MODES))
+        self.parallel_utils = self.parallel_step.parallel_utils
+
+    def execute_sequential(self, sample):
+        pass
 
 
-class _FileSink(_AsyncProcessingStep):
+class _FileSinkAsync(_ProcessingStepAsync):
 
-    def __init__(self, sample_queue_in, sample_queue_out, input_counter, filename: str, data_format: str):
-        super().__init__(sample_queue_in, sample_queue_out, input_counter)
-        self.__name__ = "FileSink_inner"
+    def __init__(self, filename: str, data_format: str, maxsize: int):
+        self.__name__ = "FileSink_Async"
         self.marshaller = get_marshaller_by_data_format(data_format)
         self.filename = filename
         self.f = None
         self.header = None
+        super().__init__(ParallelUtils(self.create_queue(maxsize), self.create_queue(maxsize)))
+
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type "
+                                  "(either thread or process).")
 
     def open_file(self, filename):
         final_filename = get_filepath(filename)
@@ -360,25 +462,97 @@ class _FileSink(_AsyncProcessingStep):
         super().on_close()
 
 
+class _FileSinkThread(threading.Thread, _FileSinkAsync):
+
+    def __init__(self, filename: str, data_format: str, maxsize: int):
+        self.__name__ = "FileSink_Thread"
+        threading.Thread.__init__(self)
+        _FileSinkAsync.__init__(self, filename, data_format, maxsize)
+
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _FileSinkProcess(multiprocessing.Process, _FileSinkAsync):
+
+    def __init__(self, filename: str, data_format: str, maxsize: int):
+        self.__name__ = "FileSink_Process"
+        multiprocessing.Process.__init__(self)
+        _FileSinkAsync.__init__(self, filename, data_format, maxsize)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize)
+
+
 ############################
 #  STDOUT TransportSink  #
 ############################
-class TerminalOut(ProcessingStep):
+
+class TerminalOut(SyncAsyncProcessingStep):
+
+    def __init__(self, data_format: str = CSV_DATA_FORMAT, maxsize: int = DEFAULT_QUEUE_MAXSIZE,
+                 parallel_mode: str = PARALLEL_MODE_THREAD):
+        super().__init__()
+        self.__name__ = "TerminalOut"
+        if parallel_mode:
+            if parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_step = _TerminalOutThread(data_format, maxsize)
+            elif parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_step = _TerminalOutProcess(data_format, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+        else:
+            raise ValueError("%s: Sequential mode is not supported. Define one of the following parallel modes: $s",
+                             self.__name__, ",".join(PARALLEL_MODES))
+        self.parallel_utils = self.parallel_step.parallel_utils
+
+    def execute_sequential(self, sample):
+        pass
+
+
+class _TerminalOutAsync(_ProcessingStepAsync):
     class ConsoleWriter:
         def write(self, data):
             sys.stdout.buffer.write(data)
             sys.stdout.buffer.flush()
 
-    def __init__(self, data_format: str = CSV_DATA_FORMAT):
-        super().__init__()
-        self.__name__ = "TerminalOutput"
+    def __init__(self, data_format: str, maxsize: int):
+        self.__name__ = "TerminalOut_Async"
         self.marshaller = get_marshaller_by_data_format(data_format)
         self.header = None
         self.console_writer = self.ConsoleWriter()
+        super().__init__(ParallelUtils(self.create_queue(maxsize), self.create_queue(maxsize)))
 
-    def execute(self, sample):
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type "
+                                  "(either thread or process).")
+
+    def loop(self, sample):
         if header_check(self.header, sample.header):
             self.header = sample.header
             self.marshaller.marshall_header(sink=self.console_writer, header=self.header)
         self.marshaller.marshall_sample(sink=self.console_writer, sample=sample)
-        self.write(sample)
+
+
+class _TerminalOutThread(threading.Thread, _TerminalOutAsync):
+
+    def __init__(self, data_format: str, maxsize: int):
+        self.__name__ = "TerminalOut_Thread"
+        _TerminalOutAsync.__init__(self, data_format, maxsize)
+        threading.Thread.__init__(self)
+        print("sadasd")
+
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _TerminalOutProcess(multiprocessing.Process, _TerminalOutAsync):
+
+    def __init__(self, data_format: str, maxsize: int):
+        self.__name__ = "TerminalOut_Process"
+        _TerminalOutAsync.__init__(self, data_format, maxsize)
+        multiprocessing.Process.__init__(self)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize)

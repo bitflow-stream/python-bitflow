@@ -3,79 +3,75 @@ import queue as thread_queue
 from threading import Thread
 
 from bitflow.batchprocessingstep import *
-from bitflow.processingstep import ProcessingStep, _AsyncProcessingStep
+from bitflow.processingstep import ProcessingStep, _ProcessingStepAsync
 
 
 class PipelineTermination(ProcessingStep):
 
-    def __init__(self, sample_queue):
+    def __init__(self, parallel_utils=None):
         super().__init__()
-        self.__name__ = "Pipeline_Termination"
-        self.sample_queue = sample_queue
+        self.__name__ = "PipelineTermination"
+        self.parallel_utils = parallel_utils
 
-    def execute(self, s):
-        super().write(s)
-        if s:
-            self.sample_queue.put(s)
+    def execute(self, sample):
+        if sample:
+            if self.parallel_utils:
+                self.parallel_utils.write(sample)
+            elif self.next_step:
+                self.next_step.execute(sample)
 
 
 class Pipeline(SyncAsyncProcessingStep, metaclass=helper.CtrlMethodDecorator):
 
-    def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE,
-                 parallel_mode=PARALLEL_MODE_THREAD):
-        self.processing_steps = []
+    def __init__(self, processing_steps=None, maxsize=DEFAULT_QUEUE_MAXSIZE, parallel_mode=None):
+        super().__init__()
+        self.__name__ = "Pipeline"
+        if processing_steps:
+            self.processing_steps = processing_steps
+        else:
+            self.processing_steps = []
+        if parallel_mode
+            self.parallel_step = _PipelineAsync(self.processing_steps, maxsize)
         if parallel_mode:
             if parallel_mode == PARALLEL_MODE_THREAD:
-                self.parallel_step = _PipelineThreaded(self.processing_steps, maxsize)
+
             elif parallel_mode == PARALLEL_MODE_PROCESS:
                 self.parallel_step = _PipelineProcess(self.processing_steps, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+            self.parallel_utils = self.parallel_step.parallel_utils
         self.pipeline_termination = PipelineTermination(self.parallel_utils)
-        super().__init__(self.parallel_step)
+
+    def set_next_step(self, next_step):
+        self.pipeline_termination.set_next_step(next_step)
 
     def add_processing_step(self, processing_step):
         if processing_step:
             if self.processing_steps:
                 self.processing_steps[-1].set_next_step(processing_step)
-            processing_step.set_next_step(self.pipeline_termination)
+            else:
+                self.next_step = processing_step
+            if self.pipeline_termination:
+                processing_step.set_next_step(self.pipeline_termination)
             self.processing_steps.append(processing_step)
         else:
             raise ValueError("Trying to add a None processing step to pipeline.")
 
-
-class _PipelineThreaded(threading.Thread, _AsyncProcessingStep):
-
-    def __init__(self, processing_steps, maxsize=DEFAULT_QUEUE_MAXSIZE):
-        self.__name__ = "Pipeline"
-        self.parallel_utils = ParallelUtils(thread_queue.Queue(maxsize=maxsize), thread_queue.Queue(maxsize=maxsize))
-        self.processing_steps =  processing_steps
-        threading.Thread.__init__(self)
-        _AsyncProcessingStep.__init__(self, self.parallel_utils)
-
-    def on_start(self):
-        if self.processing_steps:
-            # Start call propagates through step hierarchy
-            self.processing_steps[0].start()
-
-    def loop(self, sample):
-        if self.processing_steps:
-            self.processing_steps[0].execute(sample)
-        else:
-            self.parallel_utils.write(sample)
-
-    def on_close(self):
-        if self.processing_steps:
-            self.processing_steps[0].stop()
+    def execute_sequential(self, sample):
+        super().write(sample)
 
 
-class _PipelineProcess(multiprocessing.Process, _AsyncProcessingStep):
+class _PipelineAsync(_ProcessingStepAsync):
 
-    def __init__(self, processing_steps, maxsize=DEFAULT_QUEUE_MAXSIZE):
-        self.__name__ = "Pipeline"
-        self.parallel_utils = ParallelUtils(multiprocessing.JoinableQueue(maxsize=maxsize),
-                                            multiprocessing.JoinableQueue(maxsize=maxsize))
+    def __init__(self, processing_steps, maxsize, parallel_mode):
+        super().__init__(maxsize, parallel_mode)
+        self.__name__ = "Pipeline_Async"
         self.processing_steps = processing_steps
-        multiprocessing.Process.__init__(self)
-        _AsyncProcessingStep.__init__(self, self.parallel_utils)
+
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type "
+                                  "(either thread or process).")
 
     def on_start(self):
         if self.processing_steps:
@@ -91,63 +87,125 @@ class _PipelineProcess(multiprocessing.Process, _AsyncProcessingStep):
     def on_close(self):
         if self.processing_steps:
             self.processing_steps[0].stop()
+
+
+class _PipelineThread(threading.Thread, _PipelineAsync):
+
+    def __init__(self, processing_steps, maxsize):
+        self.__name__ = "Pipeline_Thread"
+        threading.Thread.__init__(self)
+        _PipelineAsync.__init__(self, processing_steps, maxsize)
+
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _PipelineProcess(multiprocessing.Process, _PipelineAsync):
+
+    def __init__(self, processing_steps, maxsize=DEFAULT_QUEUE_MAXSIZE):
+        self.__name__ = "Pipeline_Process"
+        multiprocessing.Process.__init__(self)
+        _PipelineAsync.__init__(self, processing_steps, maxsize)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize=maxsize)
 
 
 class BatchPipelineTermination(ProcessingStep):
 
-    def __init__(self, sample_queue):
+    def __init__(self, parallel_utils):
         super().__init__()
         self.__name__ = "BatchPipelineTermination"
-        self.sample_queue = sample_queue
+        self.parallel_utils = parallel_utils
 
-    def execute(self, samples: list):
-        if samples:
-            for s in samples:
-                if s:
-                    self.sample_queue.put(s)
+    def execute(self, sample_list: list):
+        if sample_list:
+            for sample in sample_list:
+                if sample:
+                    if self.parallel_utils:
+                        self.parallel_utils.write(sample)
+                    elif self.next_step:
+                        self.next_step.execute(sample)
 
 
-class BatchPipeline(Pipeline):
+class BatchPipeline(SyncAsyncProcessingStep):
 
-    def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE, multiprocessing_input=DEFAULT_BATCH_MULTIPROCESSING_INPUT):
-        super().__init__(maxsize, multiprocessing_input)
+    def __init__(self, maxsize, parallel_mode, processing_steps=None):
+        super().__init__()
         self.__name__ = "BatchPipeline"
-        self.pipeline_termination = BatchPipelineTermination(self.sample_queue_out)
+        if processing_steps:
+            self.processing_steps = processing_steps
+        else:
+            self.processing_steps = []
+        if parallel_mode:
+            if parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_step = _BatchPipelineThread(self.processing_steps, maxsize)
+            elif parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_step = _BatchPipelineProcess(self.processing_steps, maxsize)
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
+                                 ",".join(PARALLEL_MODES))
+            self.parallel_utils = self.parallel_step.parallel_utils
 
-    def start(self):
-        super().start()  # For Decorator
+        self.pipeline_termination = PipelineTermination(self.parallel_utils)
 
-    def run(self):
-        while self.input_counter.value > 0 or self.sample_queue_in.qsize() > 0:
-            try:
-                samples = self.sample_queue_in.get(block=False)
-                self.execute(samples)
-                self.sample_queue_in.task_done()
-            except thread_queue.Empty:
-                continue
-        self.on_close()
-
-    def execute(self, samples: list):
-        if samples:
-            self.sample_counter += 1
-        if self.processing_steps:
-            self.processing_steps[0].execute(samples)
+    def set_next_step(self, next_step):
+        self.pipeline_termination.set_next_step(next_step)
 
     def add_processing_step(self, processing_step):
         if processing_step and isinstance(processing_step, BatchProcessingStep):
             if self.processing_steps:
                 self.processing_steps[-1].set_next_step(processing_step)
+            else:
+                self.next_step = processing_step
             processing_step.set_next_step(self.pipeline_termination)
             self.processing_steps.append(processing_step)
         else:
-            raise Exception(
-                "{}: {} not a batchprocessing step, bye ...".format(self.__name__, processing_step.__name__))
+            raise ValueError("%s: Added step %s not a batch processing step.", self.__name__, processing_step.__name__)
 
-    def read_queue(self):
-        try:
-            while True:
-                samples = self.sample_queue_in.get(block=False)
-                if samples:
-                    self.execute(samples)
-        except thread_queue.Empty:
-            pass
+    def execute_sequential(self, sample_list):
+        if isinstance(sample_list, list):
+            self.next_step.execute(sample_list)
+        else:
+            logging.warning("%s: Can only handle sample lists. Dropping %s instance.", self.__name__, str(sample_list))
+
+
+class _BatchPipelineAsync(_PipelineAsync):
+
+    def __init__(self, processing_steps, maxsize):
+        self.__name__ = "BatchPipeline_Async"
+        self.parallel_utils = ParallelUtils(self.create_queue(maxsize), self.create_queue(maxsize))
+        self.processing_steps = processing_steps
+        _ProcessingStepAsync.__init__(self, self.parallel_utils)
+
+    def create_queue(self, maxsize):
+        raise NotImplementedError("Method needs to be implemented based on parallelization type (either thread or "
+                                  "process).")
+
+    def loop(self, sample_list: list):
+        if self.processing_steps:
+            self.processing_steps[0].execute(sample_list)
+        else:
+            self.parallel_utils.write(sample_list)
+
+
+class _BatchPipelineThread(threading.Thread, _BatchPipelineAsync):
+
+    def __init__(self, processing_steps, maxsize):
+        self.__name__ = "BatchPipeline_Thread"
+        threading.Thread.__init__(self)
+        _PipelineAsync.__init__(self, processing_steps, maxsize)
+
+    def create_queue(self, maxsize):
+        return thread_queue.Queue(maxsize)
+
+
+class _BatchPipelineProcess(multiprocessing.Process, _BatchPipelineAsync):
+
+    def __init__(self, processing_steps, maxsize=DEFAULT_QUEUE_MAXSIZE):
+        self.__name__ = "BatchPipeline_Process"
+        multiprocessing.Process.__init__(self)
+        _PipelineAsync.__init__(self, processing_steps, maxsize)
+
+    def create_queue(self, maxsize):
+        return multiprocessing.JoinableQueue(maxsize=maxsize)

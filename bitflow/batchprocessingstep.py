@@ -44,7 +44,7 @@ class BatchProcessingStep(ProcessingStep):
         raise NotImplementedError("%s: Writing of a single sample not supported. Use write_batch() method instead.",
                                   self.__name__)
 
-    def execute(self, samples: list):
+    def execute(self, sample_list: list):
         pass
 
     def stop(self):
@@ -54,6 +54,7 @@ class BatchProcessingStep(ProcessingStep):
 
     def on_close(self):
         pass
+
 
 class AvgBatchProcessingStep(BatchProcessingStep):
     __description__ = "AVG all metrics"

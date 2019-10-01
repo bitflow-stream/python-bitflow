@@ -9,6 +9,7 @@ from bitflow.io.marshaller import *
 from bitflow.script import script_parser
 from tests.support import *
 
+#TODO test all parallel and the sequential mode
 
 class TestFork(unittest.TestCase):
 
@@ -33,7 +34,7 @@ class TestFork(unittest.TestCase):
         tag_fork = fork.Fork_Tags(tag="blub")
         tag_fork.add_processing_steps([], ["bla", "blub"])
         pl = pipe.Pipeline()
-        pl.add_processing_step(processingstep.DebugGenerationStep())
+        pl.add_processing_step(processingstep.DebugGenerator())
         pl.add_processing_step(tag_fork)
         pl.start()
         pl.join()
@@ -123,7 +124,7 @@ class TestPipeline(unittest.TestCase):
 
     def test_generative_processing_step(self):
         pl = pipe.Pipeline()
-        pl.add_processing_step(processingstep.DebugGenerationStep())
+        pl.add_processing_step(processingstep.DebugGenerator())
         pl.start()
         pl.join()
 

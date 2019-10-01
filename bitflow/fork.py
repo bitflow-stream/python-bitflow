@@ -32,7 +32,7 @@ def exact_compare(expression, string):
     return False
 
 
-class Fork(ProcessingStep):
+class Fork(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
     """
     receives sample and executes fork_decision, if fork decision is true,
     is copied and forwarded to each pipeline given via the constructor. After
@@ -40,10 +40,13 @@ class Fork(ProcessingStep):
     as a normal  processing step
     """
 
-    def __init__(self):
+    def __init__(self, maxsize: int = DEFAULT_QUEUE_MAXSIZE, parallel_mode: str = None):
         super().__init__()
+        self.maxsize = maxsize
+        self.parallel_mode = parallel_mode
         self.pipeline_steps = []
-        self.running_pipelines = {}
+        self.running_pipelines = []
+        self.merging_step = NoMerging()
 
     @staticmethod
     def get_all_subclasses(cls):
@@ -54,8 +57,9 @@ class Fork(ProcessingStep):
             all_subclasses.extend(ProcessingStep.get_all_subclasses(subclass))
         return all_subclasses
 
-    # current workaround for bitflow script, parse names and processing steps for new
-    # subpipeline. generate new pipeline if required by incoming sample
+    def set_next_step(self, next_step):
+        self.merging_step.set_next_step(next_step)  # Mind the merging step in-between
+
     def add_processing_steps(self, processing_steps=None, names=None):
         if names is None:
             names = []
@@ -63,39 +67,15 @@ class Fork(ProcessingStep):
             processing_steps = []
         self.pipeline_steps.append((processing_steps, names))
 
-    def spawn_new_subpipeline(self, ps_list, name):
-        p = Pipeline(multiprocessing_input=False)
-        for ps in ps_list:
-            p.add_processing_step(ps)
-        p.add_processing_step(self)
-        # TODO Ugly. Needs something better
-        self.running_pipelines[name] = (p.sample_queue_in, p.sample_queue_out, p.input_counter, p)
-        self.running_pipelines[name][2].value += 1
-        p.start()
-
-    def forward_samples(self):
-        if self.running_pipelines:
-            for key in self.running_pipelines:
-                try:
-                    while True:
-                        sample = self.running_pipelines[key][1].get(block=False)
-                        self.write(sample)
-                        self.running_pipelines[key][1].task_done()
-                except queue.Empty:
-                    pass
-
-    def execute(self, sample):
-        pass
+    def spawn_new_subpipeline(self, processing_steps, name):
+        p = Pipeline(processing_steps=processing_steps, maxsize=self.maxsize, parallel_mode=self.parallel_mode)
+        p.next_step(self.merging_step)
+        self.running_pipelines[name] = p
+        self.running_pipelines[name][0].start()
 
     def on_close(self):
-        for p in self.running_pipelines.keys():
-            self.running_pipelines[p][2].value -= 1  # De-register itself as input from pipeline
-        for p in self.running_pipelines.keys():
-            self.running_pipelines[p][0].join()  # Wait until all written samples are precessed by the pipeline
-            self.running_pipelines[p][3].join()  # Wait for pipelines to terminate
-        self.forward_samples()  # Forward samples to next step
         for p in self.running_pipelines:
-            self.running_pipelines[p][1].join()  # Make sure everything was correctly forwarded
+            p.stop()
 
 
 class Fork_Tags(Fork):
@@ -131,3 +111,13 @@ class Fork_Tags(Fork):
                 if tag_value not in self.running_pipelines:
                     self.spawn_new_subpipeline(steps, tag_value)
                 self.running_pipelines[tag_value][0].put(sample)
+
+
+# TODO Can be extended for other merging steps that somehow combine samples coming from several sources.
+class NoMerging(ProcessingStep):
+
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, sample):
+        super().write(sample)
