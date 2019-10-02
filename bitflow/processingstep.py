@@ -187,9 +187,10 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
         return all_subclasses
 
     def start(self):
-        if self.next_step and not self.started:  # Execute once
+        if not self.started:  # Execute once
+            if self.next_step:
+                self.next_step.start()
             self.on_start()
-            self.next_step.start()
             self.started = True
 
     def on_start(self):
@@ -219,6 +220,7 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
 class ParallelUtils:
 
     def __init__(self, sample_queue_in, sample_queue_out):
+        self.lock = multiprocessing.Lock()
         self.input_counter = Value('i', 0)
         self.sample_queue_in = sample_queue_in
         self.sample_queue_out = sample_queue_out
@@ -229,60 +231,91 @@ class ParallelUtils:
     def unregister_input(self):
         self.input_counter.value -= 1
 
-    def write(self, sample):
+    def write_in(self, sample):
+        self._write(self.sample_queue_in, sample)
+
+    def write_out(self, sample):
+        self._write(self.sample_queue_out, sample)
+
+    @staticmethod
+    def _write(q, sample):
         try:
-            self.sample_queue_in.put(sample, block=True)
+            q.put(sample, block=True)
         except Exception as e:
             logging.warning("Unexpected exception while trying to put sample into queue."
                             " Dropping sample %s", sample.__str__(), exc_info=e)
 
-    def read(self):
+    def read_in(self):
+        return self._read(self.sample_queue_in)
+
+    def read_out(self):
+        return self._read(self.sample_queue_out)
+
+    @staticmethod
+    def _read(q):
         sample = None
         try:
-            sample = self.sample_queue_out.get(block=False)
-            self.sample_queue_out.task_done()
+            sample = q.get(block=False)
+            q.task_done()
         except queue.Empty:
             pass
         except Exception as e:
             logging.warning("Unexpected exception while trying to read sample from queue.", exc_info=e)
         return sample
 
-    def read_all(self):
+    def read_all_in(self):
+        return self._read_all(self.sample_queue_in)
+
+    def read_all_out(self):
+        return self._read_all(self.sample_queue_out)
+
+    def _read_all(self, q):
         sample_list = []
-        while self.sample_queue_out.qsize() > 0:
-            try:
-                sample_list.append(self.sample_queue_out.get(block=False))
-                self.sample_queue_out.task_done()
-            except queue.Empty:
-                pass
-            except Exception as e:
-                logging.warning("Unexpected exception while trying to read sample from queue.", exc_info=e)
+        while q.qsize() > 0:
+            sample_list.append(self._read(q))
         return sample_list
 
     def forward(self):
-        sample = self.read()
-        self.write(sample)
+        sample = self.read_in()
+        self.write_out(sample)
 
     def forward_all(self):
         while self.sample_queue_in.qsize() > 0:
-            sample = self.read()
-            self.write(sample)
+            sample = self.read_in()
+            self.write_out(sample)
 
 
 class SyncAsyncProcessingStep(ProcessingStep):
 
-    def __init__(self):
+    def __init__(self, maxsize, parallel_mode):
+        if parallel_mode not in PARALLEL_MODES:
+            raise ValueError("Unknown parallel mode %s. Supported modes are $s", self.parallel_mode,
+                             ",".join(PARALLEL_MODES))
         super().__init__()
+        self.lock = multiprocessing.Lock()
+        self.parallel_mode = parallel_mode
+        if self.parallel_mode:
+            if self.parallel_mode == PARALLEL_MODE_THREAD:
+                self.parallel_utils = ParallelUtils(queue.Queue(), queue.Queue())
+            elif self.parallel_mode == PARALLEL_MODE_PROCESS:
+                self.parallel_utils = ParallelUtils(multiprocessing.JoinableQueue(maxsize),
+                                                    multiprocessing.JoinableQueue(maxsize))
+            else:
+                raise ValueError("Unknown parallel mode %s. Supported modes are $s", self.parallel_mode,
+                                 ",".join(PARALLEL_MODES))
         self.parallel_step = None
-        self.parallel_utils = None
 
     def is_parallel(self):
-        return self.parallel_utils is not None
+        return self.parallel_mode is not None
 
     def on_start(self):
         if self.is_parallel():
+            self.parallel_step = self.init_async_object(self.parallel_utils)
             self.parallel_utils.register_input()
             self.parallel_step.start()
+
+    def init_async_object(self, parallel_utils):
+        return None
 
     def execute(self, sample):
         if self.is_parallel():
@@ -295,26 +328,43 @@ class SyncAsyncProcessingStep(ProcessingStep):
                                   "should be implemented.")
 
     def execute_parallel(self, sample):
-        self.parallel_utils.write(sample)
-        self.parallel_utils.forward()
+        # Prevent deadlocks
+        print("{}: qsize_in={} -- qsize_out={}".format(self.__name__, self.parallel_utils.sample_queue_in.qsize(),
+                                                       self.parallel_utils.sample_queue_in.qsize()))
+        sample_out = self.parallel_utils.read_out()
+        print("{}: Check1".format(self.__name__))
+        self.parallel_utils.write_in(sample)
+        print("{}: Check2".format(self.__name__))
+        if sample_out:
+            super().write(sample_out)
 
-    def process_sample_pending_samples(self):
-        for sample in self.parallel_utils.read_all():
-            self.next_step.execute(sample)
+    def receive_samples(self):
+        while self.parallel_step.is_alive():
+            sample_out = self.parallel_utils.read_out()
+            if sample_out:
+                super().write(sample_out)
+
+    def process_pending_samples(self):
+        for sample in self.parallel_utils.read_all_out():
+            super().write(sample)
 
     def on_close(self):
         if self.parallel_step:
-            print("1")
+            print(self.__name__ + ": 1")
+            print("Counter: " + str(self.parallel_utils.input_counter.value))
             self.parallel_utils.unregister_input()
-            print("2")
+            print("Counter: " + str(self.parallel_utils.input_counter.value))
+            self.receive_samples()  # Receive samples from parallel running step. Otherwise deadlock would occur.
+            print(self.__name__ + ": 2")
             self.parallel_utils.sample_queue_in.join()
-            print("3")
+            print(self.__name__ + ": 3")
             self.parallel_step.join()
-            print("4")
-            self.process_sample_pending_samples()
-            print("5")
+            print(self.__name__ + ": 4")
+            # Clear pending sample from queue.
+            # IMPORTANT: This call and receive_samples() are not redundant. BOTH are required.
+            self.process_pending_samples()
+            print(self.__name__ + ": 5")
             self.parallel_utils.sample_queue_out.join()
-            print("6")
         super().on_close()
 
 
@@ -325,20 +375,9 @@ class _ProcessingStepAsync:
             raise TypeError("%s class may not be instantiated", cls.__name__)
         return object.__new__(cls)
 
-    def __init__(self, maxsize, parallel_mode):
-        if parallel_mode:
-            if parallel_mode == PARALLEL_MODE_THREAD:
-                self.thread_or_process = threading.Thread(target=self.run)
-                self.parallel_utils = ParallelUtils(queue.Queue(maxsize), queue.Queue(maxsize))
-            elif parallel_mode == PARALLEL_MODE_PROCESS:
-                self.thread_or_process = multiprocessing.Process(target=self.run)
-                self.parallel_utils = ParallelUtils(queue.Queue(maxsize), multiprocessing.JoinableQueue(maxsize))
-            else:
-                raise ValueError("Unknown parallel mode %s. Supported modes are $s", parallel_mode,
-                                 ",".join(PARALLEL_MODES))
-
-    def start(self):
-        self.thread_or_process.start()
+    def __init__(self, parallel_utils):
+        self.parallel_utils = parallel_utils
+        self.counter = 0
 
     def on_start(self):
         pass
@@ -346,18 +385,25 @@ class _ProcessingStepAsync:
     def run(self):
         self.on_start()
         while self.parallel_utils.input_counter.value > 0 or self.parallel_utils.sample_queue_in.qsize() > 0:
-            sample = self.parallel_utils.read()
+            sample = self.parallel_utils.read_in()
             if sample:
+                self.counter += 1
+                if self.counter % 10 == 0:
+                    print("{}: counter={} -- queue_size={} -- input_counter={}".format(
+                        self.__name__, self.counter, self.parallel_utils.sample_queue_in.qsize(),
+                        self.parallel_utils.input_counter.value))
                 sample_out = self.loop(sample)
                 if sample_out:
-                    self.parallel_utils.write(sample_out)
+                    self.parallel_utils.write_out(sample_out)
+        print("{}: on close".format(self.__name__))
         self.on_close()
 
     def stop(self):
         self.on_close()
 
     def on_close(self):
-        pass
+        # TODO read all remaining samples
+        logging.info("%s: %d samples processed.", self.__name__, self.counter)
 
     def loop(self, sample):
         pass

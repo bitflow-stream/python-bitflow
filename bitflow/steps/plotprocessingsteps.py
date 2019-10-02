@@ -177,7 +177,7 @@ class PlotLinePlot(ProcessingStep):
             if metric not in self.values:
                 self.values[metric] = []
             self.values[metric].append(float(sample.metrics[index]))
-            self.write(sample)
+        self.write(sample)
 
     def on_close(self):
         for key, values in self.values.items():
