@@ -1,7 +1,7 @@
 import queue
 
 from bitflow.helper import NotSupportedError
-from bitflow.pipeline import BatchPipeline
+from bitflow.pipeline import BatchPipelineSync, BatchPipelineAsync
 from bitflow.processingstep import *
 
 
@@ -17,12 +17,12 @@ class Batch(ProcessingStep):
             raise NotSupportedError("Flushing batch by changing tag is not supported currently ...")
         # self.flush_tag = flush_tag
         self.flush_header = flush_header_change
-        self.batch_pipeline = BatchPipeline(maxsize, parallel_mode)
+        if parallel_mode:
+            self.batch_pipeline = BatchPipelineAsync(maxsize=maxsize, parallel_mode=parallel_mode)
+        else:
+            self.batch_pipeline = BatchPipelineSync()
         self.batch = []
         self.header = None
-
-    def set_next_step(self, next_step):
-        self.batch_pipeline.set_next_step(next_step)
 
     def add_processing_step(self, processing_step):
         self.batch_pipeline.add_processing_step(processing_step)
@@ -33,6 +33,7 @@ class Batch(ProcessingStep):
         self.batch_pipeline.start()
 
     def on_close(self):
+        self.flush()  # Flush last samples
         self.batch_pipeline.stop()
 
     def execute(self, sample):
@@ -47,12 +48,8 @@ class Batch(ProcessingStep):
 
     def flush(self):
         if self.batch:
-            self.write_batch(self.batch.copy())
+            self.process_batch(self.batch.copy())
             self.batch.clear()
 
-    def write_batch(self, sample_list):
-        self.batch_pipeline.write(sample_list)
-
-    def write(self, sample):
-        raise NotImplementedError("%s: Writing of a single sample not supported. Use write_batch() method instead.",
-                                  self.__name__)
+    def process_batch(self, sample_list):
+        self.batch_pipeline.execute(sample_list)

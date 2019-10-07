@@ -1,94 +1,72 @@
+import itertools
 import socket
-import sys
-import time
 import unittest
 from contextlib import closing as cl
 
-
 from bitflow import pipeline as pipe
+from bitflow.processingstep import PARALLEL_MODES
 from bitflow.io import sinksteps, sources
-from bitflow.script import script_parser
 from bitflow.io.marshaller import *
 from tests.support import *
 
 
 class TestFileIO(unittest.TestCase):
+    parallel_modes = [None, *PARALLEL_MODES]
+    input_files_and_expected = \
+        [
+            {"input": [TESTING_IN_FILE_BIN_SMALL],
+             "expected": {CSV_DATA_FORMAT: TESTING_IN_FILE_CSV_SMALL,
+                          BIN_DATA_FORMAT: TESTING_IN_FILE_BIN_SMALL}},
+            {"input": [TESTING_IN_FILE_CSV_SMALL],
+             "expected": {CSV_DATA_FORMAT: TESTING_IN_FILE_CSV_SMALL,
+                          BIN_DATA_FORMAT: TESTING_IN_FILE_BIN_SMALL}},
+            {"input": [TESTING_IN_FILE_BIN_SMALL, TESTING_IN_FILE_BIN_SMALL],
+             "expected": {CSV_DATA_FORMAT: TESTING_EXPECTED_OUT_FILE_CSV_DOUBLE,
+                          BIN_DATA_FORMAT: TESTING_EXPECTED_OUT_FILE_BIN_DOUBLE}},
+            {"input": [TESTING_IN_FILE_CSV_SMALL, TESTING_IN_FILE_CSV_SMALL],
+             "expected": {CSV_DATA_FORMAT: TESTING_EXPECTED_OUT_FILE_CSV_DOUBLE,
+                          BIN_DATA_FORMAT: TESTING_EXPECTED_OUT_FILE_BIN_DOUBLE}}
+        ]
 
-    def test_csv_file_in_no_out(self):
-        pipeline = pipe.Pipeline()
-        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
-        file_source.start_and_wait()
+    output_files = \
+        [
+            [(CSV_DATA_FORMAT, TESTING_OUT_FILE_CSV)],
+            [(BIN_DATA_FORMAT, TESTING_OUT_FILE_BIN)],
+            [(CSV_DATA_FORMAT, TESTING_OUT_FILE_CSV), (CSV_DATA_FORMAT, TESTING_OUT_FILE_CSV_2)],
+            [(BIN_DATA_FORMAT, TESTING_OUT_FILE_BIN), (BIN_DATA_FORMAT, TESTING_OUT_FILE_BIN_2)],
+            [(BIN_DATA_FORMAT, TESTING_OUT_FILE_BIN), (CSV_DATA_FORMAT, TESTING_OUT_FILE_CSV)]
+        ]
 
-    def test_bin_file_in_no_out(self):
-        pipeline = pipe.Pipeline()
-        file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
-        file_source.start_and_wait()
+    def test_file_io(self):
+        for parallel_mode, input_file_list, output_file_list in itertools.product(
+                self.parallel_modes, self.input_files_and_expected, self.output_files):
+            remove_files(TEST_OUT_FILES)
+            with self.subTest(msg="Checking file IO and if output result matches expectation.",
+                              parallel_mode=parallel_mode, input_file_list=input_file_list,
+                              output_file_list=output_file_list):
+                if parallel_mode:
+                    pipeline = pipe.PipelineAsync(parallel_mode=parallel_mode)
+                else:
+                    pipeline = pipe.PipelineSync()
+                file_source = sources.FileSource(pipeline=pipeline)
+                for input_file in input_file_list["input"]:
+                    file_source.add_path(input_file)
+                for output_file in output_file_list:
+                    pipeline.add_processing_step(sinksteps.FileSink(filename=output_file[1],
+                                                                    data_format=output_file[0]))
+                file_source.start_and_wait()
 
-    def test_csv_file_in__csv_file_out(self):
-        pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
-        file_source.start_and_wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        self.assertEqual(a, b)
-
-    def test_csv_file_in__bin_file_out(self):
-        pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN,
-                                                        data_format=script_parser.BIN_DATA_FORMAT))
-        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
-        file_source.start_and_wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
-
-    def test_bin_file_in__csv_file_out(self):
-        pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
-        file_source.start_and_wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        self.assertEqual(a, b)
-
-    def test_bin_file_in__bin_file_out(self):
-        pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=pipeline)
-        file_source.start_and_wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
-
-    def test_csv_file_in__multiple_csv_files_out(self):
-        pipeline = pipe.Pipeline()
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-
-        pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV_2, data_format=CSV_DATA_FORMAT))
-        file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=pipeline)
-        file_source.start_and_wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV_2)
-        self.assertEqual(a, b)
+                if output_file_list:
+                    for path_out in output_file_list:
+                        a = read_file(input_file_list["expected"][path_out[0]])
+                        b = read_file(path_out[1])
+                        self.assertEqual(a, b)
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)
 
     def tearDown(self):
         remove_files(TEST_OUT_FILES)
-
-
-# TODO: Naming is badly chosen here
-
-def closing(s):
-    if s:
-        s.close()
 
 
 def find_free_port():
@@ -98,185 +76,63 @@ def find_free_port():
         return s.getsockname()[1]
 
 
-class TestTcpIO(unittest.TestCase):
-    DEFAULT_SLEEPING_DURATION = 15
+class TestNetworkIO(unittest.TestCase):
+    host = "localhost"
+    port = find_free_port()
+    # After this amount of samples the network input should close. Should be the amount of samples that are read from
+    # the respective files.
+    sample_limit = 5
 
-    def test_csv_listen_in__csv_send_out(self):
-        host = "localhost"
-        port = find_free_port()
+    def listen_source(self, pipeline):
+        return sources.ListenSource(pipeline=pipeline, port=self.port, sample_limit=self.sample_limit)
 
-        # BUILD LISTEN TO FILE
-        a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
-        a_listen_source.start()
+    def download_source(self, pipeline):
+        return sources.DownloadSource(host=self.host, port=self.port, pipeline=pipeline, sample_limit=self.sample_limit)
 
-        # BUILD FILE TO SEND
-        b_pipeline = pipe.Pipeline()
-        b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline, sample_limit=1222)
-        b_file_source.start()
+    parallel_modes = [None, *PARALLEL_MODES]
+    input_files_and_expected = \
+        [
+            {"input": TESTING_IN_FILE_BIN_SMALL,
+             "expected": {CSV_DATA_FORMAT: TESTING_IN_FILE_CSV_SMALL,
+                          BIN_DATA_FORMAT: TESTING_IN_FILE_BIN_SMALL}},
+            {"input": TESTING_IN_FILE_CSV_SMALL,
+             "expected": {CSV_DATA_FORMAT: TESTING_IN_FILE_CSV_SMALL,
+                          BIN_DATA_FORMAT: TESTING_IN_FILE_BIN_SMALL}},
+        ]
+    output_files = [(CSV_DATA_FORMAT, TESTING_OUT_FILE_CSV), (BIN_DATA_FORMAT, TESTING_OUT_FILE_BIN)]
 
-        b_file_source.wait()
-        a_listen_source.wait()
+    net_io_pairs = [(listen_source, sinksteps.TCPSink(host=host, port=port)),
+                    (download_source, sinksteps.ListenSink(host=host, port=port))]
 
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        print(len(a))
-        print(len(b))
-        self.assertEqual(a, b)
+    def test_network_io(self):
+        for parallel_mode, input_file, output_file, net_io_pair in itertools.product(
+                self.parallel_modes, self.input_files_and_expected, self.output_files, self.net_io_pairs):
+            remove_files(TEST_OUT_FILES)
+            with self.subTest(msg="Checking network IO and if output result matches expectation.",
+                              paralle_mode=parallel_mode, input_file=input_file, output_file=output_file,
+                              net_io_pair=net_io_pair):
+                if parallel_mode:
+                    a_pipeline = pipe.PipelineAsync(parallel_mode=parallel_mode)
+                    b_pipeline = pipe.PipelineAsync(parallel_mode=parallel_mode)
+                else:
+                    a_pipeline = pipe.PipelineSync()
+                    b_pipeline = pipe.PipelineSync()
 
-    def test_bin_listen_in__csv_send_out(self):
-        host = "localhost"
-        port = find_free_port()
+                a_pipeline.add_processing_step(sinksteps.FileSink(filename=output_file[1], data_format=output_file[0]))
+                a_listen_source = net_io_pair[0](self, a_pipeline)
+                a_listen_source.start()
 
-        # BUILD LISTEN TO FILE
-        a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
-        a_listen_source.start()
+                b_pipeline.add_processing_step(net_io_pair[1])
+                b_file_source = sources.FileSource(path=input_file["input"], pipeline=b_pipeline,
+                                                   sample_limit=self.sample_limit)
+                b_file_source.start()
 
-        # BUILD FILE TO SEND
-        b_pipeline = pipe.Pipeline()
-        b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline, sample_limit=1222)
-        b_file_source.start()
+                b_file_source.wait()
+                a_listen_source.wait()
 
-        b_file_source.wait()
-        a_listen_source.wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        self.assertEqual(a, b)
-
-    # CHECK UNCLOSED SOCKET
-    def test_csv_listen_in__bin_send_out(self):
-        host = "localhost"
-        port = find_free_port()
-
-        # BUILD LISTEN TO FILE
-        a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
-        a_listen_source.start()
-
-        # BUILD FILE TO SEND
-        b_pipeline = pipe.Pipeline()
-        b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=b_pipeline, sample_limit=1222)
-        b_file_source.start()
-
-        b_file_source.wait()
-        a_listen_source.wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
-
-    # CHECK UNCLOSED SOCKET
-    def test_bin_listen_in__bin_send_out(self):
-        host = "localhost"
-        port = find_free_port()
-
-        # BUILD LISTEN TO FILE
-        a_pipeline = pipe.Pipeline()
-        a_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        a_listen_source = sources.ListenSource(pipeline=a_pipeline, port=port, sample_limit=1222)
-        a_listen_source.start()
-
-        # BUILD FILE TO SEND
-        b_pipeline = pipe.Pipeline()
-        b_pipeline.add_processing_step(sinksteps.TCPSink(host=host, port=port))
-        b_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=b_pipeline, sample_limit=1222)
-        b_file_source.start()
-
-        b_file_source.wait()
-        a_listen_source.wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
-
-    def test_csv_download_in__csv_listen_out(self):
-        host = "localhost"
-        port = find_free_port()
-
-        a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline, sample_limit=1222)
-        a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
-        a_file_source.start()
-
-        b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        b_download_source.start()
-
-        a_file_source.wait()
-        b_download_source.wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        self.assertEqual(a, b)
-
-    def test_bin_download_in__csv_listen_out(self):
-        host = "localhost"
-        port = find_free_port()
-
-        a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_CSV, pipeline=a_pipeline, sample_limit=1222)
-        a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
-        a_file_source.start()
-        b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        b_download_source.start()
-
-        a_file_source.wait()
-        b_download_source.wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
-
-    def test_csv_download_in__bin_listen_out(self):
-        host = "localhost"
-        port = find_free_port()
-
-        a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline, sample_limit=1222)
-        a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
-        a_file_source.start()
-        b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_CSV, data_format=CSV_DATA_FORMAT))
-        b_download_source.start()
-
-        a_file_source.wait()
-        b_download_source.wait()
-
-        a = read_file(TESTING_IN_FILE_CSV)
-        b = read_file(TESTING_OUT_FILE_CSV)
-        self.assertEqual(a, b)
-
-    def test_bin_download_in__csv_listen_out_2(self):
-        host = "localhost"
-        port = find_free_port()
-
-        a_pipeline = pipe.Pipeline()
-        a_file_source = sources.FileSource(path=TESTING_IN_FILE_BIN, pipeline=a_pipeline, sample_limit=1222)
-        a_pipeline.add_processing_step(sinksteps.ListenSink(max_receivers=5, host=host, port=port))
-        a_file_source.start()
-        b_pipeline = pipe.Pipeline()
-        b_download_source = sources.DownloadSource(host=host, port=port, pipeline=b_pipeline, sample_limit=1222)
-        b_pipeline.add_processing_step(sinksteps.FileSink(filename=TESTING_OUT_FILE_BIN, data_format=BIN_DATA_FORMAT))
-        b_download_source.start()
-
-        a_file_source.wait()
-        b_download_source.wait()
-
-        a = read_file(TESTING_IN_FILE_BIN)
-        b = read_file(TESTING_OUT_FILE_BIN)
-        self.assertEqual(a, b)
+                a = read_file(input_file["expected"][output_file[0]])
+                b = read_file(output_file[1])
+                self.assertEqual(a, b)
 
     def setUp(self):
         logging.basicConfig(format='%(asctime)s %(message)s', level=LOGGING_LEVEL)

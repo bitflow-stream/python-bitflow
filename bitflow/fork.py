@@ -1,5 +1,3 @@
-import copy
-
 from bitflow.helper import NotSupportedWarning
 from bitflow.pipeline import *
 from bitflow.processingstep import *
@@ -40,12 +38,12 @@ class Fork(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
     as a normal  processing step
     """
 
-    def __init__(self, maxsize: int = DEFAULT_QUEUE_MAXSIZE, parallel_mode: str = None):
+    def __init__(self, maxsize=DEFAULT_QUEUE_MAXSIZE, parallel_mode=None):
         super().__init__()
         self.maxsize = maxsize
         self.parallel_mode = parallel_mode
         self.pipeline_steps = []
-        self.running_pipelines = []
+        self.running_pipelines = {}
         self.merging_step = NoMerging()
 
     @staticmethod
@@ -68,21 +66,25 @@ class Fork(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
         self.pipeline_steps.append((processing_steps, names))
 
     def spawn_new_subpipeline(self, processing_steps, name):
-        p = Pipeline(processing_steps=processing_steps, maxsize=self.maxsize, parallel_mode=self.parallel_mode)
-        p.next_step(self.merging_step)
+        if self.parallel_mode:
+            p = PipelineAsync(processing_steps=processing_steps, maxsize=self.maxsize, parallel_mode=self.parallel_mode)
+        else:
+            p = PipelineSync(processing_steps=processing_steps)
+        p.set_next_step(self.merging_step)
         self.running_pipelines[name] = p
-        self.running_pipelines[name][0].start()
+        self.running_pipelines[name].start()
 
     def on_close(self):
-        for p in self.running_pipelines:
-            p.stop()
+        for key in self.running_pipelines:
+            self.running_pipelines[key].stop()
 
 
 class Fork_Tags(Fork):
     supported_compare_methods = ["wildcard", "exact"]
 
-    def __init__(self, tag: str, mode: str = "wildcard"):
-        super().__init__()
+    def __init__(self, tag: str, mode: str = "wildcard", maxsize: int = DEFAULT_QUEUE_MAXSIZE,
+                 parallel_mode: str = None):
+        super().__init__(maxsize, parallel_mode)
         self.__name__ = "Fork_Tags"
         if mode in self.supported_compare_methods:
             self.mode = mode
@@ -110,7 +112,7 @@ class Fork_Tags(Fork):
                     continue
                 if tag_value not in self.running_pipelines:
                     self.spawn_new_subpipeline(steps, tag_value)
-                self.running_pipelines[tag_value][0].put(sample)
+                self.running_pipelines[tag_value].execute(sample)
 
 
 # TODO Can be extended for other merging steps that somehow combine samples coming from several sources.

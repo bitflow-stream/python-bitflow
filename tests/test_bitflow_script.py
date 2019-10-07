@@ -9,7 +9,7 @@ from tests.support import *
 class TestBitflowScriptParser(unittest.TestCase):
 
     def test_simple_pipeline(self):
-        script_parser.parse_script("DebugGenerationStep()")
+        script_parser.parse_script("DebugGenerator()")
 
     def test_ps_parse_int_to_int(self):
         tp = script_parser.parse_script("noop(float=4321)")

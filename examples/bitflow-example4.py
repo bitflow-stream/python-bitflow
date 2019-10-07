@@ -3,6 +3,8 @@
 import logging
 import time
 
+from bitflow import fork, processingstep
+from bitflow.io import sinksteps
 from bitflow.io.sinksteps import FileSink
 from bitflow.io.sources import FileSource
 from bitflow.io.marshaller import *
@@ -17,13 +19,14 @@ def main():
     input_filename = "testing/in_small.csv"
     out_filename = "testing/out_small.csv"
 
-    batch_size = 1
-    pl = PipelineSync()
-    file_source = FileSource(path=input_filename, pipeline=pl)
-    batch_step = Batch(size=batch_size, parallel_mode=None)
-    batch_step.add_processing_step(AvgBatchProcessingStep())
-    pl.add_processing_step(batch_step)
-    pl.add_processing_step(FileSink(filename=out_filename, data_format=CSV_DATA_FORMAT))
+    pipeline = PipelineSync()
+
+    file_source = FileSource(path=input_filename, pipeline=pipeline)
+    tag_fork = fork.Fork_Tags(tag="filter", parallel_mode=None)
+    tag_fork.add_processing_steps([processingstep.Noop()], ["*"])
+    pipeline.add_processing_step(tag_fork)
+    pipeline.add_processing_step(sinksteps.FileSink(filename=out_filename,
+                                                    data_format=CSV_DATA_FORMAT))
 
     file_source.start_and_wait()
 

@@ -444,9 +444,12 @@ def parse_pipeline_element(pipeline_element_ctx):
 
 
 # G4:   pipeline : (dataInput | pipelineElement | OPEN pipelines CLOSE) (NEXT pipelineTailElement)* ;
-def build_pipeline(pipeline_ctx):
+def build_pipeline(pipeline_ctx, parallel_mode):
     has_input = False
-    pipeline = Pipeline()
+    if parallel_mode:
+        pipeline = PipelineAsync(parallel_mode=parallel_mode)
+    else:
+        pipeline = PipelineSync()
     if pipeline_ctx.dataInput():
         data_input_ctx = pipeline_ctx.dataInput()
         build_data_input(data_input_ctx, pipeline)
@@ -472,9 +475,9 @@ def build_pipeline(pipeline_ctx):
 
 # G4:   pipelines : pipeline (EOP pipeline)* EOP? ;
 # G4:   EOP? CLOSE ;
-def parse_pipelines(pipelines_ctx):
+def parse_pipelines(pipelines_ctx, parallel_mode):
     for pipeline_ctx in pipelines_ctx.pipeline():
-        build_pipeline(pipeline_ctx)
+        build_pipeline(pipeline_ctx, parallel_mode)
 
 
 # reset global variable to so parse_script can be called more than once in a single process without confusion
@@ -488,13 +491,13 @@ def priviatize_tp_elements():
     return tp, has
 
 
-def parse_script(script: str):
+def parse_script(script: str, parallel_mode: str = None):
     input = InputStream(script)
     logging.info("ScriptParser: parsing:\n {} ".format(script))
     lexer = BitflowLexer(input)
     stream = CommonTokenStream(lexer)
     parser = BitflowParser(stream)
     ctx = parser.script()
-    parse_pipelines(ctx.pipelines())
+    parse_pipelines(ctx.pipelines(),parallel_mode)
 
     return priviatize_tp_elements()
