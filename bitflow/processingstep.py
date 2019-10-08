@@ -199,10 +199,10 @@ class ProcessingStep(metaclass=helper.CtrlMethodDecorator):
         self.next_step = next_step
 
     def write(self, sample):
-        if sample and self.next_step:
-            self.next_step.execute(sample)
         if sample:
             self.sample_counter += 1
+            if self.next_step:
+                self.next_step.execute(sample)
 
     def execute(self, sample):
         pass
@@ -231,15 +231,16 @@ class ParallelUtils:
         self.input_counter.value -= 1
 
     def write_to_child(self, sample):
-        success = self._write(self.sample_queue_to_child, sample)
-        return success
+        return self._write(self.sample_queue_to_child, sample)
 
     def write_to_parent(self, sample):
-        success = self._write(self.sample_queue_to_parent, sample)
-        return success
+        return self._write(self.sample_queue_to_parent, sample)
 
     @staticmethod
     def _write(q, sample):
+        if not sample:
+            logging.warning("{}: Attempting to write None sample to queue. Dropping None sample.")
+            return True
         success = False
         try:
             q.put(sample, block=False)
@@ -252,8 +253,7 @@ class ParallelUtils:
         return success
 
     def read_from_parent(self):
-        sample = self._read(self.sample_queue_to_child)
-        return sample
+        return self._read(self.sample_queue_to_child)
 
     def read_from_child(self):
         return self._read(self.sample_queue_to_parent)
@@ -279,17 +279,10 @@ class ParallelUtils:
     def _read_all(self, q):
         sample_list = []
         while q.qsize() > 0:
-            sample_list.append(self._read(q))
+            sample = self._read(q)
+            if sample:
+                sample_list.append(sample)
         return sample_list
-
-    def forward(self):
-        sample = self.read_from_parent()
-        self.write_to_parent(sample)
-
-    def forward_all(self):
-        while self.sample_queue_to_child.qsize() > 0:
-            sample = self.read_from_parent()
-            self.write_to_parent(sample)
 
 
 class AsyncProcessingStep(ProcessingStep):
@@ -336,12 +329,11 @@ class AsyncProcessingStep(ProcessingStep):
     def receive_samples(self):
         while self.parallel_step.is_alive():
             sample_out = self.parallel_utils.read_from_child()
-            if sample_out:
-                super().write(sample_out)
+            super().write(sample_out)
 
     def process_pending_samples(self):
-        for sample in self.parallel_utils.read_all_out():
-            super().write(sample)
+        for sample_out in self.parallel_utils.read_all_out():
+            super().write(sample_out)
 
     def on_close(self):
         self.parallel_utils.unregister_input()
@@ -364,29 +356,25 @@ class _ProcessingStepAsync:
 
     def __init__(self, parallel_utils):
         self.parallel_utils = parallel_utils
-        self.counter = 0
-
-    def on_start(self):
-        pass
 
     def run(self):
         self.on_start()
         while self.parallel_utils.input_counter.value > 0 or self.parallel_utils.sample_queue_to_child.qsize() > 0:
             samples = self.parallel_utils.read_all_in()
-            if samples:
-                for sample in samples:
-                    if sample:
-                        self.counter += 1
-                        sample_out = self.loop(sample)
-                        if sample_out:
-                            self.parallel_utils.write_to_parent(sample_out)
+            for sample in samples:
+                sample_out = self.loop(sample)
+                if sample_out:
+                    self.parallel_utils.write_to_parent(sample_out)
         self.on_close()
 
     def stop(self):
         self.on_close()
 
+    def on_start(self):
+        pass
+
     def on_close(self):
-        logging.info("%s: %d samples processed.", self.__name__, self.counter)
+        pass
 
     def loop(self, sample):
         pass
