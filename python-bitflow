@@ -4,6 +4,7 @@ import argparse
 import signal
 import sys
 
+from bitflow.io.sources import Source
 from bitflow.script.script_parser import *
 
 THREADS_AND_PROCESSES = []
@@ -19,11 +20,10 @@ def configure_logging(logging_level, filename=None):
 
 
 def strg_c_exit():
-    global THREADS_AND_PROCESSES
+    global HEADS_AND_SOURCES
     logging.warning("Closing python-bitflow ...")
-    for t_p in THREAD_PROCESS_ELEMENTS:
-        if isinstance(t_p, Source):
-            t_p.stop()
+    for t_p in HEADS_AND_SOURCES:
+        t_p.stop()
 
 
 def sig_int_handler(signal, frame):
@@ -63,6 +63,8 @@ def main():
 
     parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import processing steps from a .py file")
     parser.add_argument("-d", type=int, help="duration to run in seconds")
+
+    parser.add_argument("-parallel_mode", type=str, help="start pipelines in parallel. possible parallel mode values are: {}".format(",".join(PARALLEL_MODES)))
 
     ld_group = parser.add_argument_group("logging and debug")
     ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')
@@ -104,13 +106,23 @@ def main():
         print(capabilities())
         sys.exit(0)
 
+    script = None
     if args.f:
         script = read_script(args.f)
     if args.s:
         script = args.s
+    if not script:
+        raise ValueError("No bitflow script defined. Define script via -f or -s argument.")
+
+    parallel_mode = None
+    if args.parallel_mode:
+        parallel_mode = args.parallel_mode
+        if parallel_mode not in PARALLEL_MODES:
+            raise ValueError("Parallel mode {} not supported. Supported parallel mode values: {}",
+                             parallel_mode, ",".join(PARALLEL_MODES))
 
     try:
-        THREADS_AND_PROCESSES, HEADS_AND_SOURCES = parse_script(script)
+        THREADS_AND_PROCESSES, HEADS_AND_SOURCES = parse_script(script, parallel_mode)
         start_threads_and_processes(HEADS_AND_SOURCES)
     except NotSupportedError as nse:
         logging.error(nse)
