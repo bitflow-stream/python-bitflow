@@ -14,8 +14,8 @@ pipeline {
         dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
     }
     stages {
-        stage('Test') {
-            dir('core') {
+        dir('core') {
+            stage('Test') {
                 steps {
                     sh 'pip install pytest pytest-cov'
                     sh 'make init'
@@ -29,8 +29,8 @@ pipeline {
                 }
             }
         }
-        stage('Git') {
-            dir('core') {
+        dir('core') {
+            stage('Git') {
                 steps {
                     script {
                         env.GIT_COMMITTER_EMAIL = sh(
@@ -41,8 +41,8 @@ pipeline {
                 }
             }
         }
-        stage('SonarQube') {
-            dir('core') {
+        dir('core') {
+            stage('SonarQube') {
                 steps {
                     script {
                         // sonar-scanner which don't rely on JVM
@@ -63,8 +63,8 @@ pipeline {
                 }
             }
         }
-        stage('Docker build') {
-            dir('core') {
+        dir('core') {
+            stage('Docker build') {
                 steps {
                     script {
                         dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
@@ -72,8 +72,8 @@ pipeline {
                 }
             }
         }
-        stage('Docker push') {
-            dir('core') {
+        dir('core') {
+            stage('Docker push') {
                 when {
                     branch 'master'
                 }
