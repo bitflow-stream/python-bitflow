@@ -4,6 +4,7 @@ pipeline {
     }
     agent {
         docker {
+            customWorkspace './core'
             image 'teambitflow/python-docker:3.7-stretch'
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
@@ -14,67 +15,65 @@ pipeline {
         dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
     }
     stages {
-        dir("core") {
-            stage('Test') {
-                steps {
-                    sh 'pip install pytest pytest-cov'
-                    sh 'make init'
-                    sh 'make jenkins-test'
-                }
-                post {
-                    always {
-                        junit 'tests/test-report.xml'
-                        archiveArtifacts 'tests/*-report.xml'
-                    }
+        stage('Test') {
+            steps {
+                sh 'pip install pytest pytest-cov'
+                sh 'make init'
+                sh 'make jenkins-test'
+            }
+            post {
+                always {
+                    junit 'tests/test-report.xml'
+                    archiveArtifacts 'tests/*-report.xml'
                 }
             }
-            stage('Git') {
-                steps {
-                    script {
-                        env.GIT_COMMITTER_EMAIL = sh(
-                            script: "git --no-pager show -s --format='%ae'",
-                            returnStdout: true
-                            ).trim()
-                    }
+        }
+        stage('Git') {
+            steps {
+                script {
+                    env.GIT_COMMITTER_EMAIL = sh(
+                        script: "git --no-pager show -s --format='%ae'",
+                        returnStdout: true
+                        ).trim()
                 }
             }
-            stage('SonarQube') {
-                steps {
-                    script {
-                        // sonar-scanner which don't rely on JVM
-                        def scannerHome = tool 'sonar-scanner-linux'
-                        withSonarQubeEnv('CIT SonarQube') {
-                            sh """
-                                ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
-                                    -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
-                                    -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
-                                    -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
-                                    -Dsonar.test.reportPath=tests/test-report.xml
-                            """
-                        }
+        }
+        stage('SonarQube') {
+            steps {
+                script {
+                    // sonar-scanner which don't rely on JVM
+                    def scannerHome = tool 'sonar-scanner-linux'
+                    withSonarQubeEnv('CIT SonarQube') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
+                                -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
+                                -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
+                                -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
+                                -Dsonar.test.reportPath=tests/test-report.xml
+                        """
                     }
-                    timeout(time: 30, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
-                    }
+                }
+                timeout(time: 30, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
-            stage('Docker build') {
-                steps {
-                    script {
-                        dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
-                    }
+        }
+        stage('Docker build') {
+            steps {
+                script {
+                    dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
                 }
             }
-            stage('Docker push') {
-                when {
-                    branch 'master'
-                }
-                steps {
-                    script {
-                        docker.withRegistry('', registryCredential) {
-                            dockerImage.push("build-$BUILD_NUMBER")
-                            dockerImage.push("latest")
-                        }
+        }
+        stage('Docker push') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push("build-$BUILD_NUMBER")
+                        dockerImage.push("latest")
                     }
                 }
             }
