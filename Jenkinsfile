@@ -15,8 +15,8 @@ pipeline {
     }
     stages {
         stage('Test') {
-            dir('core') {
-                steps {
+            steps {
+                dir('core') {
                     sh 'pip install pytest pytest-cov'
                     sh 'make init'
                     sh 'make jenkins-test'
