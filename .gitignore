@@ -107,5 +107,5 @@ venv.bak/
 .mypy_cache/
 
 # Manually added
-*.csv
 tests/isolate/
+examples/testing/
