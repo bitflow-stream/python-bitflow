@@ -16,10 +16,11 @@ pipeline {
     stages {
         stage('Test') { 
             steps {
-		cd ./core
-                sh 'pip install pytest pytest-cov'
-                sh 'make init'
-                sh 'make jenkins-test'
+		dir("core") {
+                    sh 'pip install pytest pytest-cov'
+                    sh 'make init'
+                    sh 'make jenkins-test'
+		}
             }
             post {
                 always {
