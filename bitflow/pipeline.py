@@ -18,7 +18,7 @@ class PipelineTermination(ProcessingStep):
             if self.parallel_utils:
                 self.parallel_utils.write_to_parent(sample)
             elif self.next_step:
-                self.next_step.execute(sample)
+                super().write(sample)
 
 
 class PipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
@@ -152,13 +152,11 @@ class BatchPipelineTermination(ProcessingStep):
         self.parallel_utils = parallel_utils
 
     def execute(self, sample_list: list):
-        if sample_list:
-            for sample in sample_list:
-                if sample:
-                    if self.parallel_utils:
-                        self.parallel_utils.write_to_parent(sample)
-                    elif self.next_step:
-                        self.next_step.execute(sample)
+        for sample in sample_list:
+            if self.parallel_utils:
+                self.parallel_utils.write_to_parent(sample)
+            elif self.next_step:
+                self.next_step.execute(sample)
 
 
 class BatchPipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
