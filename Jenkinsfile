@@ -1,20 +1,20 @@
-dir("core") {
-    pipeline {
-        options {
-            timeout(time: 1, unit: 'HOURS')
+pipeline {
+    options {
+        timeout(time: 1, unit: 'HOURS')
+    }
+    agent {
+        docker {
+            image 'teambitflow/python-docker:3.7-stretch'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
-        agent {
-            docker {
-                image 'teambitflow/python-docker:3.7-stretch'
-                args '-v /var/run/docker.sock:/var/run/docker.sock'
-            }
-        }
-        environment {
-            registry = 'teambitflow/python-bitflow'
-            registryCredential = 'dockerhub'
-            dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
-        }
-        stages {
+    }
+    environment {
+        registry = 'teambitflow/python-bitflow'
+        registryCredential = 'dockerhub'
+        dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
+    }
+    stages {
+        dir("core") {
             stage('Test') {
                 steps {
                     sh 'pip install pytest pytest-cov'
@@ -79,27 +79,27 @@ dir("core") {
                 }
             }
         }
-        post {
-            success {
-                withSonarQubeEnv('CIT SonarQube') {
-                    slackSend channel: '#jenkins-builds-all', color: 'good',
-                        message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} was successful (<${env.BUILD_URL}|Open Jenkins>) (<${env.SONAR_HOST_URL}|Open SonarQube>)"
-                }
+    }
+    post {
+        success {
+            withSonarQubeEnv('CIT SonarQube') {
+                slackSend channel: '#jenkins-builds-all', color: 'good',
+                    message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} was successful (<${env.BUILD_URL}|Open Jenkins>) (<${env.SONAR_HOST_URL}|Open SonarQube>)"
             }
-            failure {
-                slackSend channel: '#jenkins-builds-all', color: 'danger',
-                    message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
+        }
+        failure {
+            slackSend channel: '#jenkins-builds-all', color: 'danger',
+                message: "Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
+        }
+        fixed {
+            withSonarQubeEnv('CIT SonarQube') {
+                slackSend channel: '#jenkins-builds', color: 'good',
+                    message: "Thanks to ${env.GIT_COMMITTER_EMAIL}, build ${env.JOB_NAME} ${env.BUILD_NUMBER} was successful (<${env.BUILD_URL}|Open Jenkins>) (<${env.SONAR_HOST_URL}|Open SonarQube>)"
             }
-            fixed {
-                withSonarQubeEnv('CIT SonarQube') {
-                    slackSend channel: '#jenkins-builds', color: 'good',
-                        message: "Thanks to ${env.GIT_COMMITTER_EMAIL}, build ${env.JOB_NAME} ${env.BUILD_NUMBER} was successful (<${env.BUILD_URL}|Open Jenkins>) (<${env.SONAR_HOST_URL}|Open SonarQube>)"
-                }
-            }
-            regression {
-                slackSend channel: '#jenkins-builds', color: 'danger',
-                    message: "What have you done ${env.GIT_COMMITTER_EMAIL}? Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
-            }
+        }
+        regression {
+            slackSend channel: '#jenkins-builds', color: 'danger',
+                message: "What have you done ${env.GIT_COMMITTER_EMAIL}? Build ${env.JOB_NAME} ${env.BUILD_NUMBER} failed (<${env.BUILD_URL}|Open Jenkins>)"
         }
     }
 }
