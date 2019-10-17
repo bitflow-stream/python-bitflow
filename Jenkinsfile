@@ -14,53 +14,61 @@ pipeline {
         dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
     }
     stages {
-        stage('Test') { 
+        stage('Test') {
             steps {
-                sh 'pip install pytest pytest-cov'
-                sh 'make init'
-                sh 'make jenkins-test'
+                dir('core') {
+                    sh 'pip install pytest pytest-cov'
+                    sh 'make init'
+                    sh 'make jenkins-test'
+                }
             }
             post {
                 always {
-                    junit 'tests/test-report.xml'
-                    archiveArtifacts 'tests/*-report.xml'
+                    junit 'core/tests/test-report.xml'
+                    archiveArtifacts 'core/tests/*-report.xml'
                 }
             }
         }
         stage('Git') {
             steps {
-                script {
-                    env.GIT_COMMITTER_EMAIL = sh(
-                        script: "git --no-pager show -s --format='%ae'",
-                        returnStdout: true
-                        ).trim()
+                dir('core') {
+                    script {
+                        env.GIT_COMMITTER_EMAIL = sh(
+                            script: "git --no-pager show -s --format='%ae'",
+                            returnStdout: true
+                            ).trim()
+                    }
                 }
             }
         }
         stage('SonarQube') {
             steps {
-                script {
-                    // sonar-scanner which don't rely on JVM
-                    def scannerHome = tool 'sonar-scanner-linux'
-                    withSonarQubeEnv('CIT SonarQube') {
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
-                                -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
-                                -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
-                                -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
-                                -Dsonar.test.reportPath=tests/test-report.xml
-                        """
+                dir('core') {
+                    script {
+                        // sonar-scanner which don't rely on JVM
+                        def scannerHome = tool 'sonar-scanner-linux'
+                        withSonarQubeEnv('CIT SonarQube') {
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
+                                    -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
+                                    -Dsonar.inclusions="**/*.py" -Dsonar.exclusions="bitflow/Bitflow*.py" \
+                                    -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
+                                    -Dsonar.test.reportPath=tests/test-report.xml
+                            """
+                        }
                     }
-                }
-                timeout(time: 30, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                    timeout(time: 30, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
                 }
             }
         }
         stage('Docker build') {
             steps {
-                script {
-                    dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
+                dir('core') {
+                    script {
+                        dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
+                    }
                 }
             }
         }
@@ -69,10 +77,12 @@ pipeline {
                 branch 'master'
             }
             steps {
-                script {
-                    docker.withRegistry('', registryCredential) {
-                        dockerImage.push("build-$BUILD_NUMBER")
-                        dockerImage.push("latest")
+                dir('core') {
+                    script {
+                        docker.withRegistry('', registryCredential) {
+                            dockerImage.push("build-$BUILD_NUMBER")
+                            dockerImage.push("latest")
+                        }
                     }
                 }
             }
@@ -101,4 +111,3 @@ pipeline {
         }
     }
 }
-
