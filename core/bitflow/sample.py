@@ -91,6 +91,12 @@ class Sample:
     def add_tag(self, tag_key, tag_value):
         self.tags[tag_key] = tag_value
 
+    def has_tag(self, key):
+        if self.tags is None or len(self.tags) == 0:
+            return False
+        else:
+            return key in self.tags
+
     # HEADER
     def header_changed(self, old_metric_names):
         return self.header.has_changed(old_metric_names)

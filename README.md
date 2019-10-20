@@ -1,1 +1,1 @@
-docs/index.md
+/home/alex/workspace/python-bitflow/core/docs/index.md
