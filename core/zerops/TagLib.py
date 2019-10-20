@@ -1,6 +1,7 @@
 # ########### Anomaly Classification Tags ############
 SIMILARITY_HEADER_PREFIX = "similarity-"
 RESULT = "aa-result"
+RESULT_CLASSIFICATION = "aa-anomaly-classification"
 RESULT_UNKNOWN = "unknown"
 STATUS = "status"
 STATUS_TAG_NAME_SIMILARITY = "similarity"
