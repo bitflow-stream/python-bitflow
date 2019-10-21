@@ -5,7 +5,7 @@ pipeline {
     agent {
         docker {
             image 'teambitflow/python-docker:3.7-stretch'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/qemu-arm-static:/usr/bin/qemu-arm-static'
         }
     }
     environment {
