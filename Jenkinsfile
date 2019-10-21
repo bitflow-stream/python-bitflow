@@ -12,6 +12,7 @@ pipeline {
         registry = 'teambitflow/python-bitflow'
         registryCredential = 'dockerhub'
         dockerImage = '' // Variable must be declared here to allow passing an object between the stages.
+        dockerImageARM32 = ''
     }
     stages {
         stage('Test') {
@@ -68,6 +69,7 @@ pipeline {
                 dir('core') {
                     script {
                         dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
+                        dockerImageARM32 = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER', '-f arm32v7.Dockerfile .'
                     }
                 }
             }
@@ -81,9 +83,28 @@ pipeline {
                     script {
                         docker.withRegistry('', registryCredential) {
                             dockerImage.push("build-$BUILD_NUMBER")
-                            dockerImage.push("latest")
+                            dockerImage.push("latest-amd64")
+                            dockerImageARM32.push("build-$BUILD_NUMBER-arm32v7")
+                            dockerImageARM32.push("latest-arm32v7")
                         }
                     }
+                    withCredentials([
+                      [
+                        $class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'dockerhub',
+                        usernameVariable: 'DOCKERUSER',
+                        passwordVariable: 'DOCKERPASS'
+                      ]
+                    ]) {
+                        // Dockerhub Login
+                        sh '''#! /bin/bash
+                        echo $DOCKERPASS | docker login -u $DOCKERUSER --password-stdin
+                        '''
+                        // teambitflow/python-bitflow:latest manifest
+                        sh "docker manifest create ${registry}:latest ${registry}:latest-amd64 ${registry}:latest-arm32v7"
+                        sh "docker manifest annotate ${registry}:latest ${registry}:latest-arm32v7 --os linux --arch arm"
+                        sh "docker manifest push --purge ${registry}:latest"
+                    }  
                 }
             }
         }
