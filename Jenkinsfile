@@ -69,7 +69,7 @@ pipeline {
                 dir('core') {
                     script {
                         dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
-                        dockerImageARM32 = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER', '-f arm32v7.Dockerfile . -v /usr/bin/qemu-arm-static:/usr/bin/qemu-arm-static'
+                        dockerImageARM32 = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER', '-f arm32v7.Dockerfile .'
                     }
                 }
             }
