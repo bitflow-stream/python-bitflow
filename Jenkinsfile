@@ -5,7 +5,7 @@ pipeline {
     agent {
         docker {
             image 'teambitflow/python-docker:3.7-stretch'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/qemu-arm-static:/usr/bin/qemu-arm-static'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
     environment {
@@ -69,7 +69,7 @@ pipeline {
                 dir('core') {
                     script {
                         dockerImage = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER'
-                        dockerImageARM32 = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER', '-f arm32v7.Dockerfile .'
+                        dockerImageARM32 = docker.build registry + ':$BRANCH_NAME-build-$BUILD_NUMBER', '-f arm32v7.Dockerfile . -v /usr/bin/qemu-arm-static:/usr/bin/qemu-arm-static'
                     }
                 }
             }
