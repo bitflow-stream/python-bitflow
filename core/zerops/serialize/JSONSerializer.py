@@ -12,17 +12,17 @@ class JSONSerializer:
         if obj:
             if not isinstance(obj, self.cls):
                 raise ValueError("Object {} of type {} is not of expected type {}.".format(obj, type(obj), self.cls))
-            json_str = json.dumps(obj)
+            json_str = json.dumps(obj.__dict__, ensure_ascii=True)
             if not json_str:
                 json_str = "{}"
-        return bytearray(json_str)
+        return bytearray(json_str, encoding='utf8')
 
     def deserialize(self, data):
         result = None
         if data:
-            json_str = data.decode()
+            json_str = data.decode(encoding='utf8')
             try:
-                result = json.loads(json_str, cls=self.cls)
+                result = self.cls(json.loads(json_str))
             except Exception as e:
-                logging.warning("Unable to load class {} frm json string {}.".format(self.cls, json_str), exc_info=e)
+                logging.warning("Unable to load class {} from json string {}.".format(self.cls, json_str), exc_info=e)
         return result

@@ -13,11 +13,11 @@ from bitflow.sample import Sample
 
 from core.bitflow.processingstep import ProcessingStep
 from core.bitflow.sample import Header
-from core.bitflow.steps.models.rnn_gru_s2s import GRUS2S
-from core.bitflow.steps.zerops.trainingdataset import TrainingDataSet, SequenceTooSmall, MaxSequenceLengthReached
-from core.bitflow.steps.zerops.event_bus.EventBusMessage import EventBusMessage
-from core.bitflow.steps.zerops.event_bus.EventHeaders import *
-from core.bitflow.steps.zerops.serialize.JSONSerializer import JSONSerializer
+from core.zerops.anomaly_classification.models import GRUS2S
+from core.zerops.anomaly_classification.trainingdataset import TrainingDataSet, SequenceTooSmall, MaxSequenceLengthReached
+from core.zerops.event_bus.EventBusMessage import EventBusMessage
+from core.zerops.event_bus.EventHeaders import *
+from core.zerops.serialize import JSONSerializer
 from core.zerops.TagLib import *
 
 
