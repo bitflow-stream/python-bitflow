@@ -1,9 +1,11 @@
+import logging
 import multiprocessing
-import queue as thread_queue
-from threading import Thread
+import threading
 
-from bitflow.batchprocessingstep import *
-from bitflow.processingstep import ProcessingStep, _ProcessingStepAsync
+from core.bitflow import helper
+from core.bitflow.batchprocessingstep import BatchProcessingStep
+from core.bitflow.processingstep import DEFAULT_QUEUE_MAXSIZE, PARALLEL_MODE_THREAD, PARALLEL_MODE_PROCESS, \
+    _ProcessingStepAsync, ProcessingStep, AsyncProcessingStep
 
 
 class PipelineTermination(ProcessingStep):

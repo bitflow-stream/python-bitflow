@@ -8,8 +8,8 @@ import typing
 import time
 from multiprocessing import Value
 
-from bitflow import helper
-from bitflow.sample import Sample, Header
+from core.bitflow import helper
+from core.bitflow.sample import Sample, Header
 
 STRING_LIST_SEPARATOR = ","
 

@@ -15,14 +15,14 @@ class JSONSerializer:
             json_str = json.dumps(obj.__dict__, ensure_ascii=True)
             if not json_str:
                 json_str = "{}"
-        return bytearray(json_str, encoding='utf8')
+        return json_str.encode(encoding='utf8')
 
     def deserialize(self, data):
         result = None
         if data:
             json_str = data.decode(encoding='utf8')
             try:
-                result = self.cls(json.loads(json_str))
+                result = self.cls(**json.loads(json_str))
             except Exception as e:
                 logging.warning("Unable to load class {} from json string {}.".format(self.cls, json_str), exc_info=e)
         return result

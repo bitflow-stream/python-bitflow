@@ -13,11 +13,13 @@ from bitflow.sample import Sample
 
 from core.bitflow.processingstep import ProcessingStep
 from core.bitflow.sample import Header
-from core.zerops.anomaly_classification.models import GRUS2S
-from core.zerops.anomaly_classification.trainingdataset import TrainingDataSet, SequenceTooSmall, MaxSequenceLengthReached
+from core.zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
+from core.zerops.anomaly_classification.trainingdataset import TrainingDataSet, SequenceTooSmall, \
+    MaxSequenceLengthReached
+from core.zerops.event_bus.EventBus import EventBus
 from core.zerops.event_bus.EventBusMessage import EventBusMessage
 from core.zerops.event_bus.EventHeaders import *
-from core.zerops.serialize import JSONSerializer
+from core.zerops.serialize.JSONSerializer import JSONSerializer
 from core.zerops.TagLib import *
 
 
@@ -80,13 +82,11 @@ class ClassifyAnomaly(ProcessingStep):
             self.modelRepo = None
 
         # ############ Event Bus #############
-        self.message_serializer = JSONSerializer(ClassificationResultMessage)
-        self.eventbus = None
-        self.eventHeader = {"type": "rca"}  # TODO move to event header implementation (of rabbitMQ)
         if enable_message_exchange:
-            self.eventbus = None  # TODO implement event bus wrapper
-            self.eventbus.receiveMessages(self.eventHeader,
-                                          self)  # TODO Needs to be implemented as thread listening for messages
+            self.message_serializer = JSONSerializer(ClassificationResultMessage)
+            self.eventHeader = {TYPE_KEY: TYPE_RCA}
+            self.eventbus = EventBus()
+            self.eventbus.receive_messages(self.eventHeader, self.receive_message)
         else:
             self.eventbus = None
 
@@ -305,6 +305,9 @@ class ClassifyAnomaly(ProcessingStep):
             if id not in self.pending_results.keys():
                 break
         return id
+
+    def receive_message(self, header, message):
+        pass
 
 
 class PredictionSummary:

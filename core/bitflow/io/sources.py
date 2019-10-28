@@ -5,8 +5,8 @@ import select
 import socket
 import time
 
-from bitflow import helper
-from bitflow.io.marshaller import *
+from core.bitflow import helper
+from core.bitflow.io.marshaller import *
 
 NO_HEADER_LINE = 0
 HEADER_UPDATED = 1

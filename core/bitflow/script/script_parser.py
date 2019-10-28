@@ -2,15 +2,14 @@ import pathlib
 import re
 from antlr4 import *
 
-from bitflow.batch import *
-from bitflow.batchprocessingstep import *
-from bitflow.fork import *
-from bitflow.helper import *
-from bitflow.io.marshaller import *
-from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink, get_filepath
-from bitflow.io.sources import FileSource, ListenSource, DownloadSource
-from bitflow.script.BitflowLexer import BitflowLexer
-from bitflow.script.BitflowParser import BitflowParser
+from core.bitflow.batchprocessingstep import *
+from core.bitflow.fork import *
+from core.bitflow.helper import *
+from core.bitflow.io.marshaller import *
+from core.bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink, get_filepath
+from core.bitflow.io.sources import FileSource, ListenSource, DownloadSource
+from core.bitflow.script.BitflowLexer import BitflowLexer
+from core.bitflow.script.BitflowParser import BitflowParser
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
@@ -498,6 +497,6 @@ def parse_script(script: str, parallel_mode: str = None):
     stream = CommonTokenStream(lexer)
     parser = BitflowParser(stream)
     ctx = parser.script()
-    parse_pipelines(ctx.pipelines(),parallel_mode)
+    parse_pipelines(ctx.pipelines(), parallel_mode)
 
     return priviatize_tp_elements()

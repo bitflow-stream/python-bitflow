@@ -4,9 +4,9 @@ import logging
 import signal
 import sys
 
-from bitflow.io.sinksteps import ListenSink
-from bitflow.io.sources import FileSource
-from bitflow.pipeline import Pipeline
+from core.bitflow.io.sinksteps import ListenSink
+from core.bitflow.io.sources import FileSource
+from core.bitflow.pipeline import PipelineSync
 
 CLOSING = False
 
@@ -49,7 +49,7 @@ def main():
                     port=listen_port)
 
     # prepare pipeline
-    pipeline = Pipeline()
+    pipeline = PipelineSync()
     # add processing step
     pipeline.add_processing_step(ls)
 

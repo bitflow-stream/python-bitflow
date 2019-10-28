@@ -1,5 +1,21 @@
+from functools import reduce
+
 import torch
 
+
+
+
+
+
+
+exit()
+
+value = {"test": "asd", "test1": "rets"}
+size = reduce(lambda x, y: x + y, map(lambda x: len(x), value.values()))
+
+print(size)
+
+exit()
 
 def get_n_best_prediction(lst, n, skip_indices=None):
     if n > len(lst):

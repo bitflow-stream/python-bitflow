@@ -2,14 +2,11 @@ import queue as thread_queue
 import select
 import socket
 import sys
-import threading
-import multiprocessing
-import time
 from collections import deque
 
-from bitflow.io.marshaller import *
-from bitflow.processingstep import *
-from bitflow.processingstep import _ProcessingStepAsync
+from core.bitflow.io.marshaller import *
+from core.bitflow.processingstep import *
+from core.bitflow.processingstep import _ProcessingStepAsync
 
 NO_INPUT_TIMEOUT = 0.1
 SOCKET_ERROR_TIMEOUT = 0.5

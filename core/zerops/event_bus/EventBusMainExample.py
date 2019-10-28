@@ -7,23 +7,26 @@ from core.zerops.event_bus.EventBusMessage import EventBusMessage
 from core.zerops.serialize.JSONSerializer import JSONSerializer
 
 
-class SimpleConsumer:
-    def __init__(self, fancy_name="fancy"):
-        super().__init__()
-        self.fancy_name = fancy_name
-        self.lock = threading.Lock()
+def callback_any(header, message):
+    date = message.get_date()
+    try:
+        payload = message.get_message(JSONSerializer(SimpleMessage))
+        print("ANY: Message arrived at: {} with header: {} and payload: {}"
+              .format(date.strftime("%m/%d/%Y, %H:%M:%S"), header, payload))
+    except Exception as e:
+        print("ANY: Error while receiving object: {}".format(e))
+        traceback.print_exc()
 
-    def callback(self, header, message):
-        self.lock.acquire()
-        date = message.get_date()
-        try:
-            payload = message.get_message(JSONSerializer(SimpleMessage))
-            print("{}: Message arrived at: {} with header: {} and payload: {}"
-                  .format(self.fancy_name, date.strftime("%m/%d/%Y, %H:%M:%S"), header, payload))
-        except Exception as e:
-            print("{}: Error while receiving object: {}".format(self.fancy_name, e))
-            traceback.print_exc()
-        self.lock.release()
+
+def callback_all(header, message):
+    date = message.get_date()
+    try:
+        payload = message.get_message(JSONSerializer(SimpleMessage))
+        print("ALL: Message arrived at: {} with header: {} and payload: {}"
+              .format(date.strftime("%m/%d/%Y, %H:%M:%S"), header, payload))
+    except Exception as e:
+        print("ALL: Error while receiving object: {}".format(e))
+        traceback.print_exc()
 
 
 class SimpleMessage:
@@ -36,11 +39,11 @@ event_bus = EventBus("amqp://user:password@localhost:5672/zerops", "testExchange
 
 # Receiving messages with any filter
 filter_arg_any = {"x-match": "any", "type": "rca", "host": "wally133"}  # match any of the keys
-event_bus.receive_messages(filter_arg_any, SimpleConsumer("ANY"))
+event_bus.receive_messages(filter_arg_any, callback_any)
 
 # Receiving messages with all filter
 filter_arg_all = {"x-match": "all", "type": "rca", "host": "wally134"}  # match all of the keys
-event_bus.receive_messages(filter_arg_all, SimpleConsumer("ALL"))
+event_bus.receive_messages(filter_arg_all, callback_all)
 
 # Create message which should arrive at respective callback functions
 header_any = {"type": "rca", "host": "wally133"}

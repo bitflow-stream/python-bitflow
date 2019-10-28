@@ -41,14 +41,14 @@ class EventBus:
         self.stop_threads = False
         self.consumer_threads = []
 
-        self._create_header_exchange(self.exchange_name)
+        self.__create_header_exchange(self.exchange_name)
 
-    def _create_header_exchange(self, name):
+    def __create_header_exchange(self, name):
         # Declare the exchange
         rabbitpy.HeadersExchange(self.publish_channel, self.exchange_name, durable=True).declare()
         logging.info("Created rabbitmq exchange with name: {}".format(name))
 
-    def _create_and_bind_queue(self, filter_arg):
+    def __create_and_bind_queue(self, filter_arg):
         # Declare the queue
         queue = rabbitpy.Queue(self.consume_channel, durable=True)
         queue.declare()
@@ -57,7 +57,7 @@ class EventBus:
         logging.info("Created Queue {} is bound to {} with filter {}.".format(queue, self.exchange_name, filter_arg))
         return queue
 
-    def _fill_headers(self, headers):
+    def __fill_headers(self, headers):
         if self.default_headers:
             headers = copy.deepcopy(headers)
             headers = {**headers, **self.default_headers}
@@ -75,19 +75,20 @@ class EventBus:
 
     # Receive messages on the EventBus which match the given filter and handle the messages
     # with the given receive_callback
-    def receive_messages(self, filter_arg, consumer):
-        thread = threading.Thread(target=self._run_receive_message,
-                                  kwargs={"filter_arg": filter_arg, "consumer": consumer})
+    def receive_messages(self, filter_arg, callback):
+        thread = threading.Thread(target=self.__run_receive_message,
+                                  kwargs={"filter_arg": filter_arg, "callback": callback})
         self.consumer_threads.append(thread)
         thread.start()
 
-    def _run_receive_message(self, filter_arg, consumer):
-        queue = self._create_and_bind_queue(filter_arg)
+    def __run_receive_message(self, filter_arg, callback):
+        queue = self.__create_and_bind_queue(filter_arg)
         while not self.stop_threads:
             try:
                 for message in queue.consume():
                     event_bus_message = EventBusMessage(message.body)
-                    consumer.callback(message.properties["headers"], event_bus_message)
+                    header = {k: v.decode() for k, v in message.properties["headers"].items()}
+                    callback(header, event_bus_message)
                     if self.stop_threads:
                         break
             except Exception as e:

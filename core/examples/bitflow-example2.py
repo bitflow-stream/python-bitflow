@@ -3,10 +3,10 @@
 import logging
 import time
 
-from bitflow.io.sinksteps import TerminalOut
-from bitflow.io.sources import FileSource
-from bitflow.pipeline import Pipeline
-from bitflow.processingstep import ProcessingStep
+from core.bitflow.io.sinksteps import TerminalOut
+from core.bitflow.io.sources import FileSource
+from core.bitflow.pipeline import Pipeline
+from core.bitflow.processingstep import ProcessingStep
 
 
 class Delay(ProcessingStep):

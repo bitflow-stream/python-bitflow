@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
-
-import logging
-import time
-
-from bitflow.io.sinksteps import FileSink
-from bitflow.io.sources import FileSource
-from bitflow.io.marshaller import *
-from bitflow.pipeline import PipelineSync, PipelineAsync
-from bitflow.batchprocessingstep import AvgBatchProcessingStep
-from bitflow.batch import Batch
-from bitflow.processingstep import ProcessingStep, PARALLEL_MODE_THREAD
+from core.bitflow.io.sinksteps import FileSink
+from core.bitflow.io.sources import FileSource
+from core.bitflow.io.marshaller import *
+from core.bitflow.pipeline import PipelineSync
+from core.bitflow.batchprocessingstep import AvgBatchProcessingStep
+from core.bitflow.batch import Batch
 
 
 def main():
-
     input_filename = "testing/in_small.csv"
     out_filename = "testing/out_small.csv"
 
