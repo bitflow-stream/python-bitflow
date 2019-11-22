@@ -47,11 +47,9 @@ NODE = "node"
 VM = "vm"
 
 # Default tag key, set by the zerops bitflow collector. Service name of the service component the metric data belong to.
-SERVICE = "service";
+SERVICE = "service"
 
 # Default tag key set by the zerops bitflow collector. Identifies the component, from which the metricsn within the
 # sample were collected. Can be either the physical hypervisor itself (identified by its hostname) or one of the
 # virtual machines running at the hypervisor (identified by their libvirt ID).
 HOST = "host"
-
-

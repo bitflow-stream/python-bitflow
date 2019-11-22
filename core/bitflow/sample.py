@@ -98,8 +98,13 @@ class Sample:
             return key in self.tags
 
     # HEADER
-    def header_changed(self, old_metric_names):
-        return self.header.has_changed(old_metric_names)
+    def header_changed(self, value):
+        if isinstance(value, Header):
+            return self.header.has_changed(value)
+        elif isinstance(value, list):
+            return self.header.has_changed(Header(value))
+        else:
+            raise ValueError("Cannot perform comparison of header with type %s".format(type(value)))
 
     @staticmethod
     def new_empty_sample():
@@ -120,11 +125,11 @@ class Header:
     def num_fields(self):
         return len(self.metric_names)
 
-    def has_changed(self, old_metric_names):
-        if self.num_fields() != old_metric_names.num_fields():
+    def has_changed(self, header):
+        if self.num_fields() != header.num_fields():
             return True
         else:
             for i in range(0, len(self.metric_names)):
-                if self.metric_names[i] != old_metric_names.metric_names[i]:
+                if self.metric_names[i] != header.metric_names[i]:
                     return True
         return False

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 # appr. 8h training time
 class GRUS2S(nn.Module):
 
-    def __init__(self, input_dimensions, num_classes, hidden_dimensions=512, num_layers=2,
+    def __init__(self, input_dimensions, num_classes, hidden_dimensions=256, num_layers=1,
                  dropout=0.0, bidirectional=False):
         super(GRUS2S, self).__init__()
         self.input_dimensions = input_dimensions

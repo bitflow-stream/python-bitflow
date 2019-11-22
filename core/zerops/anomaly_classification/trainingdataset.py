@@ -17,7 +17,7 @@ class MaxSequenceLengthReached(Exception):
 
 class TrainingDataSet:
 
-    def __init__(self, max_sequence_length, min_sequence_length):
+    def __init__(self, min_sequence_length, max_sequence_length):
         super().__init__()
         self.min_sequence_length = min_sequence_length
         self.max_sequence_length = max_sequence_length
@@ -97,7 +97,10 @@ class TrainingDataSet:
         return max(self.ids) + 1 if self.ids else 0
 
     def get_min_number_of_examples(self):
-        return min(self.class_counter)
+        if self.class_counter:
+            return min(self.class_counter)
+        else:
+            return 0
 
     def get_num_features(self):
         return self.num_features

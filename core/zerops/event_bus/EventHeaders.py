@@ -1,5 +1,8 @@
 # ################ Definition of message header keys #################
 
+# Type of header filter matching
+MATCH_KEY = "match"
+
 # Identifies the type of the message.
 TYPE_KEY = "type"
 
@@ -8,6 +11,12 @@ COMPONENT_KEY = "component"
 
 # ################ Definition of constant values for respective message header keys #################
 # ################ Message type value constants #################
+
+# Matching if any rabbitmq header entry matches match the defined filter
+MATCH_ALL = "all"
+
+# Matching only if all rabbitmq header entries match the defined filter
+MATCH_ANY = "any"
 
 # Constant message type for RCA.
 TYPE_RCA = "rca"
@@ -25,3 +34,7 @@ TYPE_ANOMALY_ANALYSIS_FEEDBACK = "aa-feedback"
 
 # Default value if component cannot be determined.
 COMPONENT_UNKNOWN = "unknown"
+
+# All possible feedback message types that can be received
+ANOMALY_ANALYSIS_FEEDBACK_TYPES = {0: "NO_FEEDBACK", 1: "UNKNOWN_ANOMALY",
+                                   2: "NOT_RUNNING", 3: "SUCCESSFUL", 4: "FAILED"}

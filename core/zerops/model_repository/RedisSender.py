@@ -37,6 +37,7 @@ class RedisSender:
 
         self.endpoint = endpoint
         self.redis = self.__RedisBorgWrapper().redis_connect(endpoint)
+        self.redis.ping()
         self.max_queue_size = self.__getMaxQueueSize()
         self.send_thread = threading.Thread(target=self.send_values)
         self.stop_thread = False

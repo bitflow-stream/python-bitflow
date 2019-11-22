@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from core.zerops import utils
 from core.zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
@@ -39,8 +38,9 @@ class BinaryModelRepository:
         new_key_bytes = self.__make_key(key, revision)
         # If this fails, the "latest" key will point to a non-existing revision object.
         # This is handled specially in load_latest.
-        logging.debug("Storing byte model under key {} (time: {}, meta: {})".format(
-            new_key_bytes.decode(encoding='utf8'), model_wrapper.get_str_date(), model_wrapper.get_meta_data()))
+        logging.debug("Storing byte model (size {} bytes) under key {} (time: {}, meta: {})".format(
+            len(model_wrapper.get_model_bytes()), new_key_bytes.decode(encoding='utf8'), model_wrapper.get_str_date(),
+            model_wrapper.get_meta_data()))
         encoded_model = model_wrapper.get_byte_map()
         self.sender.store_map(new_key_bytes, encoded_model)
         return revision

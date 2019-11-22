@@ -3,9 +3,11 @@ import datetime
 
 class BinaryModelWrapper:
     DATE_FORMAT = '%d.%m.%Y %H:%M:%S.%f'
+    HEADER_SEPARATOR = ","
 
     MODEL_KEY = "model"
     TIME_KEY = "time"
+    HEADER = "header"
     MODEL_KEY_BYTES = MODEL_KEY.encode(encoding='utf8')
     TIME_KEY_BYTES = TIME_KEY.encode(encoding='utf8')
 
@@ -63,3 +65,7 @@ class BinaryModelWrapper:
 
     def get_byte_map(self):
         return self.__encode_to_binary_dict()
+
+    def get_model_bytes(self):
+        if self.model:
+            return self.serializer.serialize(self.model)
