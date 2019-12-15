@@ -18,7 +18,7 @@ class BinaryModelRepository:
     def __init__(self, serializer, redis_endpoint=None, key_prefix=None, step_name=""):
         if not redis_endpoint:
             redis_endpoint = utils.get_env(self.ENV_REDIS_ENDPOINT)
-        redis_endpoint = self._replace_scheme(redis_endpoint)
+        redis_endpoint = self._reformat_url(redis_endpoint)
         logging.info("Connecting to model repository via {}".format(redis_endpoint))
         self.sender = RedisSender(redis_endpoint)
         if not key_prefix:
@@ -28,10 +28,14 @@ class BinaryModelRepository:
         self.serializer = serializer
 
     @staticmethod
-    def _replace_scheme(url):
+    def _reformat_url(url):
         parsed = urlparse(url)
-        scheme = "%s://" % parsed.scheme
-        return parsed.geturl().replace(scheme, 'redis://', 1)
+        scheme = "{}://".format(parsed.scheme)
+        result = parsed.geturl().replace(scheme, 'redis://', 1)
+        scheme = "{}://".format(urlparse(result).scheme)
+        if "@" in result:
+            result = scheme + result.split("@")[1]
+        return result
 
     # Stores the a new model with the given key. The revision is incremented.
     def store(self, key, model, meta_data=None):
