@@ -163,6 +163,7 @@ class ClassifyAnomaly(ProcessingStep):
         return result
 
     def process_prediction_results(self, metrics, labels):
+        labels = ["similarity-{}".format(label) for label in labels]
         header = Header(labels)
         result_sample = Sample(header, metrics, self.current_sample.timestamp, self.current_sample.tags)
         result_sample.add_tag(RESULT, RESULT_CLASSIFICATION)
