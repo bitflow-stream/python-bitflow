@@ -29,7 +29,7 @@ class ClassifyAnomaly(ProcessingStep):
                  model_storage_tag: str = "group", key_pattern: str = None, enable_message_exchange: bool = False,
                  learn_normal_states: bool = False, normal_sequence_length: int = 120, min_sequence_length: int = 50,
                  max_anomaly_sequence_length: int = 768, num_consecutive_predictions: int = 10,
-                 max_num_predictions: int = 50):
+                 max_num_predictions: int = 50, forward_only_result: bool = True):
         if time_to_wait_for_data is None and min_k == -1:
             raise ValueError("At least one of the following parameters must be set: wait_for_train_data and "
                              "min_num_per_class.")
@@ -40,6 +40,8 @@ class ClassifyAnomaly(ProcessingStep):
 
         # ############ State which control the behavior of the step #############
         self.state = None
+
+        self.forward_only_result = forward_only_result
 
         # ############ Collect Training Data State Parameters #############
         self.time_to_wait_for_data = time_to_wait_for_data
@@ -136,7 +138,8 @@ class ClassifyAnomaly(ProcessingStep):
                                                       self.learn_normal_states, self.normal_sequence_length,
                                                       self.min_sequence_length, self.max_anomaly_sequence_length)
         self.state.process_sample(sample, self)
-        super().write(sample)
+        if not self.forward_only_result:
+            super().write(sample)
 
     def set_state(self, state_class, **kwargs):
         if state_class == CollectTrainingDataState:
