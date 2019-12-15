@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 from zerops import utils
 from zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
@@ -17,12 +18,19 @@ class BinaryModelRepository:
     def __init__(self, serializer, redis_endpoint=None, key_prefix=None, step_name=""):
         if not redis_endpoint:
             redis_endpoint = utils.get_env(self.ENV_REDIS_ENDPOINT)
+        redis_endpoint = self._replace_scheme(redis_endpoint)
         self.sender = RedisSender(redis_endpoint)
         if not key_prefix:
             key_prefix = utils.get_env(self.ENV_REDIS_KEY_PREFIX)
         self.key_prefix = key_prefix
         self.step_name = step_name
         self.serializer = serializer
+
+    @staticmethod
+    def _replace_scheme(url):
+        parsed = urlparse(url)
+        scheme = "%s://" % parsed.scheme
+        return parsed.geturl().replace(scheme, 'redis://', 1)
 
     # Stores the a new model with the given key. The revision is incremented.
     def store(self, key, model, meta_data=None):
@@ -86,7 +94,7 @@ class BinaryModelRepository:
         binary_dict = self.sender.redis.hgetall(byte_key)
         model_wrapper = BinaryModelWrapper(binary_dict=binary_dict, serializer=self.serializer)
 
-        logging.debug("Loaded byte model from key {} (time: {}, meta: {})" .format(
+        logging.debug("Loaded byte model from key {} (time: {}, meta: {})".format(
             byte_key.decode(encoding='utf8'), model_wrapper.get_str_date(), model_wrapper.get_meta_data()))
         return model_wrapper.get_model()
 
