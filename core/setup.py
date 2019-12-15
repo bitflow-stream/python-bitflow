@@ -9,5 +9,7 @@ setup(name='python-bitflow',
       author_email='marcel.wallschlaeger@tu-berlin.de',
       url='https://github.com/bitflow-stream/python-bitflow',
       scripts=['python-bitflow', 'python-bitflow'],
-      packages=['bitflow', 'bitflow/io', 'bitflow/script', 'bitflow/steps']
+      packages=['bitflow', 'bitflow/io', 'bitflow/script', 'bitflow/steps', 'zerops', 'zerops/anomaly_classification',
+                'zerops/anomaly_classification/models', 'zerops/event_bus', 'zerops/model_repository',
+                'zerops/serialize']
       )
