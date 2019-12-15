@@ -25,7 +25,7 @@ class Sample:
             "bitflow.sample",
             str(self.header),
             self.get_timestamp_string(),
-            self.get_tags,
+            self.get_tags(),
             self.metrics)
 
     # METRICS
