@@ -19,6 +19,7 @@ class BinaryModelRepository:
         if not redis_endpoint:
             redis_endpoint = utils.get_env(self.ENV_REDIS_ENDPOINT)
         redis_endpoint = self._replace_scheme(redis_endpoint)
+        logging.info("Connecting to model repository via {}".format(redis_endpoint))
         self.sender = RedisSender(redis_endpoint)
         if not key_prefix:
             key_prefix = utils.get_env(self.ENV_REDIS_KEY_PREFIX)
