@@ -82,7 +82,7 @@ class ClassifyAnomaly(ProcessingStep):
                 self.eventHeader = {MATCH_KEY: MATCH_ANY}
                 self.eventHeader = {TYPE_KEY: TYPE_RCA}
                 self.eventHeader = {TYPE_KEY: TYPE_ANOMALY_ANALYSIS_FEEDBACK}
-                self.eventbus = EventBus("amqp://user:xxxxxxxx@localhost:5672/zerops-operator", "zerops-operator") #EventBus()
+                self.eventbus = EventBus()
             except Exception as e:
                 logging.warning("Error occurred while trying to connect to rabbitmq. No message transfer will be used.",
                                 exc_info=e)

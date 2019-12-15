@@ -1,5 +1,7 @@
 import pathlib
 import re
+from urllib.parse import urlparse
+
 from antlr4 import *
 
 from zerops.anomaly_classification.classify_anomaly import *
@@ -113,6 +115,9 @@ def build_data_input(data_input_ctx, pipeline):
                 HEADS_AND_SOURCES.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
+                if "://" in input_str:
+                    o = urlparse(input_str)
+                    input_str = o.netloc
                 hostname, port = input_str.split(":")
                 data_input = DownloadSource(host=hostname, port=int(port), pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
