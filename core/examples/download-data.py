@@ -4,10 +4,10 @@ import logging
 import signal
 import sys
 
-from core.bitflow.io.sinksteps import TerminalOut, FileSink
-from core.bitflow.io.sources import DownloadSource
-from core.bitflow.pipeline import PipelineSync
-from core.bitflow.processingstep import ProcessingStep
+from bitflow.io.sinksteps import TerminalOut, FileSink
+from bitflow.io.sources import DownloadSource
+from bitflow.pipeline import PipelineSync
+from bitflow.processingstep import ProcessingStep
 
 CLOSING = False
 

@@ -1,6 +1,6 @@
 from statistics import mean
 
-from core.bitflow.processingstep import *
+from bitflow.processingstep import *
 
 
 def initialize_batch_step(name, script_args):

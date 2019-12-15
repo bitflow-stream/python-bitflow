@@ -4,9 +4,9 @@ import logging
 import signal
 import sys
 
-from core.bitflow.io.sinksteps import ListenSink
-from core.bitflow.io.sources import FileSource
-from core.bitflow.pipeline import PipelineSync
+from bitflow.io.sinksteps import ListenSink
+from bitflow.io.sources import FileSource
+from bitflow.pipeline import PipelineSync
 
 CLOSING = False
 

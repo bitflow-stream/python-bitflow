@@ -4,7 +4,7 @@ import threading
 from functools import reduce
 import redis as redis
 
-from core.zerops import utils
+from zerops import utils
 
 
 class RedisSender:
@@ -49,7 +49,7 @@ class RedisSender:
             result = int(utils.get_env(self.ENV_REDIS_MAX_QUEUE_SIZE))
         except IOError:
             logging.info("Environment variable {} for maximum reddis queue size not defined. "
-                         "Using default queue size of {}.", self.ENV_REDIS_MAX_QUEUE_SIZE, self.DEFAULT_MAX_QUEUE_SIZE)
+                         "Using default queue size of {}.".format(self.ENV_REDIS_MAX_QUEUE_SIZE, self.DEFAULT_MAX_QUEUE_SIZE))
         return result
 
     def store_map(self, key, value):

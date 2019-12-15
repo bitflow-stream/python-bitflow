@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
-from core.bitflow.helper import NotSupportedWarning
-from core.bitflow.processingstep import *
+from bitflow.helper import NotSupportedWarning
+from bitflow.processingstep import *
 
 
 class PlotTagBoxplot(ProcessingStep):

@@ -1,10 +1,10 @@
 import datetime
 import logging
 
-from core.zerops.anomaly_classification.State import State
-from core.zerops.TagLib import *
-from core.zerops.anomaly_classification.TrainModelState import TrainModelState
-from core.zerops.anomaly_classification.trainingdataset import TrainingDataSet, SequenceTooSmall, \
+from zerops.anomaly_classification.State import State
+from zerops.TagLib import *
+from zerops.anomaly_classification.TrainModelState import TrainModelState
+from zerops.anomaly_classification.trainingdataset import TrainingDataSet, SequenceTooSmall, \
     MaxSequenceLengthReached
 
 

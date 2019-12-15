@@ -1,7 +1,7 @@
 import logging
 import struct
 
-from core.bitflow.sample import Sample, Header
+from bitflow.sample import Sample, Header
 
 CSV_DATA_FORMAT = "csv"
 BIN_DATA_FORMAT = "bin"

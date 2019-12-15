@@ -3,10 +3,10 @@
 import logging
 import time
 
-from core.bitflow.io.sinksteps import TerminalOut
-from core.bitflow.io.sources import FileSource
-from core.bitflow.pipeline import Pipeline
-from core.bitflow.processingstep import ProcessingStep
+from bitflow.io.sinksteps import TerminalOut
+from bitflow.io.sources import FileSource
+from bitflow.pipeline import PipelineSync, PipelineAsync
+from bitflow.processingstep import ProcessingStep
 
 
 class Delay(ProcessingStep):
@@ -34,7 +34,7 @@ def main():
     input_filename = "testing/testing_file_in.csv"
 
     # define pipeline
-    pipeline = Pipeline()
+    pipeline = PipelineSync()
 
     # add processingsteps to pipeline
     pipeline.add_processing_step(Delay(delay=2))

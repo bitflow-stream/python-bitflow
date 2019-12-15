@@ -1,6 +1,6 @@
-from core.bitflow.helper import NotSupportedError
-from core.bitflow.pipeline import BatchPipelineSync, BatchPipelineAsync
-from core.bitflow.processingstep import *
+from bitflow.helper import NotSupportedError
+from bitflow.pipeline import BatchPipelineSync, BatchPipelineAsync
+from bitflow.processingstep import *
 
 
 class Batch(ProcessingStep):

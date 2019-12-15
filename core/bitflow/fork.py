@@ -1,6 +1,6 @@
-from core.bitflow.helper import NotSupportedWarning
-from core.bitflow.pipeline import *
-from core.bitflow.processingstep import *
+from bitflow.helper import NotSupportedWarning
+from bitflow.pipeline import *
+from bitflow.processingstep import *
 
 
 def initialize_fork(name, script_args):

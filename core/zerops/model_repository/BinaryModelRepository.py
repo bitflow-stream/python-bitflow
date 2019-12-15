@@ -1,8 +1,8 @@
 import logging
 
-from core.zerops import utils
-from core.zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
-from core.zerops.model_repository.RedisSender import RedisSender
+from zerops import utils
+from zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
+from zerops.model_repository.RedisSender import RedisSender
 
 
 class BinaryModelRepository:
@@ -43,6 +43,7 @@ class BinaryModelRepository:
             model_wrapper.get_meta_data()))
         encoded_model = model_wrapper.get_byte_map()
         self.sender.store_map(new_key_bytes, encoded_model)
+
         return revision
 
     # Load the model with the latest revision.

@@ -2,9 +2,9 @@ import threading
 import time
 import traceback
 
-from core.zerops.event_bus.EventBus import EventBus
-from core.zerops.event_bus.EventBusMessage import EventBusMessage
-from core.zerops.serialize.JSONSerializer import JSONSerializer
+from zerops.event_bus.EventBus import EventBus
+from zerops.event_bus.EventBusMessage import EventBusMessage
+from zerops.serialize.JSONSerializer import JSONSerializer
 
 
 def callback_any(header, message):

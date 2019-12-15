@@ -17,14 +17,14 @@ class PrintStep(ProcessingStep):
 
 
 host = "0.0.0.0"
-port = 5678
+port = 9111
 
 pipeline = PipelineSync()
 source = DownloadSource(pipeline, host, port)
 
 
 classify = ClassifyAnomaly("RNN_GRU_S2S", min_k=4, enable_model_storage=True, enable_message_exchange=True,
-                           num_consecutive_predictions=30, max_num_predictions=200)
+                           num_consecutive_predictions=10, max_num_predictions=300)
 
 pipeline.add_processing_step(classify)
 

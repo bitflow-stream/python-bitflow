@@ -64,7 +64,8 @@ def main():
     parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import processing steps from a .py file")
     parser.add_argument("-d", type=int, help="duration to run in seconds")
 
-    parser.add_argument("-parallel_mode", type=str, help="start pipelines in parallel. possible parallel mode values are: {}".format(",".join(PARALLEL_MODES)))
+    parser.add_argument("-parallel_mode", type=str, help="start pipelines in parallel. possible parallel mode values are: {}"
+                        .format(",".join(PARALLEL_MODES)))
 
     ld_group = parser.add_argument_group("logging and debug")
     ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')

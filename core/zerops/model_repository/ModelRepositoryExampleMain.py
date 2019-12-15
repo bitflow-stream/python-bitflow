@@ -1,11 +1,11 @@
 import sys
 import time
 
-from core.zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
-from core.zerops.model_repository.BinaryModelRepository import BinaryModelRepository
-from core.zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
-from core.zerops.serialize.JSONSerializer import JSONSerializer
-from core.zerops.serialize.PickleSerializer import PickleSerializer
+from zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
+from zerops.model_repository.BinaryModelRepository import BinaryModelRepository
+from zerops.model_repository.BinaryModelWrapper import BinaryModelWrapper
+from zerops.serialize.JSONSerializer import JSONSerializer
+from zerops.serialize.PickleSerializer import PickleSerializer
 
 sleep_time = 3
 

@@ -2,10 +2,10 @@
 
 import logging
 
-from core.bitflow.io.sinksteps import TerminalOut, FileSink
-from core.bitflow.io.sources import FileSource
-from core.bitflow.pipeline import PipelineSync, PipelineAsync
-from core.bitflow.processingstep import PARALLEL_MODE_PROCESS, ProcessingStep, PARALLEL_MODE_THREAD
+from bitflow.io.sinksteps import TerminalOut, FileSink
+from bitflow.io.sources import FileSource
+from bitflow.pipeline import PipelineSync, PipelineAsync
+from bitflow.processingstep import PARALLEL_MODE_PROCESS, ProcessingStep, PARALLEL_MODE_THREAD
 
 ''' example python3-bitflow main'''
 

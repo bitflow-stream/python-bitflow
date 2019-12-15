@@ -1,11 +1,12 @@
 import operator
 import uuid
+from random import randint
 
 import torch
 import torch.nn.functional as F
 
-from core.zerops.anomaly_classification.State import State
-from core.zerops.TagLib import *
+from zerops.anomaly_classification.State import State
+from zerops.TagLib import *
 
 
 class PredictionState(State):
@@ -13,6 +14,8 @@ class PredictionState(State):
     def __init__(self, num_consecutive_predictions, max_num_predictions, model, id2label):
         super().__init__("Prediction")
         self.model = model
+        self.model.eval()
+        self.model.double()
         self.id2label = id2label
 
         self.num_consecutive_predictions = num_consecutive_predictions
@@ -29,7 +32,7 @@ class PredictionState(State):
         sample_result = None
         reset = False
         # Anomaly detection reported this anomaly
-        anomaly_reported = sample.has_tag(BINARY_PREDICTION_TAG) and sample.getTag(BINARY_PREDICTION_TAG) == ANOMALY
+        anomaly_reported = sample.has_tag(BINARY_PREDICTION_TAG) and sample.get_tag(BINARY_PREDICTION_TAG) == ANOMALY
         if anomaly_reported:
             if not self.predicting:
                 self.predicting = True
@@ -42,12 +45,11 @@ class PredictionState(State):
 
         if self.predicting:
             metrics, labels, predicted_anomaly, confidence = self._do_prediction(sample, reset)
-            if predicted_anomaly and \
-                    (not self.result_sent or
-                     (self.result_sent and self.prediction_changed(predicted_anomaly))):
+            pred_changed = self.prediction_changed(predicted_anomaly)
+            if predicted_anomaly and (not self.result_sent or (self.result_sent and pred_changed)):
                 # Method returns true on success, false otherwise
                 self.result_sent = self._send_message(context, self.current_prediction_summary,
-                                                      predicted_anomaly, confidence)
+                                                      predicted_anomaly, confidence, sample)
             if metrics and labels:
                 context.process_prediction_results(metrics, labels)
 
@@ -72,25 +74,22 @@ class PredictionState(State):
             return True
         return predicted_anomaly != self.last_label
 
-    def _send_message(self, context, prediction_summary, predicted_anomaly, confidence):
+    def _send_message(self, context, prediction_summary, predicted_anomaly, confidence, sample):
         if not predicted_anomaly:
             predicted_anomaly = RESULT_UNKNOWN
         result_id = self._generate_uuid()
         self.pending_results[result_id] = (1, prediction_summary)
-        return context.send_message(result_id, predicted_anomaly, confidence)
+        return context.send_message(result_id, predicted_anomaly, confidence, sample=sample)
 
     def _generate_uuid(self):
         while True:
-            msg_id = uuid.UUID()
+            msg_id = randint(1, 1000000)
             if msg_id not in self.pending_results.keys():
                 break
         return msg_id
 
     def process_feedback(self, msg_id, feedback):
-
         pass
-
-
 
 
 class PredictionSummary:
@@ -112,11 +111,11 @@ class PredictionSummary:
             self.current_consecutive_class["consecutive_counter"] += 1
             self.current_consecutive_class["confidence_sum"] += confidence
         else:
-            self._reset_current_consecutive_class()
+            self._reset_current_consecutive_class(index)
         self.predictions.append(prediction)
 
-    def _reset_current_consecutive_class(self):
-        self.current_consecutive_class["label"] = -1
+    def _reset_current_consecutive_class(self, class_index):
+        self.current_consecutive_class["label"] = class_index
         self.current_consecutive_class["consecutive_counter"] = 0
         self.current_consecutive_class["confidence_sum"] = 0
 
@@ -129,10 +128,13 @@ class PredictionSummary:
     def _check_short_term_converge(self):
         if not self.current_consecutive_class:
             return None, None
-        if self.current_consecutive_class["consecutive_counter"] >= self.num_consecutives:
-            avg_confidence = self.current_consecutive_class["confidence_sum"] / \
-                             self.current_consecutive_class["consecutive_counter"]
+        current_consecutive_counter = self.current_consecutive_class["consecutive_counter"]
+        nc = self.num_consecutives
+        if current_consecutive_counter >= nc:
+            cs = self.current_consecutive_class["confidence_sum"]
+            avg_confidence = cs / current_consecutive_counter
             return self.current_consecutive_class["label"], avg_confidence
+        return None, -1
 
     def _check_long_term_converge(self):
         if self.num_predictions < self.max_num_of_predictions:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-from core.bitflow import fork, processingstep
-from core.bitflow.io import sinksteps
-from core.bitflow.io.sources import FileSource
-from core.bitflow.io.marshaller import *
-from core.bitflow.pipeline import PipelineSync
+from bitflow import fork, processingstep
+from bitflow.io import sinksteps
+from bitflow.io.sources import FileSource
+from bitflow.io.marshaller import *
+from bitflow.pipeline import PipelineSync
 
 
 def main():

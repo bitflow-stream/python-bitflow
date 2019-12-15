@@ -4,9 +4,9 @@ import threading
 
 import torch
 
-from core.zerops.anomaly_classification.PredictionState import PredictionState
-from core.zerops.anomaly_classification.State import State
-from core.zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
+from zerops.anomaly_classification.PredictionState import PredictionState
+from zerops.anomaly_classification.State import State
+from zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
 
 
 class TrainModelState(State):

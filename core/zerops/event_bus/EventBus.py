@@ -3,8 +3,8 @@ import logging
 import threading
 import rabbitpy
 
-import core.zerops.utils as utils
-from core.zerops.event_bus.EventBusMessage import EventBusMessage
+import zerops.utils as utils
+from zerops.event_bus.EventBusMessage import EventBusMessage
 
 
 class EventBus:
@@ -45,7 +45,7 @@ class EventBus:
 
     def __create_header_exchange(self, name):
         # Declare the exchange
-        rabbitpy.HeadersExchange(self.publish_channel, self.exchange_name, durable=True).declare()
+        rabbitpy.HeadersExchange(self.publish_channel, name, durable=True).declare()
         logging.info("Created rabbitmq exchange with name: {}".format(name))
 
     def __create_and_bind_queue(self, filter_arg):
@@ -68,7 +68,7 @@ class EventBus:
         props = {"headers": header, "delivery_mode": 2, "priority": 1}
         payload = message.get_message()
         message = rabbitpy.Message(self.publish_channel, body_value=payload, properties=props)
-        message.publish(self.exchange_name, self.routing_key)
+        message.publish(self.exchange_name, self.routing_key, mandatory=True)
 
     def get_consume_channel(self):
         return self.consume_channel

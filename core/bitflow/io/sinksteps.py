@@ -4,9 +4,9 @@ import socket
 import sys
 from collections import deque
 
-from core.bitflow.io.marshaller import *
-from core.bitflow.processingstep import *
-from core.bitflow.processingstep import _ProcessingStepAsync
+from bitflow.io.marshaller import *
+from bitflow.processingstep import *
+from bitflow.processingstep import _ProcessingStepAsync
 
 NO_INPUT_TIMEOUT = 0.1
 SOCKET_ERROR_TIMEOUT = 0.5

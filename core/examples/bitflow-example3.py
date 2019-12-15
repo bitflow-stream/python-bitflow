@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-from core.bitflow.io.sinksteps import FileSink
-from core.bitflow.io.sources import FileSource
-from core.bitflow.io.marshaller import *
-from core.bitflow.pipeline import PipelineSync
-from core.bitflow.batchprocessingstep import AvgBatchProcessingStep
-from core.bitflow.batch import Batch
+from bitflow.io.sinksteps import FileSink
+from bitflow.io.sources import FileSource
+from bitflow.io.marshaller import *
+from bitflow.pipeline import PipelineSync
+from bitflow.batchprocessingstep import AvgBatchProcessingStep
+from bitflow.batch import Batch
 
 
 def main():

@@ -1,32 +1,35 @@
 import copy
 import logging
 import re
+import typing
 
 from bitflow.sample import Sample
 
-from core.bitflow.processingstep import ProcessingStep
-from core.bitflow.sample import Header
-from core.zerops.TagLib import *
-from core.zerops.anomaly_classification.CollectTrainingDataState import CollectTrainingDataState
-from core.zerops.anomaly_classification.PredictionState import PredictionState
-from core.zerops.anomaly_classification.TrainModelState import TrainModelState
-from core.zerops.event_bus.EventBus import EventBus
-from core.zerops.event_bus.EventBusMessage import EventBusMessage
-from core.zerops.event_bus.EventHeaders import *
-from core.zerops.model_repository.BinaryModelRepository import BinaryModelRepository
-from core.zerops.serialize.JSONSerializer import JSONSerializer
-from core.zerops.serialize.PickleSerializer import PickleSerializer
+from bitflow.processingstep import *
+from bitflow.sample import Header
+from zerops.TagLib import *
+from zerops.anomaly_classification.CollectTrainingDataState import CollectTrainingDataState
+from zerops.anomaly_classification.PredictionState import PredictionState
+from zerops.anomaly_classification.TrainModelState import TrainModelState
+from zerops.event_bus.EventBus import EventBus
+from zerops.event_bus.EventBusMessage import EventBusMessage
+from zerops.event_bus.EventHeaders import *
+from zerops.model_repository.BinaryModelRepository import BinaryModelRepository
+from zerops.serialize.JSONSerializer import JSONSerializer
+from zerops.serialize.PickleSerializer import PickleSerializer
 
 
 class ClassifyAnomaly(ProcessingStep):
     DEFAULT_KEY_PATTERN = "(-[0-9]*$|-[0-9]*.ims4$)"
 
     # k is always referred to as the number of examples per class
-    def __init__(self, model_type, model_parameters=None, num_epochs=100, learning_rate=1e-3, min_k=-1,
-                 time_to_wait_for_data=None, learning_key=DEFAULT_LEARNING_TAG, enable_model_storage=False,
-                 key_pattern=None, enable_message_exchange=False, learn_normal_states=False, normal_sequence_length=120,
-                 min_sequence_length=50, max_anomaly_sequence_length=768, num_consecutive_predictions=10,
-                 max_num_predictions=50):
+    def __init__(self, model_type: str, model_parameters: dict = None, num_epochs: int = 100,
+                 learning_rate: float = 1e-3, min_k: int = -1, time_to_wait_for_data: int = None,
+                 learning_key: str = DEFAULT_LEARNING_TAG, enable_model_storage: bool = False,
+                 model_storage_tag: str = "group", key_pattern: str = None, enable_message_exchange: bool = False,
+                 learn_normal_states: bool = False, normal_sequence_length: int = 120, min_sequence_length: int = 50,
+                 max_anomaly_sequence_length: int = 768, num_consecutive_predictions: int = 10,
+                 max_num_predictions: int = 50):
         if time_to_wait_for_data is None and min_k == -1:
             raise ValueError("At least one of the following parameters must be set: wait_for_train_data and "
                              "min_num_per_class.")
@@ -53,6 +56,7 @@ class ClassifyAnomaly(ProcessingStep):
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.key_pattern = key_pattern if key_pattern else self.DEFAULT_KEY_PATTERN
+        self.model_storage_tag = model_storage_tag
 
         # ############ Prediction State Parameters #############
         self.num_consecutive_predictions = num_consecutive_predictions
@@ -61,7 +65,7 @@ class ClassifyAnomaly(ProcessingStep):
         # ############ Model Storage #############
         if enable_model_storage:
             try:
-                self.model_repo = BinaryModelRepository(PickleSerializer(), step_name=self.__name__)
+                self.model_repo = BinaryModelRepository(PickleSerializer(), step_name="ClassifyAnomaly")
             except Exception as e:
                 logging.warning("Error while trying to connect to model repository. Wont be able to store/load models",
                                 exc_info=e)
@@ -71,23 +75,24 @@ class ClassifyAnomaly(ProcessingStep):
         self.key = None
 
         # ############ Event Bus #############
+        self.enable_message_exchange = enable_message_exchange
         if enable_message_exchange:
             try:
                 self.message_serializer = JSONSerializer(ClassificationResultMessage)
                 self.eventHeader = {MATCH_KEY: MATCH_ANY}
                 self.eventHeader = {TYPE_KEY: TYPE_RCA}
                 self.eventHeader = {TYPE_KEY: TYPE_ANOMALY_ANALYSIS_FEEDBACK}
-                self.eventbus = EventBus()
+                self.eventbus = EventBus("amqp://user:xxxxxxxx@localhost:5672/zerops-operator", "zerops-operator") #EventBus()
             except Exception as e:
                 logging.warning("Error occurred while trying to connect to rabbitmq. No message transfer will be used.",
                                 exc_info=e)
                 self.eventbus = None
-            if self.eventbus:
-                try:
-                    self.eventbus.receive_messages(self.eventHeader, self.receive_message)
-                except Exception as e:
-                    logging.warning("Error while configuring receive message channel. Unable to receive messages.",
-                                    exc_info=e)
+            # if self.eventbus:
+            #     try:
+            #         self.eventbus.receive_messages(self.eventHeader, self.receive_message)
+            #     except Exception as e:
+            #         logging.warning("Error while configuring receive message channel. Unable to receive messages.",
+            #                         exc_info=e)
         else:
             self.eventbus = None
 
@@ -114,6 +119,13 @@ class ClassifyAnomaly(ProcessingStep):
             if self.model_repo:
                 logging.info("Trying to load model for key {} ...".format(key))
                 model = self.model_repo.load_latest(key)
+                if self.header.has_changed(Header(model.header)):
+                    logging.warning("Header from loaded model and header of current sample stream are not the same.\n"
+                                    "Header from sample stream: %s\n"
+                                    "Header from loaded model: %s\n"
+                                    "Cannot perform classification with loaded model.",
+                                    self.header.metric_names.join(","), model.header.join(","))
+                    model = None
             if model:
                 logging.info("Successfully loaded model for key {}.".format(key))
                 self.state = PredictionState(self.num_consecutive_predictions, self.max_num_predictions,
@@ -141,9 +153,10 @@ class ClassifyAnomaly(ProcessingStep):
                             .format(state_class, self.state))
 
     def _generate_key(self, sample):
-
         result = "unknown_type"
-        if sample.has_tag(VM):
+        if sample.has_tag("group"):
+            result = sample.get_tag("group")
+        elif sample.has_tag(VM):
             result = re.sub(self.key_pattern, '', sample.get_tag(VM))
         elif sample.has_tag(NODE):
             result = sample.get_tag(NODE)
@@ -171,9 +184,15 @@ class ClassifyAnomaly(ProcessingStep):
             else:
                 header, msg = self._get_header_and_msg_from_sample(result_id, predicted_anomaly, confidence, sample)
 
-            return self.eventbus.publish_message(header, EventBusMessage(msg, self.message_serializer))
-        return True
+            # TODO some fucked up shit but it wont work with the self.eventbus for whatever reasons
+            if self.enable_message_exchange:
+                event_bus = EventBus()
+                if event_bus:
+                    payload = EventBusMessage(msg, self.message_serializer)
+                    event_bus.publish_message(header, payload)
 
+            return True
+        return True
 
     @staticmethod
     def _get_header_and_msg_from_sample(msg_id, predicted_anomaly, confidence, sample):
@@ -181,9 +200,9 @@ class ClassifyAnomaly(ProcessingStep):
         header = {TYPE_KEY: TYPE_ANOMALY_ANALYSIS}
         if sample.has_tag(COMPONENT):
             msg.component = sample.get_tag(COMPONENT)
-            header[COMPONENT_KEY] = sample.get_tag(COMPONENT)
-        else:
-            header[COMPONENT_KEY] = COMPONENT_UNKNOWN
+            # header[COMPONENT_KEY] = sample.get_tag(COMPONENT)
+        # else:
+        #    header[COMPONENT_KEY] = COMPONENT_UNKNOWN
         if sample.has_tag(NODE):
             msg.node = sample.get_tag(NODE)
         if sample.has_tag(VM):
@@ -233,20 +252,25 @@ class ModelWrapper:
 
 class ClassificationResultMessage:
 
-    def __init__(self, msg_id, label, confidence, feedback=False):
-        self.msg_id = msg_id
+    def __init__(self, id, label, confidence, feedback=0):
+        self.id = id
         self.label = label
         self.confidence = confidence
-        self.feedback = feedback
         self.component = ""
         self.node = ""
         self.vm = ""
         self.service = ""
+        self.feedback = feedback
 
     def __str__(self):
         feedback = "UNKNOWN_FEEDBACK_TYPE"
         if feedback in ANOMALY_ANALYSIS_FEEDBACK_TYPES:
             feedback = ANOMALY_ANALYSIS_FEEDBACK_TYPES[self.feedback]
         return "{}: label={} confidence={} id={} node={} vm={} service={} feedback={}" \
-            .format(type(self), self.label, self.confidence, self.msg_id, self.node, self.vm,
+            .format(type(self), self.label, self.confidence, self.id, self.node, self.vm,
                     self.service, feedback)
+
+
+class SimpleMessage:
+    def __init__(self, message):
+        self.message = message

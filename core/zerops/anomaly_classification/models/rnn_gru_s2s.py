@@ -7,13 +7,13 @@ import torch.nn.functional as F
 # appr. 8h training time
 class GRUS2S(nn.Module):
 
-    def __init__(self, input_dimensions, num_classes, hidden_dimensions=256, num_layers=1,
+    def __init__(self, input_dimensions, output_size, hidden_dimensions=256, num_layers=1,
                  dropout=0.0, bidirectional=False):
         super(GRUS2S, self).__init__()
         self.input_dimensions = input_dimensions
         self.hidden_dimensions = hidden_dimensions
 
-        self.num_classes = num_classes
+        self.output_size = output_size
 
         self.num_layers = num_layers
         self.dropout = dropout
@@ -29,7 +29,7 @@ class GRUS2S(nn.Module):
 
         # Fully connected for full seq output i.e. linear layer of fcs.
         # This will give me an output of sequence size more precisely: batch_size*seq_len*num_classes
-        self.fc = nn.Linear(in_features=self.hidden_dimensions, out_features=self.num_classes)
+        self.fc = nn.Linear(in_features=self.hidden_dimensions, out_features=self.output_size)
 
     def forward(self, X):
         raise NotImplementedError("Use explicit forward_train or forward_eval methods.")
@@ -63,7 +63,7 @@ class GRUS2S(nn.Module):
 
         # Hidden state in first seq of the GRU
         if reset or self.h_previous is None:
-            h_0 = self.init_hidden(1, num_direction)
+            h_0 = self._init_hidden(1, num_direction)
         else:
             h_0 = self.h_previous
 
