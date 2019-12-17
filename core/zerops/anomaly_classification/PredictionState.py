@@ -11,12 +11,14 @@ from zerops.TagLib import *
 
 class PredictionState(State):
 
+    MAP_ANOMALY_LABELS = {"stess_hdd": "stress_hdd", "packet_duplication": "packet_duplicate"}
+
     def __init__(self, num_consecutive_predictions, max_num_predictions, model, id2label):
         super().__init__("Prediction")
         self.model = model
         self.model.eval()
         self.model.double()
-        self.id2label = id2label
+        self.id2label = self._fix_id2label(id2label)
 
         self.num_consecutive_predictions = num_consecutive_predictions
         self.max_num_predictions = max_num_predictions
@@ -27,6 +29,11 @@ class PredictionState(State):
         self.predicting = False
         self.result_sent = False
         self.pending_results = {}
+
+    def _fix_id2label(self, id2label):
+        id2label = {key: value if value not in self.MAP_ANOMALY_LABELS else self.MAP_ANOMALY_LABELS[value]
+                    for key, value in id2label.items()}
+        return id2label
 
     def process_sample(self, sample, context):
         sample_result = None
@@ -133,7 +140,9 @@ class PredictionSummary:
         if current_consecutive_counter >= nc:
             cs = self.current_consecutive_class["confidence_sum"]
             avg_confidence = cs / current_consecutive_counter
-            return self.current_consecutive_class["label"], avg_confidence
+            label = self.current_consecutive_class["label"]
+            self._reset_current_consecutive_class(-1)
+            return label, avg_confidence
         return None, -1
 
     def _check_long_term_converge(self):

@@ -9,7 +9,7 @@ from zerops.anomaly_classification.models.rnn_gru_s2s import GRUS2S
 from zerops.model_repository.BinaryModelRepository import BinaryModelRepository
 from zerops.serialize.PickleSerializer import PickleSerializer
 
-directory = "/home/alex/data/huaweidata/test/models"
+directory = "/home/alex/data/huaweidata/8/models"
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -32,7 +32,7 @@ repo = BinaryModelRepository(serializer_pickle, step_name=step_name)
 pytorch_model_paths = get_pytorch_models(directory)
 
 for group_name, path in pytorch_model_paths.items():
-    state = torch.load(path)
+    state = torch.load(path, map_location=torch.device('cpu'))
     model = GRUS2S(**state["model_parameters"])
     mw = ModelWrapper(model, state["id2label"], state["header"])
     repo.store(group_name, mw)
