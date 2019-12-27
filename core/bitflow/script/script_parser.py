@@ -14,7 +14,6 @@ from bitflow.script.BitflowLexer import BitflowLexer
 from bitflow.script.BitflowParser import BitflowParser
 
 
-
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
 # output separation str

@@ -1,4 +1,3 @@
-import time
 import unittest
 
 from bitflow import pipeline as pipe

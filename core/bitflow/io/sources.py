@@ -1,5 +1,4 @@
 import multiprocessing
-import queue
 import os
 import select
 import socket
