@@ -9,7 +9,6 @@ import time
 from multiprocessing import Value
 
 from bitflow import *
-from zerops import *
 from bitflow.sample import Sample, Header
 from bitflow import helper
 

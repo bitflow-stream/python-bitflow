@@ -4,8 +4,6 @@ from urllib.parse import urlparse
 
 from antlr4 import *
 
-from zerops.anomaly_classification.classify_anomaly import *
-
 from bitflow.batchprocessingstep import *
 from bitflow.fork import *
 from bitflow.helper import *
