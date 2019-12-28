@@ -1,5 +1,4 @@
 import multiprocessing
-import queue
 import os
 import select
 import socket
@@ -70,6 +69,7 @@ class Source(metaclass=helper.CtrlMethodDecorator):
 
 
 class _SourceProcess(multiprocessing.Process, metaclass=helper.CtrlMethodDecorator):
+    BIN_NEWLINE = '\n'.encode('utf8')
 
     def __init__(self, running, pipeline, marshaller, sample_limit):
         super().__init__()
@@ -110,10 +110,9 @@ class _SourceProcess(multiprocessing.Process, metaclass=helper.CtrlMethodDecorat
 
     # cuts at newline, end of line for csv end after tags for bin
     def get_newline_cutting_pos(self, b):
-        newline = b'\n'
         btlen = BinMarshaller.TIMESTAMP_VALUE_BYTES_LEN
         if len(b) > btlen:
-            cutting_pos = b[btlen:len(b)].find(newline)
+            cutting_pos = b[btlen:len(b)].find(self.BIN_NEWLINE)
             if cutting_pos > 0:
                 return cutting_pos + btlen
         return -1

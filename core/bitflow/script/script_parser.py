@@ -1,8 +1,9 @@
 import pathlib
 import re
+from urllib.parse import urlparse
+
 from antlr4 import *
 
-from bitflow.batch import *
 from bitflow.batchprocessingstep import *
 from bitflow.fork import *
 from bitflow.helper import *
@@ -11,6 +12,7 @@ from bitflow.io.sinksteps import FileSink, ListenSink, TerminalOut, TCPSink, get
 from bitflow.io.sources import FileSource, ListenSource, DownloadSource
 from bitflow.script.BitflowLexer import BitflowLexer
 from bitflow.script.BitflowParser import BitflowParser
+
 
 # listen input regex
 R_port = re.compile(r'(^:[0-9]+)')
@@ -78,6 +80,7 @@ def capabilities():
 
 # G4:   processingStep : name parameters schedulingHints? ;
 def build_processing_step(processing_step_ctx):
+    processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
     parameters_dict = {}
     if processing_step_ctx.schedulingHints():
         scheduling_hints_ctx = processing_step_ctx.schedulingHints()
@@ -85,7 +88,7 @@ def build_processing_step(processing_step_ctx):
 
     name_str = processing_step_ctx.name().getText()
     parse_parameters(processing_step_ctx.parameters(), parameters_dict)
-    ps = initialize_step(name_str, parameters_dict)
+    ps = initialize_step(name_str, parameters_dict, processing_steps)
     if not ps:
         raise ProcessingStepNotKnown("{}: unsupported processing step ...".format(name_str))
     return ps
@@ -109,6 +112,10 @@ def build_data_input(data_input_ctx, pipeline):
                 HEADS_AND_SOURCES.append(data_input)
             else:
                 logging.info("Download Source: " + input_str)
+                if "://" in input_str:
+                    o = urlparse(input_str)
+                    input_str = o.netloc
+                logging.info("Parsing download source from: " + input_str)
                 hostname, port = input_str.split(":")
                 data_input = DownloadSource(host=hostname, port=int(port), pipeline=pipeline)
                 THREAD_PROCESS_ELEMENTS.append(data_input)
@@ -462,7 +469,7 @@ def build_pipeline(pipeline_ctx, parallel_mode):
 
     elif pipeline_ctx.pipelines():
         pipelines_ctx = pipeline_ctx.pipelines()
-        parse_pipelines(pipelines_ctx)
+        parse_pipelines(pipelines_ctx, parallel_mode)
 
     if pipeline_ctx.pipelineTailElement():
         for pipeline_tail_element_ctx in pipeline_ctx.pipelineTailElement():
@@ -498,6 +505,6 @@ def parse_script(script: str, parallel_mode: str = None):
     stream = CommonTokenStream(lexer)
     parser = BitflowParser(stream)
     ctx = parser.script()
-    parse_pipelines(ctx.pipelines(),parallel_mode)
+    parse_pipelines(ctx.pipelines(), parallel_mode)
 
     return priviatize_tp_elements()

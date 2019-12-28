@@ -6,7 +6,7 @@ import sys
 
 from bitflow.io.sinksteps import TerminalOut, FileSink
 from bitflow.io.sources import DownloadSource
-from bitflow.pipeline import Pipeline
+from bitflow.pipeline import PipelineSync
 from bitflow.processingstep import ProcessingStep
 
 CLOSING = False
@@ -65,7 +65,7 @@ def main():
     fs = FileSink(filename=out_file)
     to = TerminalOut()
 
-    pipeline = Pipeline()
+    pipeline = PipelineSync()
     pipeline.add_processing_step(sf_ps)
     pipeline.add_processing_step(fs)
     pipeline.add_processing_step(to)

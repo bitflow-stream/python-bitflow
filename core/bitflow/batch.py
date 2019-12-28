@@ -1,5 +1,3 @@
-import queue
-
 from bitflow.helper import NotSupportedError
 from bitflow.pipeline import BatchPipelineSync, BatchPipelineAsync
 from bitflow.processingstep import *

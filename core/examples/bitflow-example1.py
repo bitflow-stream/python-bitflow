@@ -2,12 +2,10 @@
 
 import logging
 
-from bitflow.io.marshaller import CSV_DATA_FORMAT
 from bitflow.io.sinksteps import TerminalOut, FileSink
 from bitflow.io.sources import FileSource
 from bitflow.pipeline import PipelineSync, PipelineAsync
 from bitflow.processingstep import PARALLEL_MODE_PROCESS, ProcessingStep, PARALLEL_MODE_THREAD
-from bitflow.steps.plotprocessingsteps import PlotLinePlot
 
 ''' example python3-bitflow main'''
 

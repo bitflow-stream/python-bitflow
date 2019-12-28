@@ -61,10 +61,12 @@ def main():
     script_group.add_argument("-f", help="Read given file as Bitflow Script and execute the pipeline.", metavar='')
     script_group.add_argument("-capabilities", action='store_true', help="list all available processing steps")
 
-    parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import processing steps from a .py file")
+    parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import of processing steps from a .py file")
+    parser.add_argument("-m", type=str, metavar="my_module", help="dynamic import of processing steps from a module")
     parser.add_argument("-d", type=int, help="duration to run in seconds")
 
-    parser.add_argument("-parallel_mode", type=str, help="start pipelines in parallel. possible parallel mode values are: {}".format(",".join(PARALLEL_MODES)))
+    parser.add_argument("-parallel_mode", type=str, help="start pipelines in parallel. possible parallel mode values are: {}"
+                        .format(",".join(PARALLEL_MODES)))
 
     ld_group = parser.add_argument_group("logging and debug")
     ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')
@@ -101,6 +103,20 @@ def main():
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+
+    if args.m:
+        import importlib.util
+        # get a handle on the module
+        mdl = importlib.import_module(args.m)
+
+        # is there an __all__?  if so respect it
+        if "__all__" in mdl.__dict__:
+            names = mdl.__dict__["__all__"]
+        else:
+            # otherwise we import all names that don't begin with _
+            names = [x for x in mdl.__dict__ if not x.startswith("_")]
+        # now drag them in
+        globals().update({k: getattr(mdl, k) for k in names})
 
     if args.capabilities:
         print(capabilities())

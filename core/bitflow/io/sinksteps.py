@@ -2,9 +2,6 @@ import queue as thread_queue
 import select
 import socket
 import sys
-import threading
-import multiprocessing
-import time
 from collections import deque
 
 from bitflow.io.marshaller import *

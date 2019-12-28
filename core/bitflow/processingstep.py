@@ -8,8 +8,9 @@ import typing
 import time
 from multiprocessing import Value
 
-from bitflow import helper
+from bitflow import *
 from bitflow.sample import Sample, Header
+from bitflow import helper
 
 STRING_LIST_SEPARATOR = ","
 
@@ -29,18 +30,23 @@ PARALLEL_MODES = [PARALLEL_MODE_THREAD, PARALLEL_MODE_PROCESS]
 
 
 def get_required_and_optional_args(step, required_step_args, optional_step_args):
-    step_args = typing.get_type_hints(step.__init__)
+    step_args = step.__init__.__code__.co_varnames[1:]
+    step_typed_args = typing.get_type_hints(step.__init__)
+
+    args = step_typed_args
+    if len(step_args) != len(step_typed_args):
+        args = {arg: step_typed_args[arg] if arg in step_typed_args else "" for arg in step_args}
 
     if step.__init__.__defaults__:
         optional_step_args_len = len(step.__init__.__defaults__)
     else:
         optional_step_args_len = 0
 
-    for i in range(0, len(step_args) - optional_step_args_len):
-        required_step_args[list(step_args.keys())[i]] = step_args[list(step_args.keys())[i]]
+    for i in range(0, len(args) - optional_step_args_len):
+        required_step_args[list(args.keys())[i]] = args[list(args.keys())[i]]
 
-    for i in range(len(step_args) - optional_step_args_len, len(step_args)):
-        optional_step_args[list(step_args.keys())[i]] = step_args[list(step_args.keys())[i]]
+    for i in range(len(args) - optional_step_args_len, len(args)):
+        optional_step_args[list(args.keys())[i]] = args[list(args.keys())[i]]
 
     return required_step_args, optional_step_args
 
@@ -142,8 +148,8 @@ def compare_args(step, script_args):
     return False
 
 
-def initialize_step(name, script_args):
-    processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
+def initialize_step(name, script_args, processing_steps):
+    # processing_steps = ProcessingStep.get_all_subclasses(ProcessingStep)
     for ps in processing_steps:
         if ps.__name__.lower() == name.lower() and compare_args(ps, script_args):
             logging.info("{} with args: {}  ok ...".format(name, script_args))
@@ -557,4 +563,15 @@ class AddTag(ProcessingStep):
     def execute(self, sample):
         for k, v in self.tags.items():
             sample.add_tag(str(k), str(v))
+        self.write(sample)
+
+
+class PrintSamples(ProcessingStep):
+    __name__ = "print"
+
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, sample):
+        print(str(sample))
         self.write(sample)

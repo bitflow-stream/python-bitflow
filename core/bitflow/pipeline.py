@@ -1,9 +1,11 @@
+import logging
 import multiprocessing
-import queue as thread_queue
-from threading import Thread
+import threading
 
-from bitflow.batchprocessingstep import *
-from bitflow.processingstep import ProcessingStep, _ProcessingStepAsync
+from bitflow import helper
+from bitflow.batchprocessingstep import BatchProcessingStep
+from bitflow.processingstep import DEFAULT_QUEUE_MAXSIZE, PARALLEL_MODE_THREAD, PARALLEL_MODE_PROCESS, \
+    _ProcessingStepAsync, ProcessingStep, AsyncProcessingStep
 
 
 class PipelineTermination(ProcessingStep):
@@ -21,7 +23,8 @@ class PipelineTermination(ProcessingStep):
                 super().write(sample)
 
 
-class PipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
+class PipelineSync(ProcessingStep):
+    __metaclass__ = helper.CtrlMethodDecorator
 
     def __init__(self, processing_steps=None):
         super().__init__()
@@ -64,7 +67,8 @@ class PipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
             self.pipeline_termination.stop()
 
 
-class PipelineAsync(AsyncProcessingStep, metaclass=helper.CtrlMethodDecorator):
+class PipelineAsync(AsyncProcessingStep):
+    __metaclass__ = helper.CtrlMethodDecorator
 
     def __init__(self, processing_steps=None, maxsize=DEFAULT_QUEUE_MAXSIZE, parallel_mode=PARALLEL_MODE_THREAD):
         super().__init__(maxsize, parallel_mode)
@@ -159,7 +163,8 @@ class BatchPipelineTermination(ProcessingStep):
                 self.next_step.execute(sample)
 
 
-class BatchPipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
+class BatchPipelineSync(ProcessingStep):
+    __metaclass__ = helper.CtrlMethodDecorator
 
     def __init__(self, processing_steps=None):
         super().__init__()
@@ -210,7 +215,8 @@ class BatchPipelineSync(ProcessingStep, metaclass=helper.CtrlMethodDecorator):
             self.pipeline_termination.stop()
 
 
-class BatchPipelineAsync(AsyncProcessingStep, metaclass=helper.CtrlMethodDecorator):
+class BatchPipelineAsync(AsyncProcessingStep):
+    __metaclass__ = helper.CtrlMethodDecorator
 
     def __init__(self, processing_steps=None, maxsize=DEFAULT_QUEUE_MAXSIZE, parallel_mode=PARALLEL_MODE_THREAD):
         super().__init__(maxsize, parallel_mode)

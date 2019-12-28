@@ -5,7 +5,7 @@ import time
 
 from bitflow.io.sinksteps import TerminalOut
 from bitflow.io.sources import FileSource
-from bitflow.pipeline import Pipeline
+from bitflow.pipeline import PipelineSync, PipelineAsync
 from bitflow.processingstep import ProcessingStep
 
 
@@ -34,7 +34,7 @@ def main():
     input_filename = "testing/testing_file_in.csv"
 
     # define pipeline
-    pipeline = Pipeline()
+    pipeline = PipelineSync()
 
     # add processingsteps to pipeline
     pipeline.add_processing_step(Delay(delay=2))
