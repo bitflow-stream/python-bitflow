@@ -13,10 +13,11 @@ CLOSING = False
 
 
 def configure_logging(logging_level, filename=None):
+    formatStr = '{asctime} [{levelname:>8}] ({module:>20}.{funcName:20}): {message}'
     if filename is None:
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging_level)
+        logging.basicConfig(style='{', format=formatStr, level=logging_level)
     else:
-        logging.basicConfig(filename=filename, format='%(asctime)s %(message)s', level=logging_level)
+        logging.basicConfig(filename=filename, style='{', format=formatStr, level=logging_level)
 
 
 def strg_c_exit():
@@ -88,13 +89,15 @@ def main():
         log_level = logging.WARNING
     if args.v:
         log_level = logging.DEBUG
-        logging.debug("debug mode enabled")
 
     if args.log:
         logfile = args.log
         configure_logging(log_level, logfile)
     else:
         configure_logging(log_level)
+
+    if args.v:
+        logging.debug("debug mode enabled")
 
     if args.p:
         import importlib.util
