@@ -32,7 +32,8 @@ class SocketWrapper:
         try:
             self.socket.sendall(sample)
         except socket.error as e:
-            logging.warning("Could not transmit sample %s due to timeout.", str(sample), exc_info=e)
+            logging.warning("Could not transmit sample (len %s)", len(str(sample)), exc_info=e)
+            raise e
 
     def read(self, packet_size):
         return self.socket.recv(packet_size)
@@ -151,7 +152,7 @@ class _TCPSinkProcess(multiprocessing.Process, _TCPSinkAsync):
 class ListenSink(AsyncProcessingStep):
 
     def __init__(self, host: str = "0.0.0.0", port: int = 5010, data_format: str = CSV_DATA_FORMAT,
-                 sample_buffer_size: int = -1, max_receivers: int = 5, retry_on_close: bool = False,
+                 sample_buffer_size: int = -1, max_receivers: int = 10, retry_on_close: bool = False,
                  maxsize: int = DEFAULT_QUEUE_MAXSIZE, parallel_mode: str = PARALLEL_MODE_THREAD):
         if not parallel_mode:
             raise ValueError("%s: Sequential mode is not supported. Define one of the following parallel modes: $s",
@@ -266,7 +267,7 @@ class _ListenSinkAsync(_ProcessingStepAsync):
                     self.marshaller.marshall_header(sock, sample.header)
                     self.sample_queues[sock.socket]["header"] = sample.header
                 self.marshaller.marshall_sample(sock, sample)
-            except socket.error:
+            except socket.error as e:
                 return sock.socket
         return None
 
@@ -296,7 +297,6 @@ class _ListenSinkAsync(_ProcessingStepAsync):
                 time.sleep(NO_INPUT_TIMEOUT)
                 return sample
 
-            exceptional = []
             for s in writable:
                 try:
                     socket_sample = self.sample_queues[s]["queue"].get_nowait()
@@ -304,7 +304,7 @@ class _ListenSinkAsync(_ProcessingStepAsync):
                     continue
                 e = self.offer_sample(socket_sample, SocketWrapper(s))
                 if e:
-                    exceptional.append(self)
+                    exceptional.append(e)
                 self.sample_queues[s]["queue"].task_done()
 
             for s in exceptional:
