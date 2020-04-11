@@ -1,7 +1,7 @@
-# bitflowstream/bitflow-pipeline-python:latest
+# bitflowstream/bitflow-pipeline-python:latest-amd64
 # Build from repository root:
-# docker build -t bitflowstream/bitflow-pipeline-python:latest -f build/alpine.Dockerfile .
-FROM bitflowstream/bitflow-pipeline:latest
+# docker build -t bitflowstream/bitflow-pipeline-python:latest-amd64 -f build/alpine.Dockerfile .
+FROM bitflowstream/bitflow-pipeline:latest-amd64
 
 RUN apk --no-cache add python3
 
