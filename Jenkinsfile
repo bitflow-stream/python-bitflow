@@ -24,13 +24,13 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'make init'
-                sh 'make jenkins-test'
+                sh 'pip install -r requirements.txt'
+                sh 'py.test --junitxml test-report.xml --cov-report xml:coverage-report.xml --cov=bitflow tests'
             }
             post {
                 always {
-                    junit 'tests/test-report.xml'
-                    archiveArtifacts 'tests/*-report.xml'
+                    junit 'test-report.xml'
+                    archiveArtifacts '*-report.xml'
                 }
             }
         }
@@ -43,8 +43,8 @@ pipeline {
                             ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=python-bitflow -Dsonar.branch.name=$BRANCH_NAME \
                                 -Dsonar.sources=bitflow -Dsonar.tests=tests/. \
                                 -Dsonar.inclusions="**/*.py" \
-                                -Dsonar.python.coverage.reportPaths=tests/coverage-report.xml \
-                                -Dsonar.test.reportPath=tests/test-report.xml
+                                -Dsonar.python.coverage.reportPaths=coverage-report.xml \
+                                -Dsonar.test.reportPath=test-report.xml
                         """
                     }
                 }
