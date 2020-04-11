@@ -10,7 +10,7 @@ class BitflowProtocolError(Exception):
             msg += " Expected: {} (type {}).".format(expected, type(expected))
         if received is not None:
             msg += " Received: {} (type {}).".format(received, type(received))
-        return super().__init__(msg)
+        super().__init__(msg)
 
 TIMESTAMP_NUM_BYTES = 8
 METRIC_NUM_BYTES = 8
