@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+import argparse
+import signal
+import logging
+import sys
+import importlib.util
+import bitflow.steps # Make sure default steps are loaded
+from bitflow.runner import ProcessingStep, BitflowRunner
+from bitflow.parameters import instantiate_step, collect_subclasses
+from bitflow.io import SampleChannel
+
+def main():
+    runner = BitflowRunner()
+    signal.signal(signal.SIGINT, runner.shutdown)
+    args = command_line_flags()
+
+    configure_logging(args)
+    if args.p:
+        load_plugin_file(args.p)
+    if args.m:
+        load_plugin_module(args.m)
+    if args.capabilities:
+        print_capabilities()
+        return 0
+    if args.step is None:
+        print("Missing required parameter -step")
+        return 1
+
+    try:
+        step = instantiate_step(args.step, ProcessingStep, args.args)
+        runner.run(step, SampleChannel())
+    except Exception as e:
+        logging.error("Error", exc_info=e)
+        return 1
+    return 0
+
+def command_line_flags():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-step", type=str, metavar="step-name", help="name of the processing step to execute (see -capabilities for all available steps)")
+    parser.add_argument("-args", type=str, help="arguments, parsed for the processing step. Format: 'a=b, c=d, x=y'")
+    parser.add_argument("-capabilities", action='store_true', help="list all available processing steps")
+    parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import of processing steps from a .py file")
+    parser.add_argument("-m", type=str, metavar="my_module", help="dynamic import of processing steps from a module")
+
+    ld_group = parser.add_argument_group("logging and debug")
+    ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')
+    ld_group.add_argument("-v", action='store_true', help="Set log level to Debug (default is Info)")
+    ld_group.add_argument("-q", action='store_true', help="Set log level to Warning")
+    ld_group.add_argument("-qq", action='store_true', help="Set log level to Error")
+
+    return parser.parse_args()
+
+def configure_logging(args):
+    log_level = logging.INFO
+    if args.qq:
+        log_level = logging.ERROR
+    if args.q:
+        log_level = logging.WARNING
+    if args.v:
+        log_level = logging.DEBUG
+    if args.v:
+        logging.debug("debug mode enabled")
+
+    formatStr = '{asctime} [{levelname:>8}] ({module:>20}.{funcName:20}): {message}'
+    if args.log:
+        logging.basicConfig(filename=args.log, style='{', format=formatStr, level=log_level)
+    else:
+        logging.basicConfig(style='{', format=formatStr, level=log_level)
+
+def load_plugin_file(file_path):
+    spec = importlib.util.spec_from_file_location('*', file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+def load_plugin_module(module_name):
+    mdl = importlib.import_module(module_name)
+    if "__all__" in mdl.__dict__:
+        names = mdl.__dict__["__all__"]
+    else:
+        names = [x for x in mdl.__dict__ if not x.startswith("_")]
+    globals().update({k: getattr(mdl, k) for k in names})
+
+def print_capabilities():
+    print("Available processing steps:")
+    for cls in collect_subclasses(ProcessingStep):
+        # TODO add proper formatting, add json output
+        print(cls.get_step_name())
+
+if __name__ == '__main__':
+    sys.exit(main())
