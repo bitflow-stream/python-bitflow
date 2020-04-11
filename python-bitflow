@@ -11,7 +11,9 @@ from bitflow.io import SampleChannel
 
 def main():
     runner = BitflowRunner()
-    signal.signal(signal.SIGINT, runner.shutdown)
+    def shutdown_wrapper(sig, frame):
+        runner.shutdown()
+    signal.signal(signal.SIGINT, shutdown_wrapper)
     args = command_line_flags()
 
     configure_logging(args)

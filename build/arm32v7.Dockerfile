@@ -1,4 +1,6 @@
-# bitflowstream/bitflow-pipeline:python-arm32v7
+# bitflowstream/bitflow-pipeline-python:latest-arm32v7
+# Build from repository root:
+# docker build -t bitflowstream/bitflow-pipeline-python:arm32v7 -f build/arm32v7.Dockerfile .
 FROM bitflowstream/bitflow-pipeline:latest-arm32v7
 
 RUN apk --no-cache add python3

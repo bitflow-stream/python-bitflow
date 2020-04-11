@@ -1,4 +1,5 @@
 import logging
+import sys
 from bitflow.runner import ProcessingStep
 
 class NoopStep(ProcessingStep):
@@ -44,8 +45,16 @@ class DropStep(ProcessingStep):
 
 class PrintStep(ProcessingStep):
     __description__ = "Prints all incoming samples before forwarding them"
-    step_name = "print"
+    step_name = "print-samples"
 
     def handle_sample(self, sample):
-        print(str(sample))
+        print(str(sample), file=sys.stderr)
         self.output(sample)
+
+class EchoStep(NoopStep):
+    __description__ = "Prints the given message to stderr, forwards all received samples unchanged."
+    step_name = "echo"
+
+    def __init__(self, msg:str):
+        self.msg = msg
+        print(self.msg, file=sys.stderr)
