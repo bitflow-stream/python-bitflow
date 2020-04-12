@@ -46,7 +46,8 @@ def command_line_flags():
     parser.add_argument("-m", type=str, metavar="my_module", help="dynamic import of processing steps from a module")
 
     ld_group = parser.add_argument_group("logging and debug")
-    ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console.", metavar='')
+    ld_group.add_argument("-shortlog", action='store_true', help="Make logging output less verbose")
+    ld_group.add_argument("-log", help="Redirect logs to a given file in addition to the console", metavar='')
     ld_group.add_argument("-v", action='store_true', help="Set log level to Debug (default is Info)")
     ld_group.add_argument("-q", action='store_true', help="Set log level to Warning")
     ld_group.add_argument("-qq", action='store_true', help="Set log level to Error")
@@ -64,7 +65,10 @@ def configure_logging(args):
     if args.v:
         logging.debug("debug mode enabled")
 
-    formatStr = '{asctime} [{levelname:>8}] ({module:>20}.{funcName:20}): {message}'
+    if args.shortlog:
+        formatStr = '[{levelname}] ({module}.{funcName}): {message}'
+    else:
+        formatStr = '{asctime} [{levelname:>8}] ({module:>20}.{funcName:20}): {message}'
     if args.log:
         logging.basicConfig(filename=args.log, style='{', format=formatStr, level=log_level)
     else:
