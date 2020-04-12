@@ -1,19 +1,21 @@
-import logging
-import typing
 import inspect
-from bitflow.sample import Sample, Header
+import logging
 
 BOOL_TRUE_STRINGS = ["true", "yes", "1", "ja", "y", "j"]
 BOOL_FALSE_STRINGS = ["false", "no", "0", "nein", "n"]
 
+
 class UnknownProcessingStep(Exception):
     pass
+
 
 class ParameterParseException(Exception):
     pass
 
+
 def instantiate_step(name, root_class, args_string):
     return instantiate_step_class(find_step_class(name, root_class), args_string)
+
 
 def instantiate_step_class(step_class, args_string):
     args_dict = parse_string_dict(args_string)
@@ -21,13 +23,16 @@ def instantiate_step_class(step_class, args_string):
     logging.info("Instantiating class {} with args: {}".format(step_class, args_dict))
     return step_class(**parsed_args)
 
+
 def find_step_class(name, root_class):
     step_classes = collect_subclasses(root_class)
-    logging.info("Found {} subclass(es) of {}: {}".format(len(step_classes), root_class, [ s.get_step_name() for s in step_classes]))
+    logging.info("Found {} subclass(es) of {}: {}".format(len(step_classes), root_class,
+                                                          [s.get_step_name() for s in step_classes]))
     for ps in step_classes:
         if ps.get_step_name().lower() == name.lower():
             return ps
     raise UnknownProcessingStep("Unknown processing step '{}'".format(name))
+
 
 def collect_subclasses(cls):
     all_subclasses = []
@@ -35,6 +40,7 @@ def collect_subclasses(cls):
         all_subclasses.append(subclass)
         all_subclasses.extend(collect_subclasses(subclass))
     return all_subclasses
+
 
 def parse_string_dict(dict_string):
     # Format: "a=b, c=d"
@@ -48,6 +54,7 @@ def parse_string_dict(dict_string):
             raise ParameterParseException("Failed to parse as string-dict: {}".format(dict_string))
         result[keyVal[0]] = keyVal[1]
     return result
+
 
 def parse_args(step, raw_args):
     provided_args = set(raw_args.keys())
@@ -64,7 +71,7 @@ def parse_args(step, raw_args):
             # Try to parse the string to the required type
             value = raw_args[name]
             if typ == bool:
-                typ = parse_bool # Use custom boolean parsing
+                typ = parse_bool  # Use custom boolean parsing
             try:
                 parsed_args[name] = typ(value)
             except Exception as e:
@@ -77,8 +84,11 @@ def parse_args(step, raw_args):
         if name in provided_args:
             provided_args.remove(name)
     if len(provided_args) > 0:
-        raise ParameterParseException("Unexpected parameter(s) for processing step {}: {}. Known parameters: {}".format(step, provided_args, constructor.parameters.keys()))
+        raise ParameterParseException(
+            "Unexpected parameter(s) for processing step {}: {}. Known parameters: {}".format(step, provided_args,
+                                                                                              constructor.parameters.keys()))
     return parsed_args
+
 
 def parse_bool(string):
     string = string.lower()
@@ -86,4 +96,4 @@ def parse_bool(string):
         return True
     elif string in BOOL_FALSE_STRINGS:
         return False
-    raise ParameterParseException("Failed to parse '{}' to bool".format())
+    raise ParameterParseException("Failed to parse '{}' to bool".format(string))

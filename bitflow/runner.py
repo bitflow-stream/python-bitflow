@@ -1,6 +1,5 @@
 import logging
-from bitflow.io import SampleChannel
-from bitflow.parameters import instantiate_step
+
 
 class ProcessingStep():
     """Abstract interface class for implementing processing steps"""
@@ -27,12 +26,13 @@ class ProcessingStep():
 
     def output(self, sample):
         self.context.output_sample(sample)
-    
+
     @classmethod
     def get_step_name(self):
         if hasattr(self, "step_name"):
             return self.step_name
         return self.__name__
+
 
 class BitflowContext():
 
@@ -41,6 +41,7 @@ class BitflowContext():
 
     def output_sample(self, sample):
         self.channel.output_sample(sample)
+
 
 class BitflowRunner():
 
@@ -54,10 +55,10 @@ class BitflowRunner():
         logging.info("Starting to receive samples...")
         while self.running:
             sample = channel.read_sample()
-            if sample is None: # Signifies end of the input stream
+            if sample is None:  # Signifies end of the input stream
                 break
             step.handle_sample(sample)
-        
+
         # We are shutting down. Last thing to do: let the processing step clean up.
         step.cleanup()
         channel.close()

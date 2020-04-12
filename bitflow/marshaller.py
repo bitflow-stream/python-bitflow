@@ -1,7 +1,11 @@
-import logging
 import struct
 import datetime
 from bitflow.sample import Sample, Header
+import datetime
+import struct
+
+from bitflow.sample import Sample, Header
+
 
 class BitflowProtocolError(Exception):
     def __init__(self, description, expected=None, received=None):
@@ -12,6 +16,7 @@ class BitflowProtocolError(Exception):
             msg += " Received: {} (type {}).".format(received, type(received))
         super().__init__(msg)
 
+
 TIMESTAMP_NUM_BYTES = 8
 METRIC_NUM_BYTES = 8
 HEADER_START = "timB"
@@ -21,6 +26,7 @@ SEPARATOR_BYTE = b'\n'
 
 TAGS_SEPARATOR = " "
 TAGS_EQ = "="
+
 
 class BinaryMarshaller:
 
@@ -63,19 +69,19 @@ class BinaryMarshaller:
 
         start = stream.peek(len(SAMPLE_MARKER_BYTE))
         if len(start) == 0:
-            return None # Possible EOF
+            return None  # Possible EOF
         elif len(start) >= len(SAMPLE_MARKER_BYTE) and start[:len(SAMPLE_MARKER_BYTE)] == SAMPLE_MARKER_BYTE:
             return self.read_sample(stream, previousHeader)
         else:
             return self.read_header(stream)
-    
+
     def read_header(self, stream):
-        timeField = self.read_line(stream) # Header fields are terminated by newline characters
+        timeField = self.read_line(stream)  # Header fields are terminated by newline characters
         if timeField == "":
-            return None # Possible EOF
+            return None  # Possible EOF
         if timeField != HEADER_START:
             raise BitflowProtocolError("unexpected line", HEADER_START, timeField)
-        
+
         tagsField = self.read_line(stream)
         if tagsField != TAGS_FIELD:
             raise BitflowProtocolError("unexpected line", TAGS_FIELD, tagsField)
@@ -84,17 +90,17 @@ class BinaryMarshaller:
         while True:
             fieldName = self.read_line(stream)
             if len(fieldName) == 0:
-                break # Empty line terminates the header
+                break  # Empty line terminates the header
             fields.append(fieldName)
 
         return Header(fields)
 
     def read_sample(self, stream, header):
-        stream.read(len(SAMPLE_MARKER_BYTE)) # Result ignored, was already peeked
+        stream.read(len(SAMPLE_MARKER_BYTE))  # Result ignored, was already peeked
 
         num_fields = header.num_fields()
         timeBytes = stream.read(TIMESTAMP_NUM_BYTES)
-        tagBytes = self.read_line(stream) # New line terminates the tags
+        tagBytes = self.read_line(stream)  # New line terminates the tags
         valueBytes = stream.read(num_fields * METRIC_NUM_BYTES)
 
         timestamp = self.unpack_long(timeBytes)
@@ -103,7 +109,7 @@ class BinaryMarshaller:
         metrics = []
         for index in range(num_fields):
             offset = index * METRIC_NUM_BYTES
-            metricBytes = valueBytes[offset : offset + METRIC_NUM_BYTES]
+            metricBytes = valueBytes[offset: offset + METRIC_NUM_BYTES]
             metric = self.unpack_double(metricBytes)
             metrics.append(metric)
         return Sample(header=header, metrics=metrics, timestamp=timestamp, tags=tags)
@@ -146,10 +152,10 @@ class BinaryMarshaller:
 
     def get_utc_nanos_timestamp(self, sample):
         delta = sample.get_timestamp() - self.epoch
-        return int(delta.total_seconds() * 1000000000) # Nanoseconds, rounded to microseconds
+        return int(delta.total_seconds() * 1000000000)  # Nanoseconds, rounded to microseconds
 
     def format_tags(self, sample):
         s = ""
-        pairs = [ "{}={}".format(key, value) for key, value in sample.get_tags().items() ]
+        pairs = ["{}={}".format(key, value) for key, value in sample.get_tags().items()]
         pairs.sort()
         return " ".join(pairs)
