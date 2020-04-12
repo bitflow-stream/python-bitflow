@@ -1,6 +1,3 @@
-import struct
-import datetime
-from bitflow.sample import Sample, Header
 import datetime
 import struct
 

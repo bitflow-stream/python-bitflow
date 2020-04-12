@@ -85,8 +85,8 @@ def parse_args(step, raw_args):
             provided_args.remove(name)
     if len(provided_args) > 0:
         raise ParameterParseException(
-            "Unexpected parameter(s) for processing step {}: {}. Known parameters: {}".format(step, provided_args,
-                                                                                              constructor.parameters.keys()))
+            "Unexpected parameter(s) for processing step {}: {}. Known parameters: {}".format(
+                step, provided_args, constructor.parameters.keys()))
     return parsed_args
 
 

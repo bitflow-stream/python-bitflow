@@ -8,7 +8,7 @@ class ProcessingStep():
 
     def __init__(self):
         """Subclasses should not use the constructor for setup tasks. Use the initialize() method instead."""
-        pass
+        self.context = None  # Will be initialized in initialize method
 
     def initialize(self, context):
         """Set up the processing step. This can include allocation of system-wide resources such as files or network connections.
@@ -28,13 +28,13 @@ class ProcessingStep():
         self.context.output_sample(sample)
 
     @classmethod
-    def get_step_name(self):
-        if hasattr(self, "step_name"):
-            return self.step_name
-        return self.__name__
+    def get_step_name(cls):
+        if hasattr(cls, "step_name"):
+            return cls.step_name
+        return cls.__name__
 
 
-class BitflowContext():
+class BitflowContext:
 
     def __init__(self, channel):
         self.channel = channel
@@ -43,7 +43,7 @@ class BitflowContext():
         self.channel.output_sample(sample)
 
 
-class BitflowRunner():
+class BitflowRunner:
 
     def __init__(self):
         self.running = True

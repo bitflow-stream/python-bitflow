@@ -7,6 +7,7 @@ class Sample:
     def __init__(self, header, metrics, timestamp=None, tags=None):
         self.header = header
         self.metrics = metrics
+        self.timestamp = None
         self.set_timestamp(timestamp)
         if tags:
             self.tags = tags

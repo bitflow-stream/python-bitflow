@@ -7,7 +7,7 @@ from bitflow.sample import Sample, Header
 # TODO necessary to close std in/out streams?
 # TODO correct/efficient use of buffered IO?
 
-class SampleChannel():
+class SampleChannel:
 
     def __init__(self, input_stream=None, output_stream=None):
         if input_stream is None:

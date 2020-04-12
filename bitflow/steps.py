@@ -63,5 +63,6 @@ class EchoStep(NoopStep):
     step_name = "echo"
 
     def __init__(self, msg: str):
+        super().__init__()
         self.msg = msg
         print(self.msg, file=sys.stderr)
