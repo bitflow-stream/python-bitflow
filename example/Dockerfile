@@ -4,4 +4,4 @@ FROM bitflowstream/bitflow-pipeline-python
 
 WORKDIR /my-step
 COPY . .
-ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;/python-bitflow/python-bitflow;-p /my-step/step.py"]
+ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;/python-bitflow/python-bitflow;-shortlog -p /my-step/step.py"]
