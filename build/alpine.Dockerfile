@@ -11,5 +11,5 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
-ENV PYTHONPATH=/python-bitflow
-ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;/python-bitflow/python-bitflow;-shortlog"]
+RUN python3 setup.py install
+ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;python-bitflow;-shortlog"]
