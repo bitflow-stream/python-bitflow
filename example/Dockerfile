@@ -4,4 +4,8 @@ FROM bitflowstream/bitflow-pipeline-python
 
 WORKDIR /my-step
 COPY . .
-ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;/python-bitflow/python-bitflow;-shortlog -p /my-step/step.py"]
+RUN python3 setup.py install
+ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;python-bitflow;-shortlog -m example_processing_step.step"]
+
+# Alternative entrypoint that works without setup.py:
+# ENTRYPOINT ["/bitflow-pipeline", "-exe", "python;python-bitflow;-shortlog -p example_processing_step/step.py"]

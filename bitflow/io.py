@@ -1,16 +1,13 @@
-import multiprocessing
-import os
 import sys
-import select
-import socket
-import time
+
 from bitflow.marshaller import BinaryMarshaller, BitflowProtocolError
 from bitflow.sample import Sample, Header
+
 
 # TODO necessary to close std in/out streams?
 # TODO correct/efficient use of buffered IO?
 
-class SampleChannel():
+class SampleChannel:
 
     def __init__(self, input_stream=None, output_stream=None):
         if input_stream is None:
@@ -41,10 +38,11 @@ class SampleChannel():
         if self.out_header is None:
             return True
         return self.out_header.has_changed(new_header)
-    
+
     class FlushingWriter:
         def __init__(self, stream):
             self.stream = stream
+
         def write(self, data):
             self.stream.write(data)
             self.stream.flush()
@@ -57,7 +55,7 @@ class SampleChannel():
         while True:
             sampleOrHeader = self.marshaller.read(self.reader, self.in_header)
             if sampleOrHeader is None:
-                return None # Possible EOF
+                return None  # Possible EOF
             if isinstance(sampleOrHeader, Sample):
                 return sampleOrHeader
             elif isinstance(sampleOrHeader, Header):

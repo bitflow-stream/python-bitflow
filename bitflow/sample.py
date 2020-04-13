@@ -1,12 +1,13 @@
 import datetime
 
-class Sample:
 
+class Sample:
     time_format = "%Y-%m-%d %H:%M:%S.%f"
 
     def __init__(self, header, metrics, timestamp=None, tags=None):
         self.header = header
         self.metrics = metrics
+        self.timestamp = None
         self.set_timestamp(timestamp)
         if tags:
             self.tags = tags
@@ -55,7 +56,7 @@ class Sample:
             # Given in nanoseconds
             seconds = timestamp // 1000000000
             micros = (timestamp // 1000) % 1000000
-            self.timestamp = datetime.datetime.fromtimestamp(seconds) + datetime.timedelta(microseconds = micros)
+            self.timestamp = datetime.datetime.fromtimestamp(seconds) + datetime.timedelta(microseconds=micros)
         elif isinstance(timestamp, datetime.datetime):
             self.timestamp = timestamp
         else:
@@ -88,6 +89,7 @@ class Sample:
             return self.header.has_changed(Header(value))
         else:
             raise ValueError("Cannot perform comparison of header with type %s".format(type(value)))
+
 
 class Header:
 
