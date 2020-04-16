@@ -88,7 +88,8 @@ class Sample:
         elif isinstance(value, list):
             return self.header.has_changed(Header(value))
         else:
-            raise ValueError("Cannot perform comparison of header with type %s".format(type(value)))
+            raise ValueError("Cannot perform comparison of headers {} and {} since latter is of type {}"
+                             .format(str(self.header.metric_names), str(value), type(value)))
 
 
 class Header:
