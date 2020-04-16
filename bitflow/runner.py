@@ -1,7 +1,7 @@
 import logging
 
 
-class ProcessingStep():
+class ProcessingStep:
     """Abstract interface class for implementing processing steps"""
     __name__ = "abstract-processing-step"
     __description__ = "No description provided"
