@@ -56,7 +56,7 @@ class Sample:
             # Given in nanoseconds
             seconds = timestamp // 1000000000
             micros = (timestamp // 1000) % 1000000
-            self.timestamp = datetime.datetime.fromtimestamp(seconds) + datetime.timedelta(microseconds=micros)
+            self.timestamp = datetime.datetime.utcfromtimestamp(seconds) + datetime.timedelta(microseconds=micros)
         elif isinstance(timestamp, datetime.datetime):
             self.timestamp = timestamp
         else:
