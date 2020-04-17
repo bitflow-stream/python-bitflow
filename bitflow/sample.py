@@ -49,7 +49,7 @@ class Sample:
     def get_timestamp_string(self):
         self.timestamp.strftime(self.time_format)
 
-    def set_timestamp(self, timestamp: str):
+    def set_timestamp(self, timestamp):
         if not timestamp:
             self.timestamp = datetime.datetime.now()
         elif isinstance(timestamp, int):
@@ -90,6 +90,13 @@ class Sample:
         else:
             raise ValueError("Cannot perform comparison of headers {} and {} since latter is of type {}"
                              .format(str(self.header.metric_names), str(value), type(value)))
+
+    def equals(self, sample):
+        c1 = self.timestamp == sample.timestamp  # Compare timestamps
+        c2 = self.tags == sample.tags  # Compare tag dictionaries
+        c3 = not self.header_changed(sample.header)  # Compare header fields, i.e. metric names
+        c4 = self.metrics == sample.metrics  # Compare metric values
+        return c1 and c2 and c3 and c4
 
 
 class Header:
