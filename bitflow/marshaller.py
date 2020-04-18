@@ -100,7 +100,7 @@ class BinaryMarshaller:
         tagBytes = self.read_line(stream)  # New line terminates the tags
         valueBytes = stream.read(num_fields * METRIC_NUM_BYTES)
 
-        timestamp = self.unpack_long(timeBytes)
+        timestamp = self.unpack_utc_nanos_timestamp(self.unpack_long(timeBytes))
         tags = self.parse_tags(tagBytes)
 
         metrics = []
@@ -131,11 +131,9 @@ class BinaryMarshaller:
     # Formatting and sending samples and headers
     # ==========================================
 
-    epoch = datetime.datetime.utcfromtimestamp(0)
-
     def write_sample(self, stream, sample):
         stream.write(SAMPLE_MARKER_BYTE)
-        stream.write(self.pack_long(self.get_utc_nanos_timestamp(sample)))
+        stream.write(self.pack_long(self.pack_utc_nanos_timestamp(sample)))
         stream.write(self.pack_string(self.format_tags(sample)))
         stream.write(SEPARATOR_BYTE)
         for val in sample.metrics:
@@ -147,12 +145,27 @@ class BinaryMarshaller:
             stream.write(SEPARATOR_BYTE)
         stream.write(SEPARATOR_BYTE)
 
-    def get_utc_nanos_timestamp(self, sample):
-        delta = sample.get_timestamp() - self.epoch
-        return int(delta.total_seconds() * 1000000000) # Nanoseconds, rounded to microseconds
-
     def format_tags(self, sample):
         s = ""
         pairs = ["{}={}".format(key, value) for key, value in sample.get_tags().items()]
         pairs.sort()
         return " ".join(pairs)
+
+    # ==================
+    # Timestamp handling
+    # ==================
+    # Note: Bitflow timestamps are represented in UTC, both in binary marshalled format, and internally.
+    # Printing the timestamps as-is might result in a time that deviates from the local time.
+    # Especially, UTC timetamps differ from what is printed by the Go-based bitflow-pipeline tool, which converts to local time.
+
+    epoch = datetime.datetime.utcfromtimestamp(0)
+
+    def unpack_utc_nanos_timestamp(self, timestamp):
+        seconds = timestamp // 1000000000
+        micros = (timestamp // 1000) % 1000000
+        return datetime.datetime.utcfromtimestamp(seconds) + datetime.timedelta(microseconds=micros)
+
+    def pack_utc_nanos_timestamp(self, sample):
+        time = sample.get_timestamp()
+        delta = time - self.epoch
+        return int(delta.total_seconds() * 1000000000)  # Nanoseconds, rounded to microseconds
