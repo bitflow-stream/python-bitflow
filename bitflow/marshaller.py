@@ -131,7 +131,7 @@ class BinaryMarshaller:
     # Formatting and sending samples and headers
     # ==========================================
 
-    #epoch = datetime.datetime.fromtimestamp(0)
+    epoch = datetime.datetime.utcfromtimestamp(0)
 
     def write_sample(self, stream, sample):
         stream.write(SAMPLE_MARKER_BYTE)
@@ -148,8 +148,8 @@ class BinaryMarshaller:
         stream.write(SEPARATOR_BYTE)
 
     def get_utc_nanos_timestamp(self, sample):
-        delta = sample.get_timestamp()
-        return int(delta.total_seconds() * 1000000000)  # Nanoseconds, rounded to microseconds
+        delta = sample.get_timestamp() - self.epoch
+        return int(delta.total_seconds() * 1000000000) # Nanoseconds, rounded to microseconds
 
     def format_tags(self, sample):
         s = ""
