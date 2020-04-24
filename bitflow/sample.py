@@ -47,16 +47,11 @@ class Sample:
         return self.timestamp
 
     def get_timestamp_string(self):
-        self.timestamp.strftime(self.time_format)
+        return self.timestamp.strftime(self.time_format)
 
     def set_timestamp(self, timestamp):
         if not timestamp:
-            self.timestamp = datetime.datetime.now()
-        elif isinstance(timestamp, int):
-            # Given in nanoseconds
-            seconds = timestamp // 1000000000
-            micros = (timestamp // 1000) % 1000000
-            self.timestamp = datetime.datetime.utcfromtimestamp(seconds) + datetime.timedelta(microseconds=micros)
+            self.timestamp = datetime.datetime.utcnow()
         elif isinstance(timestamp, datetime.datetime):
             self.timestamp = timestamp
         else:

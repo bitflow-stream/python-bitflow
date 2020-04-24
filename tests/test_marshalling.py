@@ -27,14 +27,16 @@ class TestMarshalling(unittest.TestCase):
     def stream_file(self, filename):
         return io.BytesIO(self.read_file(filename))
 
-    def assert_equal_sample(self, sample1, sample2):
-        # Allow small difference in timestamps due to rounding error
-        delta = abs(sample1.get_timestamp() - sample2.get_timestamp())
-        self.assertLessEqual(delta.microseconds, 1)
+    def assert_equal_sample(self, expected_sample, sample):
+        # Allow small difference (1 microsecond) in timestamps due to rounding error
+        delta = abs(expected_sample.get_timestamp() - sample.get_timestamp())
+        self.assertLessEqual(delta.total_seconds(), 0.000001,
+            "Time difference too large. Expected: {}. Received: {}.".
+            format(expected_sample.get_timestamp_string(), sample.get_timestamp_string()))
 
-        self.assertDictEqual(sample1.get_tags(), sample2.get_tags())
-        self.assertListEqual(sample1.header.metric_names, sample2.header.metric_names)
-        self.assertListEqual(sample1.metrics, sample2.metrics)
+        self.assertDictEqual(expected_sample.get_tags(), sample.get_tags())
+        self.assertListEqual(expected_sample.header.metric_names, sample.header.metric_names)
+        self.assertListEqual(expected_sample.metrics, sample.metrics)
 
     def unmarshall(self, input_file, num_samples, expected_error=None, expected_samples={}):
         input_file = dir_path + "/test_data/" + input_file
@@ -65,7 +67,7 @@ class TestMarshalling(unittest.TestCase):
         helper = Helper()
         helper.read_test()
         self.assertEqual(len(helper.samples), num_samples)
-        self.assertEqual(len(output.raw.getbuffer()), 0) # Should not have written anything
+        self.assertEqual(len(output.raw.getbuffer()), 0)  # Should not have written anything
 
         for index, sample in expected_samples.items():
             self.assert_equal_sample(sample, helper.samples[index])
@@ -105,7 +107,7 @@ class TestMarshalling(unittest.TestCase):
         metrics = [1.519143432357129e+09,2,0,0,2,0.022063016891479492,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,169,5,9,2,0,2,2,3,4,1,1,4,112,30,15,0,0,1683.395966228893,0,215]
 
         channel, output, samples = self.unmarshall("broken2.bin", 1, expected_error=BitflowProtocolError, expected_samples={
-            0: Sample(expected_header, metrics, timestamp="2018-03-01 14:52:23.777949", tags=expected_tags)
+            0: Sample(expected_header, metrics, timestamp="2018-03-01 13:52:23.777949", tags=expected_tags)
         })
         self.marshall(channel, output, samples)
 
@@ -117,8 +119,8 @@ class TestMarshalling(unittest.TestCase):
         metrics2 = [1.519143434392478e+09,0,0,0,2,0.09862303733825684,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,199,2,11,4,5,0,4,5,3,3,0,4,139,42,11,0,0,1768.4285591045357,0,245]
 
         channel, output, samples = self.unmarshall("in_small.bin", 5, expected_samples={
-            0: Sample(expected_header, metrics1, timestamp="2018-03-01 14:52:23.777949", tags=expected_tags),
-            4: Sample(expected_header, metrics2, timestamp="2018-03-01 14:52:23.854518", tags=expected_tags)
+            0: Sample(expected_header, metrics1, timestamp="2018-03-01 13:52:23.777949", tags=expected_tags),
+            4: Sample(expected_header, metrics2, timestamp="2018-03-01 13:52:23.854518", tags=expected_tags)
         })
         self.marshall(channel, output, samples)
 
@@ -128,16 +130,16 @@ class TestMarshalling(unittest.TestCase):
         metrics3 = [1.519144745075841e+09,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ]
 
         channel, output, samples = self.unmarshall("in.bin", 1222, expected_samples={
-            0: Sample(expected_header, metrics1, timestamp="2018-03-01 14:52:23.777949", tags=expected_tags),
-            500: Sample(expected_header, metrics2, timestamp="2018-03-01 14:52:34.149012", tags=expected_tags),
-            1221: Sample(expected_header, metrics3, timestamp="2018-03-01 14:52:46.657", tags=expected_tags)
+            0: Sample(expected_header, metrics1, timestamp="2018-03-01 13:52:23.777949", tags=expected_tags),
+            500: Sample(expected_header, metrics2, timestamp="2018-03-01 13:52:34.149012", tags=expected_tags),
+            1221: Sample(expected_header, metrics3, timestamp="2018-03-01 13:52:46.657", tags=expected_tags)
         })
         self.marshall(channel, output, samples)
     
     def test_data_mini(self):
         metrics = [33.33333334950213,2.600195949404688]
         channel, output, samples = self.unmarshall("in-mini.bin", 1, expected_samples={
-            0: Sample(Header(metric_names=["cpu", "cpu-jiffies"]), metrics, timestamp="2020-04-11 09:49:52.828602", tags={})
+            0: Sample(Header(metric_names=["cpu", "cpu-jiffies"]), metrics, timestamp="2020-04-11 07:49:52.828602", tags={})
         })
         self.marshall(channel, output, samples)
 
