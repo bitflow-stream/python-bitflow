@@ -9,7 +9,7 @@ class TestParameterParsing(unittest.TestCase):
     def setUp(self):
         configure_logging()
 
-    def instantiate_step(self, name, args):
+    def instantiate_step(self, name, *args):
         return parameters.instantiate_step(name, ProcessingStep, args)
 
     def test_empty_parameters(self):
@@ -110,7 +110,7 @@ class TestParameterParsing(unittest.TestCase):
             self.c = c
 
     def test_inconsistent_params_1(self):
-        step = self.instantiate_step("weird-step", "b=hello, c=world")
+        step = self.instantiate_step("weird-step", "b=hello", "c=world")
         self.assertEqual(step.a, 1)
         self.assertEqual(step.b, "hello")
         self.assertEqual(step.c, "world")
@@ -122,7 +122,7 @@ class TestParameterParsing(unittest.TestCase):
             self.instantiate_step("weird-step", "c=hello")
 
     def test_inconsistent_params_3(self):
-        step = self.instantiate_step("weird-step", "a=3, b=hello, c=world")
+        step = self.instantiate_step("weird-step", "a=3", "b=hello", "c=world")
         self.assertEqual(step.a, 3)
         self.assertEqual(step.b, "hello")
         self.assertEqual(step.c, "world")
