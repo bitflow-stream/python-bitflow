@@ -49,7 +49,7 @@ def parse_string_dict(string_list):
         part = part.strip()
         if len(part) == 0:
             continue
-        keyVal = part.split("=")
+        keyVal = part.split("=", 2)
         if len(keyVal) != 2:
             raise ParameterParseException("Failed to parse as list of key-value pairs: {}".format(string_list))
         result[keyVal[0]] = keyVal[1]
