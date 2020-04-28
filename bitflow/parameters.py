@@ -13,12 +13,12 @@ class ParameterParseException(Exception):
     pass
 
 
-def instantiate_step(name, root_class, args_string):
-    return instantiate_step_class(find_step_class(name, root_class), args_string)
+def instantiate_step(name, root_class, args_list):
+    return instantiate_step_class(find_step_class(name, root_class), args_list)
 
 
-def instantiate_step_class(step_class, args_string):
-    args_dict = parse_string_dict(args_string)
+def instantiate_step_class(step_class, args_list):
+    args_dict = parse_string_dict(args_list)
     parsed_args = parse_args(step_class, args_dict)
     logging.info("Instantiating class {} with args: {}".format(step_class, args_dict))
     return step_class(**parsed_args)
@@ -42,16 +42,16 @@ def collect_subclasses(cls):
     return all_subclasses
 
 
-def parse_string_dict(dict_string):
-    # Format: "a=b, c=d"
+def parse_string_dict(string_list):
+    # Format:[ "a=b", "c=d" ]
     result = {}
-    for part in dict_string.split(","):
+    for part in string_list:
         part = part.strip()
         if len(part) == 0:
             continue
         keyVal = part.split("=")
         if len(keyVal) != 2:
-            raise ParameterParseException("Failed to parse as string-dict: {}".format(dict_string))
+            raise ParameterParseException("Failed to parse as list of key-value pairs: {}".format(string_list))
         result[keyVal[0]] = keyVal[1]
     return result
 

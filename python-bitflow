@@ -40,7 +40,7 @@ def command_line_flags():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-step", type=str, metavar="step-name", help="name of the processing step to execute (see -capabilities for all available steps)")
-    parser.add_argument("-args", type=str, help="arguments, parsed for the processing step. Format: 'a=b, c=d, x=y'")
+    parser.add_argument("-args", type=str, nargs="+", help="arguments, parsed for the processing step. Format: -args a=b c=d 'x=y z'")
     parser.add_argument("-capabilities", action='store_true', help="list all available processing steps")
     parser.add_argument("-p", type=str, metavar="my_steps.py", help="dynamic import of processing steps from a .py file")
     parser.add_argument("-m", type=str, metavar="my_module", help="dynamic import of processing steps from a module")
