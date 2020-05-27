@@ -4,62 +4,43 @@
 [![Reliability](https://ci.bitflow.team/sonarqube/api/project_badges/measure?project=python-bitflow&metric=reliability_rating)](http://wally144.cit.tu-berlin.de/sonarqube/dashboard?id=python-bitflow)
 
 # python-bitflow
-**python-bitflow** is a python library for sending, receiving and transforming streams of data. Read the documentation under [bitflow.rtfd.io](https://bitflow.readthedocs.io/en/latest/ "Bitflow documentation") to learn more about bitflow and the correlated projects.
+**python-bitflow** is a plugin for [`go-bitflow`](https://github.com/bitflow-stream/go-bitflow) that allows writing and executing datastream operators in Python.
+Python operators can be used inside the Bitflowscript executed by `go-bitflow`.
+The main `go-bitflow` dataflow graph runs as a single Go process, while each `python-bitflow` operator is executed in a separate child process that receives input data over the standard input and produces results on the standard output.
 
-Python-bitflow is current running in python3.7. It may run under other python3.x version but is not tested yet.
+Tested Python version: 3.8
 
-## Installation
-You can install python-bitflow by running the following command. This will put the exection script python-bitflow into your $PATH and will make the bitflow classes availble within your current python environmnet.
-```
-python setup.py install
-```
-## Python-Bitflow script and usage examples
-Bitflow script is a powerfull scripting language. It allows to define pipelines, processing steps (order), forks and more.  
+# Installation (building Docker container)
 
-#### Help!
-Get help:
+Dockerfiles are provided for the amd64 platform (based on Alpine Linux) and arm32v7.
+Select one of these two as the build TARGET and run the following in the repository root:
+
 ```
-python-bitflow --help
+TARGET=[alpine|arm32v7]
+docker build -t IMAGE_NAME -f build/$TARGET.Dockerfile .
 ```
 
-#### Python-Bitflow, Capabilities
-Get an overview of all available processing steps and forks
+# Dockerhub
+
+Docker container images are available in the [`bitflowstream/bitflow-pipeline-python`](https://hub.docker.com/repository/docker/bitflowstream/bitflow-pipeline-python) Dockerhub repository:
+
 ```
-python-bitflow -capabilities
+docker pull bitflowstream/bitflow-pipeline-python
+docker run bitflowstream/bitflow-pipeline-python --help
 ```
 
-#### Script example 1. reading file into Noop processing step
-```
-python-bitflow -script "testing/testing_file_in.txt -> Noop()""
-```
+The Docker manifest will select the appropriate platform (amd64/arm32v7) automatically.
 
-#### Script example 2. reading file into PlotLinePlot processing step
-This will generate in .png file in the current path
+# Usage
+
+For the usage of the [`bitflowstream/bitflow-pipeline-python`](https://hub.docker.com/repository/docker/bitflowstream/bitflow-pipeline-python) container, see the [`go-bitflow`](https://github.com/bitflow-stream/go-bitflow) documentation.
+
+`python-bitflow` allows to use the `python(step=NAME, args={ a1=v1, a2=v2 }, exe-args=PYTHON_ARGS)` operator.
+When starting, `python-bitflow` scans for subclasses of [`bitflow.ProcessingStep`](bitflow/runner.py).
+All non-abstract classes can be used as `NAME` in the `python()` operator, by default referred to through their class name.
+
+Example:
+
 ```
-python-bitflow -script "testing/in.csv-> PlotLinePlot(metric_names='ongoing_connections')"
+docker run -p 8888 -ti bitflowstream/bitflow-pipeline-python ':8888 -> python(step=echo, args={msg=hello}) -> text://-'
 ```
-
-#### Script example 3. reading file into PlotLinePlot processing step
-Reads testing file, if tag "filter" is set to "port_1935" the metric pkg_out_1300-1400 will be plottet, else if tag "filter" is set to "port_1936" the metric pkg_out_1400-1500. Afterwards both kind of samples got forwarded to a Noop() processing step.
-```
-python-bitflow -script "testing/in.csv -> Fork_Tags(tag='filter'){ port_1935 -> PlotLinePlot(metric_names='pkg_out_1300-1400') ; port_1936 -> PlotLinePlot(metric_names='pkg_out_1400-1500') } -> Noop()"
-```
-
-#### Script example 4. load processing step from external file (requires installation)
-```
-python-bitflow -script "testing/in.csv -> my_processing()" -p my_processing.py
-```
-Current version does not close properly in all cases. Use strg-C to exit.
-
-## Library Examples
-**bitflow-example.py**: provides a short overview about how to setup a pipeline and initialize source,sink, and processing steps.
-
-**download-data.py**: downloads data from a given endpoint, filters samples
-
-**provide-data.py**: reads a file and provides this file via a listen port
-
-## TODO
-* closing python-bitflow properly
-
-## Known Issues:
-* Forks are currently not listed in -capabilities 
